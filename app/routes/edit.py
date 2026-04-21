@@ -82,8 +82,9 @@ async def edit_post(request: Request, token: str, config_json: str = Form(...)):
         db.commit()
 
         _prune_revisions(db, widget.id)
+        saved_widget_id = widget.id
 
-    broadcast_widget_updated(widget.id)
+    broadcast_widget_updated(saved_widget_id)
     response = RedirectResponse(f"/edit/{token}?saved=1", status_code=302)
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
