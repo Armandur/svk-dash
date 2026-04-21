@@ -1,7 +1,9 @@
+import copy
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import select
 
 from app.database import get_session
@@ -63,12 +65,13 @@ async def view_add_widget(request: Request, view_id: int, widget_id: int = Form(
         widget = db.get(Widget, widget_id)
         if not widget:
             return HTMLResponse("Widgeten hittades inte.", status_code=404)
-        layout = view.layout_json or {"widgets": []}
+        layout = copy.deepcopy(view.layout_json or {"widgets": []})
         widgets_list = layout.get("widgets", [])
         if not any(w["widget_id"] == widget_id for w in widgets_list):
             widgets_list.append({"widget_id": widget_id})
         layout["widgets"] = widgets_list
         view.layout_json = layout
+        flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
         db.add(view)
         db.commit()
@@ -81,9 +84,10 @@ async def view_remove_widget(request: Request, view_id: int, widget_id: int):
         view = db.get(View, view_id)
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
-        layout = view.layout_json or {"widgets": []}
+        layout = copy.deepcopy(view.layout_json or {"widgets": []})
         layout["widgets"] = [w for w in layout.get("widgets", []) if w["widget_id"] != widget_id]
         view.layout_json = layout
+        flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
         db.add(view)
         db.commit()

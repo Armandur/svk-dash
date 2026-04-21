@@ -117,7 +117,7 @@ uv sync
 uv run alembic upgrade head
 
 # Generera adminlösenord
-python -c "import bcrypt; print(bcrypt.hashpw(b'ditt-lösenord', bcrypt.gensalt()).decode())"
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'ditt-lösenord', bcrypt.gensalt()).decode())"
 
 # Starta dev-server
 ADMIN_PASSWORD_HASH='$2b$12$...' uv run uvicorn app.main:app --reload

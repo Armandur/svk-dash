@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redigera – {{ widget.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+  <style>
+    /* Låt EasyMDE fylla tillgänglig höjd */
+    .EasyMDEContainer, .EasyMDEContainer .CodeMirror {
+      height: 100%;
+    }
+    .EasyMDEContainer {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .EasyMDEContainer .CodeMirror {
+      flex: 1;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="mb-6">
+      <h1 class="text-xl font-semibold text-gray-900">{{ widget.name }}</h1>
+      <p class="text-sm text-gray-500 mt-1">Ändringar syns på skärmen inom några sekunder efter spara.</p>
+    </div>
+
+    {% if request.query_params.get('saved') %}
+    <div class="mb-4 bg-green-50 border border-green-200 rounded px-4 py-3 text-sm text-green-800">
+      Sparat.
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="mb-4 bg-red-50 border border-red-200 rounded px-4 py-3 text-sm text-red-800">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" id="edit-form" class="space-y-4">
+      <input type="hidden" name="config_json" id="config_json_input">
+
+      <div class="flex gap-4 items-end flex-wrap">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Teckenstorlek</label>
+          <select id="font_size" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="small"  {% if config.get('font_size') == 'small'  %}selected{% endif %}>Liten</option>
+            <option value="normal" {% if config.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
+            <option value="large"  {% if config.get('font_size') == 'large'  %}selected{% endif %}>Stor</option>
+            <option value="huge"   {% if config.get('font_size') == 'huge'   %}selected{% endif %}>Mycket stor</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Justering</label>
+          <select id="alignment" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="left"   {% if config.get('alignment', 'left') == 'left'   %}selected{% endif %}>Vänster</option>
+            <option value="center" {% if config.get('alignment') == 'center' %}selected{% endif %}>Centrerad</option>
+            <option value="right"  {% if config.get('alignment') == 'right'  %}selected{% endif %}>Höger</option>
+          </select>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-5 py-1.5 rounded text-sm font-medium hover:bg-blue-700">
+          Spara
+        </button>
+      </div>
+
+      <textarea id="content_md">{{ config.get('content_md', '') }}</textarea>
+    </form>
+  </div>
+
+  <script>
+    const easyMDE = new EasyMDE({
+      element: document.getElementById('content_md'),
+      spellChecker: false,
+      autosave: { enabled: false },
+      sideBySideFullscreen: false,
+      toolbar: [
+        'bold', 'italic', 'heading', '|',
+        'unordered-list', 'ordered-list', '|',
+        'link', '|',
+        'preview', 'side-by-side', '|',
+        'guide',
+      ],
+      placeholder: '## Rubrik\n\n- Punkt ett\n- Punkt två\n\n**Fet text**, *kursiv*',
+    });
+
+    document.getElementById('edit-form').addEventListener('submit', function () {
+      document.getElementById('config_json_input').value = JSON.stringify({
+        content_md: easyMDE.value(),
+        font_size: document.getElementById('font_size').value,
+        alignment: document.getElementById('alignment').value,
+      });
+    });
+  </script>
+</body>
+</html>

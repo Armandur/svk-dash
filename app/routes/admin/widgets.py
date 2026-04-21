@@ -225,14 +225,12 @@ async def widget_delete(request: Request, widget_id: int, force: str = Form(""))
             view.layout_json = layout
             db.add(view)
 
-        db.exec(  # type: ignore[call-overload]
-            select(WidgetRevision).where(WidgetRevision.widget_id == widget_id)
-        )
         revisions = db.exec(
             select(WidgetRevision).where(WidgetRevision.widget_id == widget_id)
         ).all()
         for r in revisions:
             db.delete(r)
+        db.flush()  # säkerställ att revisioner raderas före widgeten (FK-ordning)
 
         db.delete(widget)
         db.commit()

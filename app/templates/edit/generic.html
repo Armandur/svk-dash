@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redigera – {{ widget.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <div class="mb-6">
+      <h1 class="text-xl font-semibold text-gray-900">{{ widget.name }}</h1>
+      <p class="text-sm text-gray-500 mt-1">Typ: {{ widget.kind }}</p>
+    </div>
+
+    {% if request.query_params.get('saved') %}
+    <div class="mb-4 bg-green-50 border border-green-200 rounded px-4 py-3 text-sm text-green-800">
+      Sparat.
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="mb-4 bg-red-50 border border-red-200 rounded px-4 py-3 text-sm text-red-800">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Konfiguration (JSON)</label>
+        <textarea
+          name="config_json"
+          rows="14"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >{{ config_json }}</textarea>
+      </div>
+      <button
+        type="submit"
+        class="bg-blue-600 text-white px-5 py-2 rounded text-sm font-medium hover:bg-blue-700"
+      >
+        Spara
+      </button>
+    </form>
+  </div>
+</body>
+</html>

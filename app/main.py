@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.deps import NotAuthenticatedError
 from app.routes.admin import router as admin_router
+from app.routes.edit import router as edit_router
 
 os.makedirs("data/uploads", exist_ok=True)
 
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
 app.include_router(admin_router)
+app.include_router(edit_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
