@@ -85,10 +85,14 @@
   <script src="/static/kiosk.js"></script>
 
   {% if show_debug %}
-  <script>
-    // Debug-läge: visa SSE-ålder och reconnects
-    window.__KIOSK_DEBUG = true;
-  </script>
+  <div id="debug-overlay" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,0.75);color:#fff;font-family:monospace;font-size:11px;padding:6px 10px;border-radius:4px;line-height:1.6;z-index:999">
+    <div>{{ screen.name }} / {{ screen.slug }}</div>
+    <div id="debug-view">Vy –/{{ views | length }}</div>
+    <div id="debug-sse-age">SSE: –</div>
+    <div id="debug-reconnects">Reconnects: 0</div>
+    <div>v{{ version }}</div>
+  </div>
+  <script>window.__KIOSK_DEBUG = true;</script>
   {% endif %}
 </body>
 </html>

@@ -170,8 +170,8 @@
   // --- Debug ---
 
   function updateDebugView() {
-    var el = document.getElementById('debug-sse-age');
-    if (el) el.textContent = 'Vy: ' + (currentPosition + 1) + '/' + VIEW_COUNT;
+    var el = document.getElementById('debug-view');
+    if (el) el.textContent = 'Vy ' + (currentPosition + 1) + '/' + VIEW_COUNT;
   }
 
   function updateDebugReconnects() {

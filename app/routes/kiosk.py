@@ -67,6 +67,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
             screen=screen,
             views=rendered_views,
             show_debug=show_debug,
+            version=_VERSION,
         )
     )
 
