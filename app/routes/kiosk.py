@@ -46,9 +46,8 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     )
                 else:
                     ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
-                    rendered_widgets.append(
-                        render_widget(widget.kind, widget.config_json or {}, ctx)
-                    )
+                    inner = render_widget(widget.kind, widget.config_json or {}, ctx)
+                    rendered_widgets.append(f'<div data-widget-id="{widget.id}">{inner}</div>')
 
             rendered_views.append(
                 {
@@ -96,3 +95,27 @@ async def kiosk_events(request: Request, slug: str):
             sse_registry.unregister(screen_id, q)
 
     return EventSourceResponse(event_generator())
+
+
+@router.get("/api/widget/{widget_id}/data")
+async def widget_data(request: Request, widget_id: int):
+    with get_session() as db:
+        widget = db.get(Widget, widget_id)
+        if not widget:
+            return HTMLResponse("", status_code=404)
+        ctx = {"widget_id": widget.id, "version": _VERSION}
+        inner = render_widget(widget.kind, widget.config_json or {}, ctx)
+    return HTMLResponse(inner)
+
+
+def broadcast_widget_updated(widget_id: int) -> None:
+    """Hitta alla skärmar som visar widgeten och pusha widget_updated-event."""
+    with get_session() as db:
+        views = db.exec(select(View)).all()
+        screen_ids: set[int] = set()
+        for view in views:
+            layout = view.layout_json or {}
+            if any(w["widget_id"] == widget_id for w in layout.get("widgets", [])):
+                screen_ids.add(view.screen_id)
+    for screen_id in screen_ids:
+        sse_registry.broadcast(screen_id, {"type": "widget_updated", "widget_id": widget_id})

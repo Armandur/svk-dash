@@ -9,6 +9,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.deps import require_admin
 from app.models import View, Widget, WidgetRevision
+from app.routes.kiosk import broadcast_widget_updated
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -156,6 +157,7 @@ async def widget_edit(
 
         _prune_revisions(db, widget_id)
 
+    broadcast_widget_updated(widget_id)
     return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
 
 
@@ -197,6 +199,7 @@ async def widget_revert(request: Request, widget_id: int, revision_id: int):
         db.commit()
         _prune_revisions(db, widget_id)
 
+    broadcast_widget_updated(widget_id)
     return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
 
 

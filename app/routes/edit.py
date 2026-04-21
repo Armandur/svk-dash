@@ -7,6 +7,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.models import Widget, WidgetRevision
+from app.routes.kiosk import broadcast_widget_updated
 from app.templating import templates
 
 router = APIRouter()
@@ -82,7 +83,7 @@ async def edit_post(request: Request, token: str, config_json: str = Form(...)):
 
         _prune_revisions(db, widget.id)
 
-    # TODO: trigga widget_updated SSE-event till berörda skärmar (Fas 1 SSE)
+    broadcast_widget_updated(widget.id)
     response = RedirectResponse(f"/edit/{token}?saved=1", status_code=302)
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
