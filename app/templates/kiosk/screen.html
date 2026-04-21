@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ screen.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+
+    .view {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 2rem;
+      gap: 1rem;
+      overflow: hidden;
+    }
+    .view.active { opacity: 1; }
+
+    /* Klocka */
+    .widget-clock { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+
+    /* Markdown */
+    .widget-markdown { padding: 0.5rem; overflow-y: auto; touch-action: pan-y; }
+    .widget-markdown h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; }
+    .widget-markdown h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.4em; }
+    .widget-markdown h3 { font-size: 1.2em; font-weight: bold; margin-bottom: 0.3em; }
+    .widget-markdown p  { margin-bottom: 0.6em; line-height: 1.5; }
+    .widget-markdown ul, .widget-markdown ol { margin-left: 1.5em; margin-bottom: 0.6em; }
+    .widget-markdown li { line-height: 1.5; }
+    .widget-markdown strong { font-weight: bold; }
+    .widget-markdown em { font-style: italic; }
+
+    /* Offline-banner */
+    #offline-banner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(200,0,0,0.8);
+      color: #fff;
+      text-align: center;
+      font-size: 0.8rem;
+      padding: 4px;
+      z-index: 100;
+    }
+    #offline-banner.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div id="offline-banner">Ingen anslutning till server</div>
+
+  {% for view in views %}
+  <div
+    class="view{% if loop.first %} active{% endif %}"
+    data-position="{{ view.position }}"
+    data-duration="{{ view.duration_seconds }}"
+    id="view-{{ view.position }}"
+  >
+    {% for widget_html in view.widgets_html %}
+    {{ widget_html | safe }}
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  <script>
+    const SCREEN_SLUG = {{ screen.slug | tojson }};
+    const VIEW_COUNT  = {{ views | length }};
+    const VIEWS       = [
+      {% for v in views %}
+      { position: {{ v.position }}, duration: {{ v.duration_seconds }} },
+      {% endfor %}
+    ];
+  </script>
+  <script src="/static/kiosk.js"></script>
+
+  {% if show_debug %}
+  <script>
+    // Debug-läge: visa SSE-ålder och reconnects
+    window.__KIOSK_DEBUG = true;
+  </script>
+  {% endif %}
+</body>
+</html>
