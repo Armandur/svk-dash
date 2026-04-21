@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/skarmar.db
+      - UPLOADS_DIR=/app/data/uploads
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+      - BASE_URL=${BASE_URL:-https://skarmar.svky.se}
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

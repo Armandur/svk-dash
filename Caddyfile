@@ -1,0 +1,13 @@
+skarmar.svky.se {
+    reverse_proxy app:8000
+
+    # Logga inte edit-token-paths (capability URL-modell)
+    log {
+        output file /data/logs/access.log
+        format json
+        level INFO
+        # exclude paths med /edit/ för att undvika token-läckage i loggar
+    }
+
+    encode gzip
+}

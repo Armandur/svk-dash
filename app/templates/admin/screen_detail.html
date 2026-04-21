@@ -1,0 +1,92 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ screen.name }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+  <a href="/admin/screens" class="text-sm text-gray-500 hover:text-gray-900">← Skärmar</a>
+  <h1 class="text-2xl font-bold">{{ screen.name }}</h1>
+  <code class="text-sm bg-gray-100 px-2 py-0.5 rounded text-gray-600">/s/{{ screen.slug }}</code>
+  <a href="/s/{{ screen.slug }}" target="_blank" class="text-sm text-gray-400 hover:text-gray-700">Kiosk ↗</a>
+</div>
+
+{% if error %}
+<p class="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ error }}</p>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Inställningar -->
+  <div class="lg:col-span-1">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold mb-4">Inställningar</h2>
+      <form method="post" action="/admin/screens/{{ screen.id }}/edit" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+          <input type="text" name="name" value="{{ screen.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
+          <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Rotationstid (s)</label>
+          <input type="number" name="rotation_seconds" value="{{ screen.rotation_seconds }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700">Spara</button>
+      </form>
+
+      <hr class="my-4">
+      <form method="post" action="/admin/screens/{{ screen.id }}/delete"
+        onsubmit="return confirm('Ta bort skärmen {{ screen.name }}? Alla vyer tas också bort.')">
+        <button type="submit" class="text-sm text-red-600 hover:text-red-800">Ta bort skärm</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Vyer -->
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-lg shadow p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold">Vyer ({{ views|length }})</h2>
+      </div>
+
+      {% if views %}
+      <div class="space-y-2 mb-4">
+        {% for view in views %}
+        <div class="flex items-center justify-between border border-gray-200 rounded px-3 py-2">
+          <div>
+            <span class="text-sm font-medium">{{ view.position + 1 }}. {{ view.name }}</span>
+            {% if view.duration_seconds %}
+            <span class="ml-2 text-xs text-gray-500">{{ view.duration_seconds }}s</span>
+            {% else %}
+            <span class="ml-2 text-xs text-gray-400">standard</span>
+            {% endif %}
+          </div>
+          <div class="flex gap-3">
+            <a href="/admin/views/{{ view.id }}" class="text-sm text-blue-600 hover:text-blue-800">Redigera</a>
+            <form method="post" action="/admin/screens/{{ screen.id }}/views/{{ view.id }}/delete"
+              onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">
+              <button type="submit" class="text-sm text-red-500 hover:text-red-700">Ta bort</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-500 mb-4">Inga vyer ännu.</p>
+      {% endif %}
+
+      <form method="post" action="/admin/screens/{{ screen.id }}/views/new" class="flex gap-2 items-end">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Vy-namn</label>
+          <input type="text" name="name" required placeholder="t.ex. Kalender" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s, lämna tomt = standard)</label>
+          <input type="number" name="duration_seconds" min="5" placeholder="–" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-24">
+        </div>
+        <button type="submit" class="bg-gray-800 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-900">+ Lägg till vy</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

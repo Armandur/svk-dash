@@ -1,0 +1,82 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ widget.name }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+  <a href="/admin/widgets" class="text-sm text-gray-500 hover:text-gray-900">← Widgets</a>
+  <h1 class="text-2xl font-bold">{{ widget.name }}</h1>
+  <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ widget.kind }}</span>
+</div>
+
+{% if error %}
+<p class="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ error }}</p>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Redigera -->
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold mb-4">Konfiguration</h2>
+      <form method="post" action="/admin/widgets/{{ widget.id }}/edit" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+          <input type="text" name="name" value="{{ widget.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Konfiguration (JSON)</label>
+          <textarea name="config_json" rows="12" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ config_json }}</textarea>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Spara</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sidopanel -->
+  <div class="space-y-4">
+
+    <!-- Edit-token -->
+    {% if widget.kind != 'raw_html' %}
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold mb-2">Delningstoken</h2>
+      <p class="text-xs text-gray-500 mb-3">Dela denna URL för att låta någon redigera utan inloggning.</p>
+      <code class="block text-xs bg-gray-100 rounded px-2 py-1.5 break-all">/edit/{{ widget.edit_token }}</code>
+      <form method="post" action="/admin/widgets/{{ widget.id }}/rotate-token" class="mt-3">
+        <button type="submit" class="text-xs text-gray-500 hover:text-gray-900 underline">Rotera token</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Revisioner -->
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold mb-3">Revisionshistorik</h2>
+      {% if revisions %}
+      <div class="space-y-2">
+        {% for rev in revisions %}
+        <div class="flex items-start justify-between text-xs">
+          <div>
+            <div class="text-gray-700">{{ rev.saved_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            <div class="text-gray-400">{{ rev.saved_via }}{% if rev.editor_ip %} · {{ rev.editor_ip }}{% endif %}</div>
+          </div>
+          <form method="post" action="/admin/widgets/{{ widget.id }}/revert/{{ rev.id }}"
+            onsubmit="return confirm('Återställ till denna version?')">
+            <button type="submit" class="text-blue-600 hover:text-blue-800">Återställ</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-gray-500">Ingen historik ännu.</p>
+      {% endif %}
+    </div>
+
+    <!-- Radera -->
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold mb-2">Ta bort</h2>
+      <form method="post" action="/admin/widgets/{{ widget.id }}/delete"
+        onsubmit="return confirm('Ta bort widgeten {{ widget.name }}?')">
+        <button type="submit" class="text-sm text-red-600 hover:text-red-800">Ta bort widget</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% block title %}Widgets{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Widget-bibliotek</h1>
+  <a href="/admin/widgets/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Ny widget</a>
+</div>
+
+{% if widgets %}
+<div class="grid gap-3">
+  {% for w in widgets %}
+  <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+    <div>
+      <span class="font-medium">{{ w.name }}</span>
+      <span class="ml-3 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ w.kind }}</span>
+    </div>
+    <a href="/admin/widgets/{{ w.id }}" class="text-sm text-blue-600 hover:text-blue-800">Redigera</a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500">Inga widgets ännu. <a href="/admin/widgets/new" class="text-blue-600">Skapa en</a>.</p>
+{% endif %}
+{% endblock %}

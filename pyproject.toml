@@ -1,0 +1,38 @@
+[project]
+name = "skarmar"
+version = "0.1.0"
+description = "Informationsskärmar för Svenska kyrkan"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.0",
+    "uvicorn[standard]==0.30.6",
+    "sqlmodel==0.0.21",
+    "alembic==1.13.3",
+    "jinja2==3.1.4",
+    "python-multipart==0.0.12",
+    "itsdangerous==2.2.0",
+    "bcrypt==4.2.0",
+    "nh3==0.2.18",
+    "markdown-it-py==3.0.0",
+    "icalendar==6.0.0",
+    "recurring-ical-events==3.3.0",
+    "httpx==0.27.2",
+    "sse-starlette==2.1.3",
+    "pillow==11.0.0",
+    "slowapi==0.1.9",
+    "pyyaml==6.0.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "mypy==1.11.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
