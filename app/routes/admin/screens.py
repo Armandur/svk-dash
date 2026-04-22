@@ -50,13 +50,9 @@ async def dashboard(request: Request):
     )
 
 
-@router.get("/screens", response_class=HTMLResponse)
-async def screens_list(request: Request):
-    with get_session() as db:
-        screens = db.exec(select(Screen).order_by(Screen.name)).all()
-    return HTMLResponse(
-        templates.get_template("admin/screens.html").render(request=request, screens=screens)
-    )
+@router.get("/screens")
+async def screens_list():
+    return RedirectResponse("/admin/", status_code=302)
 
 
 @router.get("/screens/new", response_class=HTMLResponse)
