@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.deps import require_admin
-from app.models import View, Widget, WidgetRevision
+from app.models import IcsCache, View, Widget, WidgetRevision
 from app.routes.kiosk import broadcast_widget_updated
 from app.services.ics_fetcher import fetch_and_cache
 from app.templating import templates
@@ -98,6 +98,7 @@ async def widget_detail(request: Request, widget_id: int):
             .order_by(WidgetRevision.saved_at.desc())
             .limit(20)
         ).all()
+        ics_cache = db.get(IcsCache, widget_id) if widget.kind in _ICS_KINDS else None
     return HTMLResponse(
         templates.get_template("admin/widget_detail.html").render(
             request=request,
@@ -105,8 +106,21 @@ async def widget_detail(request: Request, widget_id: int):
             revisions=revisions,
             kinds=WIDGET_KINDS,
             config_json=json.dumps(widget.config_json, indent=2, ensure_ascii=False),
+            ics_cache=ics_cache,
         )
     )
+
+
+@router.post("/widgets/{widget_id}/ics-refresh")
+async def widget_ics_refresh(request: Request, widget_id: int):
+    with get_session() as db:
+        widget = db.get(Widget, widget_id)
+        if not widget or widget.kind not in _ICS_KINDS:
+            return HTMLResponse("Widgeten hittades inte.", status_code=404)
+        ics_url = (widget.config_json or {}).get("ics_url")
+    if isinstance(ics_url, str) and ics_url:
+        asyncio.create_task(fetch_and_cache(widget_id, ics_url))
+    return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
 
 
 @router.post("/widgets/{widget_id}/edit")

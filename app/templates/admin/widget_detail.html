@@ -73,6 +73,37 @@
       {% endif %}
     </div>
 
+    <!-- ICS-cache-status -->
+    {% if ics_cache is not none %}
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold mb-3">ICS-cachestatus</h2>
+      {% if ics_cache.last_error %}
+      <div class="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5 mb-3 break-words">
+        <div class="font-medium mb-1">Senaste fel:</div>
+        {{ ics_cache.last_error }}
+      </div>
+      {% endif %}
+      <div class="text-xs text-gray-500 space-y-1 mb-3">
+        {% if ics_cache.raw_ics %}
+        <div>
+          {% if ics_cache.last_error %}
+          <span class="text-yellow-600 font-medium">⚠ Visar gammal data</span>
+          {% else %}
+          <span class="text-green-600 font-medium">OK</span>
+          {% endif %}
+          – senast hämtad {{ ics_cache.fetched_at.strftime('%Y-%m-%d %H:%M') }} UTC
+        </div>
+        <div>{{ (ics_cache.raw_ics | length) }} bytes cachad</div>
+        {% else %}
+        <div class="text-red-600 font-medium">Ingen data i cache</div>
+        {% endif %}
+      </div>
+      <form method="post" action="/admin/widgets/{{ widget.id }}/ics-refresh">
+        <button type="submit" class="text-xs text-blue-600 hover:text-blue-800 underline">Uppdatera nu</button>
+      </form>
+    </div>
+    {% endif %}
+
     <!-- Radera -->
     <div class="bg-white rounded-lg shadow p-5">
       <h2 class="font-semibold mb-2">Ta bort</h2>

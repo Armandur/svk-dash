@@ -110,7 +110,12 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             f'</div>'
         )
 
+    fetched_local = cache.fetched_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
+    fetched_str = fetched_local.strftime("%H:%M")
+
     if cache.last_error:
-        parts.append('<div class="ics-warn">⚠ Kan ej uppdatera kalender</div>')
+        parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+    else:
+        parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
     return f'<div class="widget-ics-list {size_cls}">{"".join(parts)}</div>'
