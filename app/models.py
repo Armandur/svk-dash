@@ -9,6 +9,7 @@ class Screen(SQLModel, table=True):
     slug: str = Field(unique=True, index=True)
     name: str
     rotation_seconds: int = 30
+    aspect_ratio: str = "16:9"
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0
@@ -23,6 +24,8 @@ class View(SQLModel, table=True):
     position: int
     name: str
     duration_seconds: int | None = None
+    grid_cols: int = 12
+    grid_rows: int = 9
     layout_json: Any = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

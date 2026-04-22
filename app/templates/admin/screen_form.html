@@ -23,6 +23,18 @@
       <label class="block text-sm font-medium text-gray-700 mb-1">Rotationstid (sekunder)</label>
       <input type="number" name="rotation_seconds" value="30" min="5" class="w-32 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Bildformat</label>
+      <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="16:9" selected>16:9 liggande</option>
+        <option value="9:16">9:16 stående</option>
+        <option value="4:3">4:3 liggande</option>
+        <option value="3:4">3:4 stående</option>
+        <option value="1:1">1:1 kvadrat</option>
+        <option value="A-L">A-format liggande (√2:1)</option>
+        <option value="A-P">A-format stående (1:√2)</option>
+      </select>
+    </div>
     <div class="pt-2 flex gap-3">
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Skapa</button>
       <a href="/admin/screens" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</a>

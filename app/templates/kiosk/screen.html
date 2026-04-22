@@ -21,7 +21,6 @@
       opacity: 0;
       transition: opacity 0.6s ease;
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
       padding: 1rem;
       gap: 0.75rem;
       overflow: hidden;
@@ -67,11 +66,11 @@
     data-position="{{ view.position }}"
     data-duration="{{ view.duration_seconds }}"
     id="view-{{ view.position }}"
-    style="grid-template-rows: repeat({{ view.row_count }}, 1fr);"
+    style="grid-template-columns: repeat({{ view.grid_cols }}, 1fr); grid-template-rows: repeat({{ view.grid_rows }}, 1fr);"
   >
     {% for widget in view.widgets %}
     <div data-widget-id="{{ widget.widget_id }}"
-         style="grid-column: {{ widget.col_start }} / {{ widget.col_end }}; grid-row: {{ widget.row_start }} / {{ widget.row_end }};">
+         style="grid-column: {{ widget.col_start }} / {{ widget.col_end }}; grid-row: {{ widget.row_start }} / {{ widget.row_end }}; z-index: {{ widget.z_index }}; opacity: {{ (widget.opacity / 100) | round(2) }};">
       {{ widget.html | safe }}
     </div>
     {% endfor %}

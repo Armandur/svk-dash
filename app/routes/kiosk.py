@@ -51,15 +51,22 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                 else:
                     ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
                     inner = render_widget(widget.kind, widget.config_json or {}, ctx)
-                rendered_widgets.append({
-                    "html": inner,
-                    "widget_id": entry["widget_id"],
-                    "x": x, "y": y, "w": w, "h": h,
-                    "col_start": x + 1,
-                    "col_end": x + w + 1,
-                    "row_start": y + 1,
-                    "row_end": y + h + 1,
-                })
+                rendered_widgets.append(
+                    {
+                        "html": inner,
+                        "widget_id": entry["widget_id"],
+                        "x": x,
+                        "y": y,
+                        "w": w,
+                        "h": h,
+                        "col_start": x + 1,
+                        "col_end": x + w + 1,
+                        "row_start": y + 1,
+                        "row_end": y + h + 1,
+                        "z_index": entry.get("z_index", 1),
+                        "opacity": entry.get("opacity", 100),
+                    }
+                )
 
             rendered_views.append(
                 {
@@ -68,7 +75,8 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     "name": view.name,
                     "duration_seconds": view.duration_seconds or screen.rotation_seconds,
                     "widgets": rendered_widgets,
-                    "row_count": row_max,
+                    "grid_cols": view.grid_cols,
+                    "grid_rows": view.grid_rows,
                 }
             )
 

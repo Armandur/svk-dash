@@ -13,4 +13,4 @@ if [ -z "$ADMIN_PASSWORD_HASH" ]; then
   echo "Adminlösenord: $PASS"
 fi
 
-uv run uvicorn app.main:app --reload 2>&1 | tee dev.log
+~/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --reload 2>&1 | tee dev.log

@@ -31,6 +31,18 @@
           <label class="block text-xs font-medium text-gray-600 mb-1">Rotationstid (s)</label>
           <input type="number" name="rotation_seconds" value="{{ screen.rotation_seconds }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm">
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Bildformat</label>
+          <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="16:9" {% if screen.aspect_ratio == "16:9" %}selected{% endif %}>16:9 liggande</option>
+            <option value="9:16" {% if screen.aspect_ratio == "9:16" %}selected{% endif %}>9:16 stående</option>
+            <option value="4:3" {% if screen.aspect_ratio == "4:3" %}selected{% endif %}>4:3 liggande</option>
+            <option value="3:4" {% if screen.aspect_ratio == "3:4" %}selected{% endif %}>3:4 stående</option>
+            <option value="1:1" {% if screen.aspect_ratio == "1:1" %}selected{% endif %}>1:1 kvadrat</option>
+            <option value="A-L" {% if screen.aspect_ratio == "A-L" %}selected{% endif %}>A-format liggande (√2:1)</option>
+            <option value="A-P" {% if screen.aspect_ratio == "A-P" %}selected{% endif %}>A-format stående (1:√2)</option>
+          </select>
+        </div>
         <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700">Spara</button>
       </form>
 

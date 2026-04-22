@@ -2,54 +2,128 @@
 {% block title %}{{ view.name }}{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack.min.css">
 <style>
-  /* Gör sidan bredare för grid-editorn */
   main { max-width: 100% !important; }
 
-  /* Grid-bakgrund med synliga kolumner */
-  .grid-stack {
-    background-color: #f8fafc;
-    background-image:
-      repeating-linear-gradient(
-        to right,
-        #e2e8f0 0px, #e2e8f0 1px,
-        transparent 1px, transparent calc(100% / 12)
-      );
-    border: 1px solid #e2e8f0;
+  /* ── Grid-editor ─────────────────────────────────── */
+  #grid-editor {
+    position: relative;
     border-radius: 0.5rem;
-    min-height: 300px;
-  }
-
-  .grid-stack-item-content {
-    background: #fff;
-    border: 2px solid #cbd5e1;
-    border-radius: 0.375rem;
-    padding: 0.5rem 0.75rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: 100%;
+    border: 1px solid #334155;
+    background-color: #0f172a;
+    background-image:
+      repeating-linear-gradient(to right,  rgba(255,255,255,0.05) 0 1px, transparent 1px calc(100% / var(--cols))),
+      repeating-linear-gradient(to bottom, rgba(255,255,255,0.05) 0 1px, transparent 1px calc(100% / var(--rows)));
+    color: #f8fafc;
     overflow: hidden;
-    cursor: grab;
-    user-select: none;
-  }
-  .grid-stack-item-content:active { cursor: grabbing; }
-
-  .gs-widget-missing .grid-stack-item-content {
-    background: #fff5f5;
-    border-color: #fca5a5;
   }
 
-  /* Placeholder vid drag */
-  .grid-stack-placeholder > .placeholder-content {
-    background: #dbeafe;
-    border: 2px dashed #93c5fd;
+  /* Widget-kort: fyller sin absoluta yta */
+  .widget-card { position: absolute; box-sizing: border-box; }
+
+  /* Preview: faktisk widget-HTML */
+  .wc-preview {
+    position: absolute; inset: 0;
     border-radius: 0.375rem;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.03);
+    color: #f8fafc;
   }
+  .wc-preview > * { height: 100%; }
+
+  /* Overlay: visas vid hover med blå ram + kontroller */
+  .wc-overlay {
+    position: absolute; inset: 0;
+    border-radius: 0.375rem;
+    border: 2px solid transparent;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.72) 2.4rem, transparent 2.4rem);
+    opacity: 0;
+    transition: opacity 0.15s, border-color 0.15s;
+    pointer-events: none;
+  }
+  .widget-card:hover .wc-overlay {
+    opacity: 1;
+    border-color: rgba(96,165,250,0.75);
+  }
+  .widget-card.dragging .wc-overlay {
+    opacity: 1;
+    border-color: #60a5fa;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 2.4rem, rgba(0,0,0,0.15) 2.4rem);
+  }
+
+  .wc-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6px; height: 2.4rem;
+    pointer-events: none;
+  }
+  .wc-label {
+    font-size: 0.7rem; font-weight: 600; color: #fff;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .wc-kind-badge {
+    font-size: 0.6rem; color: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.12); border-radius: 3px;
+    padding: 1px 5px; margin-left: 4px; flex-shrink: 0;
+  }
+
+  /* Trepunktsmeny */
+  .wc-menu-btn {
+    pointer-events: auto;
+    background: rgba(0,0,0,0.5); border: none; border-radius: 4px;
+    color: #e2e8f0; font-size: 15px; line-height: 1;
+    padding: 2px 7px; cursor: pointer; flex-shrink: 0;
+  }
+  .wc-menu-btn:hover { background: rgba(0,0,0,0.75); }
+  .wc-dropdown {
+    display: none; position: absolute; top: 2.6rem; right: 6px; z-index: 10000;
+    background: #1e293b; border: 1px solid #334155; border-radius: 0.375rem;
+    min-width: 155px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); overflow: hidden;
+    pointer-events: auto;
+  }
+  .wc-dropdown.open { display: block; }
+  .wc-dropdown a, .wc-dropdown button {
+    display: block; width: 100%; text-align: left;
+    padding: 8px 12px; font-size: 0.75rem; color: #e2e8f0;
+    background: none; border: none; cursor: pointer; text-decoration: none;
+  }
+  .wc-dropdown a:hover, .wc-dropdown button:hover { background: #334155; }
+  .wc-sep { height: 1px; background: #334155; }
+  .wc-danger { color: #f87171 !important; }
 
   /* Resize-handtag */
-  .ui-resizable-se { width: 16px; height: 16px; }
+  .rh { position: absolute; z-index: 5; background: transparent; transition: background 0.12s; }
+  .widget-card:hover .rh { background: rgba(96,165,250,0.12); }
+  .rh:hover { background: rgba(96,165,250,0.4) !important; }
+  .rh-n  { top:0; left:10px; right:10px; height:6px; cursor:n-resize; }
+  .rh-s  { bottom:0; left:10px; right:10px; height:6px; cursor:s-resize; }
+  .rh-e  { top:10px; right:0; bottom:10px; width:6px; cursor:e-resize; }
+  .rh-w  { top:10px; left:0; bottom:10px; width:6px; cursor:w-resize; }
+  .rh-ne { top:0; right:0; width:12px; height:12px; cursor:ne-resize; }
+  .rh-nw { top:0; left:0;  width:12px; height:12px; cursor:nw-resize; }
+  .rh-se { bottom:0; right:0; width:12px; height:12px; cursor:se-resize; }
+  .rh-sw { bottom:0; left:0;  width:12px; height:12px; cursor:sw-resize; }
+
+  /* Inline Tailwind-prosa (markdown) i dark context */
+  #grid-editor .prose { color: #f1f5f9; }
+  #grid-editor .prose h1,#grid-editor .prose h2,#grid-editor .prose h3 { color: #fff; }
+  #grid-editor .prose a { color: #93c5fd; }
+
+  /* ── Lagerpanel ──────────────────────────────────── */
+  #layer-list { list-style:none; margin:0; padding:0; }
+  .layer-item {
+    display:flex; align-items:center; gap:5px;
+    padding:5px 7px; border-radius:5px; margin-bottom:3px;
+    background:#fff; border:1px solid #e2e8f0;
+    font-size:0.72rem; user-select:none;
+  }
+  .layer-item.layer-dragging { opacity:0.3; }
+  .layer-item.layer-over     { border-top:2px solid #3b82f6; }
+  .layer-handle { cursor:grab; color:#94a3b8; font-size:15px; flex-shrink:0; }
+  .layer-name   { flex:1; font-weight:500; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-kind   { color:#94a3b8; font-size:0.65rem; flex-shrink:0; }
+  .layer-opwrap { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+  .layer-opwrap input { width:34px; border:1px solid #e2e8f0; border-radius:3px; padding:1px 2px; font-size:10px; text-align:center; }
 </style>
 {% endblock %}
 
@@ -59,11 +133,10 @@
   <h1 class="text-2xl font-bold">{{ view.name }}</h1>
 </div>
 
-<div class="flex gap-6 items-start">
+<div class="flex gap-4 items-start">
 
-  <!-- Sidopanel -->
-  <div class="w-64 shrink-0 space-y-4">
-
+  <!-- Vänster sidopanel -->
+  <div class="w-56 shrink-0 space-y-3">
     <div class="bg-white rounded-lg shadow p-4">
       <h2 class="font-semibold mb-3 text-sm">Vy-inställningar</h2>
       <form method="post" action="/admin/views/{{ view.id }}/edit" class="space-y-3">
@@ -72,8 +145,18 @@
           <input type="text" name="name" value="{{ view.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s, tomt = skärmens standard)</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s, tomt = standard)</label>
           <input type="number" name="duration_seconds" value="{{ view.duration_seconds or '' }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+        <div class="flex gap-2">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Kolumner</label>
+            <input type="number" name="grid_cols" value="{{ view.grid_cols }}" min="1" max="24" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Rader</label>
+            <input type="number" name="grid_rows" value="{{ view.grid_rows }}" min="1" max="24" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
         </div>
         <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 w-full">Spara</button>
       </form>
@@ -93,105 +176,272 @@
     </div>
 
     <div class="bg-white rounded-lg shadow p-4">
-      <h2 class="font-semibold mb-1 text-sm">Layout</h2>
-      <p class="text-xs text-gray-400 mb-3">Dra och ändra storlek. 12 kolumner.</p>
-      <button id="save-layout" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 w-full font-medium">Spara layout</button>
+      <button id="save-layout" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 w-full font-medium transition-colors">Spara layout</button>
       <p id="layout-status" class="text-xs mt-2 text-center hidden"></p>
     </div>
-
   </div>
 
   <!-- Grid-editor -->
   <div class="flex-1 min-w-0">
-    <div class="bg-white rounded-lg shadow p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="font-semibold text-sm">Widget-layout</h2>
-        <span class="text-xs text-gray-400">12 kolumner · 1 rad ≈ 80px</span>
-      </div>
-      {% if layout_entries %}
-      <div class="grid-stack" id="gs-grid">
-        {% for entry in layout_entries %}
-        <div class="grid-stack-item {% if not entry.widget %}gs-widget-missing{% endif %}"
-             gs-x="{{ entry.x }}" gs-y="{{ entry.y }}" gs-w="{{ entry.w }}" gs-h="{{ entry.h }}"
-             gs-id="{{ entry.widget_id }}">
-          <div class="grid-stack-item-content">
+    {% if layout_entries %}
+    <div id="grid-editor" style="aspect-ratio: {{ aspect_ratio_css }}; --cols: {{ view.grid_cols }}; --rows: {{ view.grid_rows }};">
+      {% for entry in layout_entries %}
+      <div class="widget-card {% if not entry.widget %}missing{% endif %}"
+           data-widget-id="{{ entry.widget_id }}"
+           data-x="{{ entry.x }}" data-y="{{ entry.y }}"
+           data-w="{{ entry.w }}" data-h="{{ entry.h }}"
+           data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}">
+
+        <!-- Faktisk widget-HTML -->
+        <div class="wc-preview">
+          {% if entry.widget_html %}
+            {{ entry.widget_html | safe }}
+          {% else %}
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;font-size:0.8rem;">Widget saknas</div>
+          {% endif %}
+        </div>
+
+        <!-- Hover-overlay med kontroller -->
+        <div class="wc-overlay">
+          <div class="wc-header">
+            <span class="wc-label">{% if entry.widget %}{{ entry.widget.name }}{% else %}(saknas){% endif %}</span>
+            {% if entry.widget %}<span class="wc-kind-badge">{{ entry.widget.kind }}</span>{% endif %}
+            <button class="wc-menu-btn" data-wid="{{ entry.widget_id }}">⋯</button>
+          </div>
+          <div class="wc-dropdown" id="wc-drop-{{ entry.widget_id }}">
             {% if entry.widget %}
-            <div class="text-sm font-semibold text-gray-800 truncate">{{ entry.widget.name }}</div>
-            <div class="text-xs text-gray-400 mb-2">{{ entry.widget.kind }}</div>
-            <div class="flex gap-3 mt-auto">
-              <a href="/admin/widgets/{{ entry.widget.id }}" class="text-xs text-blue-600 hover:text-blue-800">Redigera</a>
-              <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget.id }}/remove" class="inline">
-                <button type="submit" class="text-xs text-red-500 hover:text-red-700">Ta bort</button>
-              </form>
-            </div>
-            {% else %}
-            <div class="text-sm text-red-500">Widget saknas</div>
-            <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" class="inline mt-1">
-              <button type="submit" class="text-xs text-red-400 hover:text-red-600">Ta bort</button>
-            </form>
+            <a href="/admin/widgets/{{ entry.widget.id }}">Redigera widget</a>
+            <div class="wc-sep"></div>
             {% endif %}
+            <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" style="margin:0">
+              <button type="submit" class="wc-danger">Ta bort från vy</button>
+            </form>
           </div>
         </div>
+
+        <!-- 8 resize-handtag -->
+        <div class="rh rh-n"  data-edges="n"></div>
+        <div class="rh rh-ne" data-edges="n,e"></div>
+        <div class="rh rh-e"  data-edges="e"></div>
+        <div class="rh rh-se" data-edges="s,e"></div>
+        <div class="rh rh-s"  data-edges="s"></div>
+        <div class="rh rh-sw" data-edges="s,w"></div>
+        <div class="rh rh-w"  data-edges="w"></div>
+        <div class="rh rh-nw" data-edges="n,w"></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-sm text-gray-400 text-center py-24 border border-dashed border-gray-200 rounded-lg bg-white">
+      Inga widgets ännu — lägg till en från sidopanelen.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Lagerpanel -->
+  {% if layout_entries %}
+  <div class="w-52 shrink-0">
+    <div class="bg-white rounded-lg shadow p-3">
+      <h2 class="font-semibold text-sm mb-1 text-gray-700">Lager</h2>
+      <p class="text-xs text-gray-400 mb-3">Dra för att ändra ordning. Överst = framför.</p>
+      <ul id="layer-list">
+        {% for entry in layout_entries | sort(attribute='z_index', reverse=True) %}
+        <li class="layer-item" draggable="true" data-widget-id="{{ entry.widget_id }}">
+          <span class="layer-handle">⠿</span>
+          <span class="layer-name">{{ entry.widget.name if entry.widget else '(saknas)' }}</span>
+          <span class="layer-kind">{{ entry.widget.kind if entry.widget else '' }}</span>
+          <div class="layer-opwrap" title="Opacitet (%)">
+            <input type="number" class="lyr-opacity" min="0" max="100" step="5" value="{{ entry.opacity }}">%
+          </div>
+        </li>
         {% endfor %}
-      </div>
-      {% else %}
-      <div class="text-sm text-gray-400 text-center py-16 border border-dashed border-gray-200 rounded-lg">
-        Inga widgets ännu — lägg till en från sidopanelen.
-      </div>
-      {% endif %}
+      </ul>
     </div>
   </div>
+  {% endif %}
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack-all.js"></script>
 <script>
 (function () {
-  const gridEl = document.getElementById('gs-grid');
+  const COLS = {{ view.grid_cols }};
+  const ROWS = {{ view.grid_rows }};
+  const gridEl    = document.getElementById('grid-editor');
+  const layerList = document.getElementById('layer-list');
+  const btn       = document.getElementById('save-layout');
+  const status    = document.getElementById('layout-status');
   if (!gridEl) return;
 
-  const grid = GridStack.init({
-    column: 12,
-    cellHeight: 80,
-    cellHeightUnit: 'px',
-    margin: 6,
-    disableOneColumnMode: true,
-    animate: true,
-    resizable: { handles: 'se' },
-  }, gridEl);
-
-  const btn = document.getElementById('save-layout');
-  const status = document.getElementById('layout-status');
-
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    btn.textContent = 'Sparar…';
-    const items = grid.save(false);
-    const widgets = items.map(i => ({
-      widget_id: parseInt(i.id, 10),
-      x: i.x ?? 0, y: i.y ?? 0, w: i.w ?? 12, h: i.h ?? 4,
-    }));
-    try {
-      const resp = await fetch('/admin/views/{{ view.id }}/layout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ widgets }),
-      });
-      if (resp.ok) {
-        status.textContent = 'Layouten sparad.';
-        status.className = 'text-xs mt-2 text-center text-green-600';
-      } else {
-        status.textContent = 'Fel vid sparande.';
-        status.className = 'text-xs mt-2 text-center text-red-500';
-      }
-    } catch {
-      status.textContent = 'Nätverksfel.';
-      status.className = 'text-xs mt-2 text-center text-red-500';
-    }
-    status.classList.remove('hidden');
-    btn.disabled = false;
+  // ── Dirty ────────────────────────────────────────────
+  let isDirty = false;
+  function setDirty() {
+    if (isDirty) return; isDirty = true;
+    btn.textContent = 'Spara layout ●';
+    btn.classList.replace('bg-green-600','bg-amber-500');
+    btn.classList.replace('hover:bg-green-700','hover:bg-amber-600');
+  }
+  function clearDirty() {
+    isDirty = false;
     btn.textContent = 'Spara layout';
-    setTimeout(() => status.classList.add('hidden'), 3000);
+    btn.classList.replace('bg-amber-500','bg-green-600');
+    btn.classList.replace('hover:bg-amber-600','hover:bg-green-700');
+  }
+
+  // ── Helpers ──────────────────────────────────────────
+  function cellW() { return gridEl.offsetWidth / COLS; }
+  function rowH()  { return gridEl.offsetHeight / ROWS; }
+
+  function applyCard(card) {
+    const x=+card.dataset.x, y=+card.dataset.y, w=+card.dataset.w, h=+card.dataset.h;
+    card.style.left    = (x/COLS*100)+'%';
+    card.style.top     = (y/ROWS*100)+'%';
+    card.style.width   = (w/COLS*100)+'%';
+    card.style.height  = (h/ROWS*100)+'%';
+    card.style.zIndex  = +card.dataset.z;
+    card.style.opacity = +card.dataset.opacity/100;
+  }
+
+  gridEl.querySelectorAll('.widget-card').forEach(applyCard);
+  new ResizeObserver(() => gridEl.querySelectorAll('.widget-card').forEach(applyCard)).observe(gridEl);
+
+  // ── Drag ─────────────────────────────────────────────
+  let drag=null, resize=null;
+
+  gridEl.addEventListener('mousedown', e => {
+    if (e.target.closest('.wc-menu-btn')||e.target.closest('.wc-dropdown')||e.target.closest('.rh')) return;
+    const card = e.target.closest('.widget-card');
+    if (!card) return;
+    e.preventDefault();
+    const cr = card.getBoundingClientRect();
+    drag = { card, ox: e.clientX-cr.left, oy: e.clientY-cr.top, moved: false };
+    card.classList.add('dragging');
+    card.style.zIndex = 9999;
+  });
+
+  // ── Resize ───────────────────────────────────────────
+  gridEl.addEventListener('mousedown', e => {
+    const handle = e.target.closest('.rh');
+    if (!handle) return;
+    e.preventDefault(); e.stopPropagation();
+    const card = handle.closest('.widget-card');
+    resize = {
+      card, edges: handle.dataset.edges.split(','),
+      sx:e.clientX, sy:e.clientY,
+      startX:+card.dataset.x, startY:+card.dataset.y,
+      startW:+card.dataset.w, startH:+card.dataset.h,
+    };
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (drag) {
+      drag.moved = true;
+      const {card,ox,oy}=drag, gr=gridEl.getBoundingClientRect(), cw=cellW(), rh=rowH();
+      let px=e.clientX-gr.left-ox, py=e.clientY-gr.top-oy;
+      px=Math.max(0, Math.min(px, gr.width - +card.dataset.w*cw));
+      py=Math.max(0, Math.min(py, gr.height - +card.dataset.h*rh));
+      card.style.left=px+'px'; card.style.top=py+'px';
+    }
+    if (resize) {
+      const {card,edges,sx,sy,startX,startY,startW,startH}=resize, cw=cellW(), rh=rowH();
+      let nx=startX,ny=startY,nw=startW,nh=startH;
+      if (edges.includes('e')) nw=Math.max(1,Math.min(COLS-startX,Math.round(startW+(e.clientX-sx)/cw)));
+      if (edges.includes('s')) nh=Math.max(1,Math.min(ROWS-startY,Math.round(startH+(e.clientY-sy)/rh)));
+      if (edges.includes('w')) { const d=Math.round((e.clientX-sx)/cw); nx=Math.max(0,Math.min(startX+startW-1,startX+d)); nw=Math.max(1,startW-(nx-startX)); }
+      if (edges.includes('n')) { const d=Math.round((e.clientY-sy)/rh); ny=Math.max(0,Math.min(startY+startH-1,startY+d)); nh=Math.max(1,startH-(ny-startY)); }
+      card.style.left=(nx/COLS*100)+'%'; card.style.top=(ny/ROWS*100)+'%';
+      card.style.width=(nw/COLS*100)+'%'; card.style.height=(nh/ROWS*100)+'%';
+      Object.assign(card.dataset,{tempX:nx,tempY:ny,tempW:nw,tempH:nh});
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (drag) {
+      const {card,moved}=drag;
+      if (moved) {
+        const cw=cellW(), rh=rowH();
+        card.dataset.x=Math.max(0,Math.min(Math.round(parseFloat(card.style.left)/cw),COLS-+card.dataset.w));
+        card.dataset.y=Math.max(0,Math.min(Math.round(parseFloat(card.style.top)/rh),ROWS-+card.dataset.h));
+        setDirty();
+      }
+      card.classList.remove('dragging'); applyCard(card); drag=null;
+    }
+    if (resize) {
+      const {card}=resize;
+      if (card.dataset.tempW) {
+        card.dataset.x=card.dataset.tempX; card.dataset.y=card.dataset.tempY;
+        card.dataset.w=card.dataset.tempW; card.dataset.h=card.dataset.tempH;
+        delete card.dataset.tempX; delete card.dataset.tempY;
+        delete card.dataset.tempW; delete card.dataset.tempH;
+      }
+      applyCard(card); setDirty(); resize=null;
+    }
+  });
+
+  // ── Trepunktsmeny ────────────────────────────────────
+  document.addEventListener('click', e => {
+    const mb = e.target.closest('.wc-menu-btn');
+    if (mb) {
+      e.stopPropagation();
+      const drop = document.getElementById('wc-drop-'+mb.dataset.wid);
+      const was = drop.classList.contains('open');
+      document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
+      if (!was) drop.classList.add('open');
+      return;
+    }
+    document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
+  });
+
+  // ── Lagerpanel ───────────────────────────────────────
+  if (layerList) {
+    let lyrDrag=null;
+    layerList.addEventListener('dragstart', e => {
+      const item=e.target.closest('.layer-item'); if(!item) return;
+      lyrDrag=item; setTimeout(()=>item.classList.add('layer-dragging'),0);
+    });
+    layerList.addEventListener('dragend', ()=>{
+      lyrDrag?.classList.remove('layer-dragging');
+      layerList.querySelectorAll('.layer-over').forEach(el=>el.classList.remove('layer-over'));
+      lyrDrag=null; reassignZ(); setDirty();
+    });
+    layerList.addEventListener('dragover', e=>{
+      e.preventDefault();
+      const t=e.target.closest('.layer-item');
+      layerList.querySelectorAll('.layer-over').forEach(el=>el.classList.remove('layer-over'));
+      if(t&&t!==lyrDrag){ t.classList.add('layer-over'); const r=t.getBoundingClientRect(); e.clientY<r.top+r.height/2?layerList.insertBefore(lyrDrag,t):t.after(lyrDrag); }
+    });
+    layerList.addEventListener('change', e=>{
+      if(!e.target.classList.contains('lyr-opacity')) return;
+      const item=e.target.closest('.layer-item');
+      const card=gridEl.querySelector(`[data-widget-id="${item.dataset.widgetId}"]`);
+      if(card){card.dataset.opacity=e.target.value; applyCard(card); setDirty();}
+    });
+    function reassignZ() {
+      const items=[...layerList.querySelectorAll('.layer-item')];
+      items.forEach((item,idx)=>{
+        const z=items.length-idx; item.dataset.z=z;
+        const card=gridEl.querySelector(`[data-widget-id="${item.dataset.widgetId}"]`);
+        if(card){card.dataset.z=z; applyCard(card);}
+      });
+    }
+  }
+
+  // ── Spara ────────────────────────────────────────────
+  btn.addEventListener('click', async ()=>{
+    btn.disabled=true; btn.textContent='Sparar…';
+    const widgets=[];
+    gridEl.querySelectorAll('.widget-card').forEach(card=>{
+      let opacity=+card.dataset.opacity;
+      if(layerList){ const li=layerList.querySelector(`[data-widget-id="${card.dataset.widgetId}"]`); if(li) opacity=+(li.querySelector('.lyr-opacity')?.value??opacity); }
+      widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
+    });
+    try {
+      const resp=await fetch('/admin/views/{{ view.id }}/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({widgets})});
+      if(resp.ok){ clearDirty(); status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
+      else { status.textContent='Fel vid sparande.'; status.className='text-xs mt-2 text-center text-red-500'; }
+    } catch { status.textContent='Nätverksfel.'; status.className='text-xs mt-2 text-center text-red-500'; }
+    status.classList.remove('hidden');
+    btn.disabled=false; if(isDirty) btn.textContent='Spara layout ●';
+    setTimeout(()=>status.classList.add('hidden'),3000);
   });
 })();
 </script>
