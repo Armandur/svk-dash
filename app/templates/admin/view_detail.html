@@ -158,6 +158,7 @@
 <div class="mb-4 flex items-center gap-3">
   <a href="/admin/screens/{{ view.screen_id }}" class="text-sm text-gray-500 hover:text-gray-900">← Skärm</a>
   <h1 class="text-2xl font-bold">{{ view.name }}</h1>
+  {% if screen %}<a href="/s/{{ screen.slug }}" target="_blank" class="text-sm text-gray-400 hover:text-gray-700">Kiosk ↗</a>{% endif %}
 </div>
 
 <div class="flex gap-4 items-start">
@@ -301,7 +302,7 @@
                 </div>
                 <div style="flex:1">
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Rundning (px)</div>
-                  <input type="number" class="icfg-field" data-cfg-key="border_radius" value="{{ entry.config.get('border_radius', 0) }}" min="0" max="200" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
+                  <input type="number" class="icfg-field" data-cfg-key="border_radius" data-cfg-type="number" value="{{ entry.config.get('border_radius', 0) }}" min="0" max="200" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
                 </div>
               </div>
               {% endif %}
@@ -543,29 +544,48 @@
   });
 
   // ── Inline-widget config ──────────────────────────────
-  gridEl.addEventListener('change', e => {
-    const field = e.target.closest('.icfg-field');
-    if (!field) return;
+  function applyInlinePreview(card, cfg) {
+    const kind = card.dataset.inlineKind;
+    const preview = card.querySelector('.wc-preview');
+    if (!preview) return;
+    if (kind === 'color_block') {
+      const el = preview.querySelector('.widget-color-block');
+      if (!el) return;
+      if (cfg.color !== undefined) el.style.background = cfg.color;
+      if (cfg.border_radius !== undefined) el.style.borderRadius = +cfg.border_radius + 'px';
+    } else if (kind === 'text') {
+      const el = preview.querySelector('.widget-text');
+      if (!el) return;
+      if (cfg.color  !== undefined) el.style.color = cfg.color;
+      if (cfg.align  !== undefined) el.style.textAlign = cfg.align;
+      if (cfg.bold   !== undefined) el.style.fontWeight = cfg.bold ? '700' : '400';
+      if (cfg.text   !== undefined)
+        el.innerHTML = '  ' + cfg.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    }
+  }
+
+  function updateInlineCfgField(field) {
     const card = field.closest('.widget-card');
     if (!card || !card.dataset.inlineId) return;
     const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
     const key = field.dataset.cfgKey;
     if (field.type === 'checkbox') cfg[key] = field.checked;
+    else if (field.dataset.cfgType === 'number') cfg[key] = +field.value;
     else cfg[key] = field.value;
     card.dataset.inlineConfig = JSON.stringify(cfg);
+    applyInlinePreview(card, cfg);
     setDirty();
+  }
+
+  gridEl.addEventListener('change', e => {
+    const field = e.target.closest('.icfg-field');
+    if (field) updateInlineCfgField(field);
   });
   gridEl.addEventListener('input', e => {
-    // Textarea i inline config
+    // Färgväljare och textarea: live-uppdatering medan man håller ned
     const field = e.target.closest('.icfg-field');
-    if (field && field.tagName === 'TEXTAREA') {
-      const card = field.closest('.widget-card');
-      if (card && card.dataset.inlineId) {
-        const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
-        cfg[field.dataset.cfgKey] = field.value;
-        card.dataset.inlineConfig = JSON.stringify(cfg);
-        setDirty();
-      }
+    if (field && (field.type === 'color' || field.tagName === 'TEXTAREA')) {
+      updateInlineCfgField(field);
       return;
     }
     // Opacitetsreglage
