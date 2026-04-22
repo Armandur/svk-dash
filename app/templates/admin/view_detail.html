@@ -120,6 +120,17 @@
   #grid-editor .ics-s { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #grid-editor .ics-loc { color:rgba(255,255,255,0.4); font-size:0.8em; }
   #grid-editor .ics-notice, #grid-editor .ics-error { display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.35); font-size:0.75rem; text-align:center; }
+  #grid-editor .widget-ics-month { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.3rem 0.4rem; font-size:clamp(6px,1.6cqh,11px); }
+  #grid-editor .icm-title { text-align:center; font-weight:700; font-size:1.1em; padding-bottom:0.3em; color:rgba(255,255,255,0.85); }
+  #grid-editor .icm-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; flex:1; min-height:0; }
+  #grid-editor .icm-dow { text-align:center; font-size:0.7em; font-weight:600; color:rgba(255,255,255,0.4); padding:0.15em 0 0.3em; }
+  #grid-editor .icm-cell { background:rgba(255,255,255,0.05); border-radius:2px; padding:0.1em 0.2em; overflow:hidden; }
+  #grid-editor .icm-empty { background:transparent; }
+  #grid-editor .icm-today { background:rgba(59,130,246,0.25); outline:1px solid rgba(59,130,246,0.6); }
+  #grid-editor .icm-num { font-size:0.78em; font-weight:600; color:rgba(255,255,255,0.65); line-height:1.2; }
+  #grid-editor .icm-today .icm-num { color:#93c5fd; }
+  #grid-editor .icm-ev { font-size:0.6em; color:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+  #grid-editor .icm-more { font-size:0.55em; color:rgba(255,255,255,0.3); }
 
   /* Markdown-typografi i admin-editorn (Tailwind-preflight nollställer annars heading-storlekar) */
   /* Basstorlek skalas med cellbredd via cqw; rubriker använder em och följer med */
