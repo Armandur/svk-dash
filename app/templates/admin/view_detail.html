@@ -29,8 +29,16 @@
     border: 1px solid rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.03);
     color: #f8fafc;
+    container-type: size;
   }
   .wc-preview > * { height: 100%; }
+
+  /* Klocka: skala font-size med containerns höjd (cqh) i editorn */
+  #grid-editor .widget-clock.text-9xl { font-size: 12cqh !important; }
+  #grid-editor .widget-clock.text-8xl { font-size: 9cqh  !important; }
+  #grid-editor .widget-clock.text-6xl { font-size: 6cqh  !important; }
+  #grid-editor .widget-clock.text-4xl { font-size: 3.5cqh !important; }
+  #grid-editor .widget-clock .clock-date { font-size: 0.35em !important; margin-top: 0.2em !important; }
 
   /* Overlay: visas vid hover med blå ram + kontroller */
   .wc-overlay {
@@ -105,7 +113,12 @@
   .rh-sw { bottom:0; left:0;  width:12px; height:12px; cursor:sw-resize; }
 
   /* Markdown-typografi i admin-editorn (Tailwind-preflight nollställer annars heading-storlekar) */
-  #grid-editor .widget-markdown { padding: 0.5rem; overflow-y: auto; color: #f1f5f9; }
+  /* Basstorlek skalas med cellbredd via cqw; rubriker använder em och följer med */
+  #grid-editor .widget-markdown          { padding: 0.5rem; overflow: hidden; color: #f1f5f9; }
+  #grid-editor .widget-markdown.text-sm   { font-size: clamp(9px, 2.5cqw, 14px); }
+  #grid-editor .widget-markdown.text-base { font-size: clamp(10px, 3cqw, 16px); }
+  #grid-editor .widget-markdown.text-xl   { font-size: clamp(10px, 3.5cqw, 20px); }
+  #grid-editor .widget-markdown.text-3xl  { font-size: clamp(12px, 5cqw, 28px); }
   #grid-editor .widget-markdown h1 { font-size: 2em; font-weight: 700; margin-bottom: 0.5em; color: #fff; }
   #grid-editor .widget-markdown h2 { font-size: 1.5em; font-weight: 700; margin-bottom: 0.4em; color: #fff; }
   #grid-editor .widget-markdown h3 { font-size: 1.25em; font-weight: 600; margin-bottom: 0.3em; color: #fff; }

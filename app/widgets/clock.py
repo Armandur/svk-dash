@@ -27,15 +27,26 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         now = datetime.now(ZoneInfo(timezone))
     except ZoneInfoNotFoundError:
         now = datetime.now()
+
     time_str = now.strftime("%H:%M")
     date_str = now.strftime("%-d %B %Y")
+    day_str = now.strftime("%A %-d %B")
+
+    show_time = fmt in ("time_only", "time_date", "day_time")
+    show_date = fmt in ("date_only", "time_date", "day_time")
+    date_text = day_str if fmt == "day_time" else date_str
+
+    spans = ""
+    if show_time:
+        spans += f'  <span class="clock-time">{time_str}</span>\n'
+    if show_date:
+        spans += f'  <span class="clock-date text-3xl mt-2">{date_text}</span>\n'
 
     return (
         f'<div class="widget-clock flex flex-col items-center justify-center h-full {size} font-mono tabular-nums"'
         f'     data-clock-format="{fmt}"'
         f'     data-clock-timezone="{timezone}"'
-        f'     data-clock-locale="{locale}">'
-        f'  <span class="clock-time">{time_str}</span>'
-        f'  <span class="clock-date text-3xl mt-2">{date_str}</span>'
+        f'     data-clock-locale="{locale}">\n'
+        f"{spans}"
         f"</div>"
     )

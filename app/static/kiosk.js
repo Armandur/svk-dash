@@ -54,17 +54,16 @@
       var opts     = { timeZone: tz };
       var timeEl   = el.querySelector('.clock-time');
       var dateEl   = el.querySelector('.clock-date');
-      if (!timeEl) return;
 
-      if (fmt === 'time_only' || fmt === 'time_date' || fmt === 'day_time') {
+      if (timeEl && (fmt === 'time_only' || fmt === 'time_date' || fmt === 'day_time')) {
         timeEl.textContent = now.toLocaleTimeString(locale, Object.assign({}, opts,
           { hour: '2-digit', minute: '2-digit', second: fmt === 'day_time' ? undefined : '2-digit' }));
       }
-      if (fmt === 'date_only' || fmt === 'time_date') {
+      if (dateEl && (fmt === 'date_only' || fmt === 'time_date')) {
         dateEl.textContent = now.toLocaleDateString(locale, Object.assign({}, opts,
           { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
       }
-      if (fmt === 'day_time') {
+      if (dateEl && fmt === 'day_time') {
         dateEl.textContent = now.toLocaleDateString(locale, Object.assign({}, opts,
           { weekday: 'long', day: 'numeric', month: 'long' }));
       }
