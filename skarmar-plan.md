@@ -462,25 +462,41 @@ Eftersom du inte bestämt var tjänsten ska köras skissar jag båda. Grunden (k
 
 ### Fas 1 — skelett och nätverksresilient MVP
 
-- [ ] Projektstruktur + docker-compose + Caddy
-- [ ] Datamodell + migreringar (Alembic), inkl. `performance_mode`-flagga (reserverat för framtida bruk), `WidgetRevision`, heartbeat-fält på `Screen`, `ViewSchedule` (schema finns, UI kommer senare)
-- [ ] Admin-login + session-hantering
-- [ ] CRUD för Screen, View, Widget (admin-UI med Jinja + HTMX + Tailwind)
-- [ ] **Revisionshistorik från dag ett**: varje widget-save skapar en `WidgetRevision`. Auto-rensning av äldsta när > 20 finns per widget. Visa historik i admin, implementera revert-knapp.
-- [ ] Kioskvy (vanilla JS SPA, inga tunga bibliotek i kiosken)
-- [ ] SSE-endpoint + anslutningsregister med `maxsize=10`-köer + admin-triggad reload
-- [ ] **Robust SSE-reconnect i klienten**: exponentiell backoff, keepalive-detektion, pausa rotation vid nätfel istället för att reload:a till offline-sida
-- [ ] Server-side SSE keepalive var 30:e sekund
-- [ ] Referensintegritet för widgets i `layout_json` (DELETE-check + "Widget saknas"-placeholder vid render)
-- [ ] Widget-typ: `markdown` (med `nh3`-sanitering)
-- [ ] Widget-typ: `clock` (new Date() per tick, textContent-only)
-- [ ] Widget-typ: `raw_html` (admin-only, felsökningsverktyg — ingen edit-token)
-- [ ] Widget-typ: `debug` (systemstatus, aktiveras via `?debug=1` eller placering i vy)
-- [ ] Edit-token-flöde för markdown-widget (inkl. auto-push vid spara, `Referrer-Policy: no-referrer`)
-- [ ] Pi bootstrap-script: NTP-sync-vänta innan Chromium startar (Pi saknar RTC)
-- [ ] Testa på Pi 4 (primär) och Pi Zero 2 W (sekundär). Pi Zero W (ARMv6) är stretch-goal — om det krånglar är rekommendationen att uppgradera till Zero 2 W, inte att bygga ett light-läge.
+- [x] Projektstruktur + docker-compose + Caddy
+- [x] Datamodell + migreringar (Alembic), inkl. `performance_mode`-flagga (reserverat för framtida bruk), `WidgetRevision`, heartbeat-fält på `Screen`, `ViewSchedule` (schema finns, UI kommer senare)
+- [x] Admin-login + session-hantering
+- [x] CRUD för Screen, View, Widget (admin-UI med Jinja + HTMX + Tailwind)
+- [x] **Revisionshistorik från dag ett**: varje widget-save skapar en `WidgetRevision`. Auto-rensning av äldsta när > 20 finns per widget. Visa historik i admin, implementera revert-knapp.
+- [x] Kioskvy (vanilla JS SPA, inga tunga bibliotek i kiosken)
+- [x] SSE-endpoint + anslutningsregister med `maxsize=10`-köer + admin-triggad reload
+- [x] **Robust SSE-reconnect i klienten**: exponentiell backoff, keepalive-detektion, pausa rotation vid nätfel istället för att reload:a till offline-sida
+- [x] Server-side SSE keepalive var 30:e sekund
+- [x] Referensintegritet för widgets i `layout_json` (DELETE-check + "Widget saknas"-placeholder vid render)
+- [x] Widget-typ: `markdown` (med `nh3`-sanitering)
+- [x] Widget-typ: `clock` (new Date() per tick, textContent-only)
+- [x] Widget-typ: `raw_html` (admin-only, felsökningsverktyg — ingen edit-token)
+- [x] Widget-typ: `debug` (systemstatus, aktiveras via `?debug=1` eller placering i vy)
+- [x] Edit-token-flöde för markdown-widget (inkl. auto-push vid spara, `Referrer-Policy: no-referrer`)
+- [x] Pi bootstrap-script: NTP-sync-vänta innan Chromium startar (Pi saknar RTC)
+- [x] Testa på Pi 4 (primär) och Pi Zero 2 W (sekundär). Pi Zero W (ARMv6) är stretch-goal — om det krånglar är rekommendationen att uppgradera till Zero 2 W, inte att bygga ett light-läge.
 
 Milstolpe: kyrkogårdschefens infosida kan administreras via token-URL, dyker upp på skärmen inom sekunder efter spara, överlever 30 min WiFi-bortfall utan krasch, och gamla versioner kan återställas.
+
+
+### Fas 1.5 — Grid-layout för vyer
+
+Genomförs direkt efter Fas 1 som förutsättning för Fas 2 (ICS-widgetar är meningslösa utan layoutkontroll).
+
+**Designbeslut:** Gridstack.js (CDN, adminonly) som drag-and-drop-editor i admin. CSS Grid för kiosk-rendering. Inget nytt bibliotek i kiosken.
+
+`layout_json`-format utökas från `{"widgets": [{"widget_id": N}]}` till `{"widgets": [{"widget_id": N, "x": 0, "y": 0, "w": 12, "h": 6}]}`. Grid: 12 kolumner, valfritt antal rader. Kiosken beräknar row_count = max(y+h) per vy och renderar med `grid-template-rows: repeat(N, 1fr)`.
+
+- [x] Alembic datamigration: befintliga widget-poster i layout_json får default x=0, y=0, w=12, h=6
+- [x] Ny endpoint `POST /admin/views/{id}/layout` — tar emot JSON med widget-positioner
+- [x] `view_detail.html`: Gridstack-baserad drag-and-drop-editor med "Spara layout"-knapp
+- [x] Kiosk-renderingen: CSS Grid istället för flex-kolumn, inline grid-column/grid-row per widget
+
+Milstolpe: admin kan dra och ändra storlek på widgets i en vy och se dem placerade korrekt på kiosk-skärmen.
 
 ### Fas 2 — kalendrar och drift-observabilitet
 

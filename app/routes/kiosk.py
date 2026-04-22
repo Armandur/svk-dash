@@ -38,16 +38,28 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
         for view in views:
             layout = view.layout_json or {"widgets": []}
             rendered_widgets = []
+            row_max = 6
             for entry in layout.get("widgets", []):
+                x = entry.get("x", 0)
+                y = entry.get("y", 0)
+                w = entry.get("w", 12)
+                h = entry.get("h", 6)
+                row_max = max(row_max, y + h)
                 widget = db.get(Widget, entry["widget_id"])
                 if widget is None:
-                    rendered_widgets.append(
-                        '<div class="widget-missing text-red-400 text-sm p-4">Widget saknas</div>'
-                    )
+                    inner = '<div class="widget-missing">Widget saknas</div>'
                 else:
                     ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
                     inner = render_widget(widget.kind, widget.config_json or {}, ctx)
-                    rendered_widgets.append(f'<div data-widget-id="{widget.id}">{inner}</div>')
+                rendered_widgets.append({
+                    "html": inner,
+                    "widget_id": entry["widget_id"],
+                    "x": x, "y": y, "w": w, "h": h,
+                    "col_start": x + 1,
+                    "col_end": x + w + 1,
+                    "row_start": y + 1,
+                    "row_end": y + h + 1,
+                })
 
             rendered_views.append(
                 {
@@ -55,7 +67,8 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     "position": view.position,
                     "name": view.name,
                     "duration_seconds": view.duration_seconds or screen.rotation_seconds,
-                    "widgets_html": rendered_widgets,
+                    "widgets": rendered_widgets,
+                    "row_count": row_max,
                 }
             )
 
