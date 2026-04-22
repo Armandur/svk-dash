@@ -4,38 +4,68 @@
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack.min.css">
 <style>
-  .grid-stack { background: #f1f5f9; border-radius: 0.5rem; min-height: 200px; }
+  /* Gör sidan bredare för grid-editorn */
+  main { max-width: 100% !important; }
+
+  /* Grid-bakgrund med synliga kolumner */
+  .grid-stack {
+    background-color: #f8fafc;
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        #e2e8f0 0px, #e2e8f0 1px,
+        transparent 1px, transparent calc(100% / 12)
+      );
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    min-height: 300px;
+  }
+
   .grid-stack-item-content {
     background: #fff;
-    border: 1px solid #e2e8f0;
+    border: 2px solid #cbd5e1;
     border-radius: 0.375rem;
     padding: 0.5rem 0.75rem;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: center;
     height: 100%;
     overflow: hidden;
+    cursor: grab;
+    user-select: none;
   }
+  .grid-stack-item-content:active { cursor: grabbing; }
+
   .gs-widget-missing .grid-stack-item-content {
     background: #fff5f5;
-    border-color: #fed7d7;
+    border-color: #fca5a5;
   }
+
+  /* Placeholder vid drag */
+  .grid-stack-placeholder > .placeholder-content {
+    background: #dbeafe;
+    border: 2px dashed #93c5fd;
+    border-radius: 0.375rem;
+  }
+
+  /* Resize-handtag */
+  .ui-resizable-se { width: 16px; height: 16px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center gap-3">
+<div class="mb-4 flex items-center gap-3">
   <a href="/admin/screens/{{ view.screen_id }}" class="text-sm text-gray-500 hover:text-gray-900">← Skärm</a>
   <h1 class="text-2xl font-bold">{{ view.name }}</h1>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+<div class="flex gap-6 items-start">
 
   <!-- Sidopanel -->
-  <div class="lg:col-span-1 space-y-4">
+  <div class="w-64 shrink-0 space-y-4">
 
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="font-semibold mb-4">Vy-inställningar</h2>
+    <div class="bg-white rounded-lg shadow p-4">
+      <h2 class="font-semibold mb-3 text-sm">Vy-inställningar</h2>
       <form method="post" action="/admin/views/{{ view.id }}/edit" class="space-y-3">
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
@@ -45,12 +75,12 @@
           <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s, tomt = skärmens standard)</label>
           <input type="number" name="duration_seconds" value="{{ view.duration_seconds or '' }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm">
         </div>
-        <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700">Spara</button>
+        <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 w-full">Spara</button>
       </form>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="font-semibold mb-4">Lägg till widget</h2>
+    <div class="bg-white rounded-lg shadow p-4">
+      <h2 class="font-semibold mb-3 text-sm">Lägg till widget</h2>
       <form method="post" action="/admin/views/{{ view.id }}/widgets/add" class="space-y-3">
         <select name="widget_id" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
           <option value="">Välj widget…</option>
@@ -62,19 +92,22 @@
       </form>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="font-semibold mb-2">Layout</h2>
-      <p class="text-xs text-gray-500 mb-3">Dra och ändra storlek på widgets. Spara när du är klar.</p>
-      <button id="save-layout" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 w-full">Spara layout</button>
-      <p id="layout-status" class="text-xs text-gray-400 mt-2 hidden"></p>
+    <div class="bg-white rounded-lg shadow p-4">
+      <h2 class="font-semibold mb-1 text-sm">Layout</h2>
+      <p class="text-xs text-gray-400 mb-3">Dra och ändra storlek. 12 kolumner.</p>
+      <button id="save-layout" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 w-full font-medium">Spara layout</button>
+      <p id="layout-status" class="text-xs mt-2 text-center hidden"></p>
     </div>
 
   </div>
 
   <!-- Grid-editor -->
-  <div class="lg:col-span-3">
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="font-semibold mb-4">Widget-layout (12 kolumner)</h2>
+  <div class="flex-1 min-w-0">
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-sm">Widget-layout</h2>
+        <span class="text-xs text-gray-400">12 kolumner · 1 rad ≈ 80px</span>
+      </div>
       {% if layout_entries %}
       <div class="grid-stack" id="gs-grid">
         {% for entry in layout_entries %}
@@ -83,20 +116,18 @@
              gs-id="{{ entry.widget_id }}">
           <div class="grid-stack-item-content">
             {% if entry.widget %}
-            <div class="min-w-0">
-              <div class="text-sm font-medium truncate">{{ entry.widget.name }}</div>
-              <div class="text-xs text-gray-500">{{ entry.widget.kind }}</div>
-            </div>
-            <div class="flex gap-2 shrink-0 ml-2">
+            <div class="text-sm font-semibold text-gray-800 truncate">{{ entry.widget.name }}</div>
+            <div class="text-xs text-gray-400 mb-2">{{ entry.widget.kind }}</div>
+            <div class="flex gap-3 mt-auto">
               <a href="/admin/widgets/{{ entry.widget.id }}" class="text-xs text-blue-600 hover:text-blue-800">Redigera</a>
               <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget.id }}/remove" class="inline">
                 <button type="submit" class="text-xs text-red-500 hover:text-red-700">Ta bort</button>
               </form>
             </div>
             {% else %}
-            <span class="text-sm text-red-500">Widget saknas (borttagen)</span>
-            <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" class="inline">
-              <button type="submit" class="text-xs text-red-500 hover:text-red-700 ml-2">Ta bort</button>
+            <div class="text-sm text-red-500">Widget saknas</div>
+            <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" class="inline mt-1">
+              <button type="submit" class="text-xs text-red-400 hover:text-red-600">Ta bort</button>
             </form>
             {% endif %}
           </div>
@@ -104,7 +135,9 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-500">Inga widgets i vyn ännu. Lägg till en widget från sidopanelen.</p>
+      <div class="text-sm text-gray-400 text-center py-16 border border-dashed border-gray-200 rounded-lg">
+        Inga widgets ännu — lägg till en från sidopanelen.
+      </div>
       {% endif %}
     </div>
   </div>
@@ -119,17 +152,24 @@
 
   const grid = GridStack.init({
     column: 12,
-    cellHeight: 60,
+    cellHeight: 80,
+    cellHeightUnit: 'px',
+    margin: 6,
     disableOneColumnMode: true,
-    animate: false,
+    animate: true,
+    resizable: { handles: 'se' },
   }, gridEl);
 
-  document.getElementById('save-layout').addEventListener('click', async () => {
-    const status = document.getElementById('layout-status');
+  const btn = document.getElementById('save-layout');
+  const status = document.getElementById('layout-status');
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Sparar…';
     const items = grid.save(false);
     const widgets = items.map(i => ({
       widget_id: parseInt(i.id, 10),
-      x: i.x, y: i.y, w: i.w, h: i.h,
+      x: i.x ?? 0, y: i.y ?? 0, w: i.w ?? 12, h: i.h ?? 4,
     }));
     try {
       const resp = await fetch('/admin/views/{{ view.id }}/layout', {
@@ -139,16 +179,18 @@
       });
       if (resp.ok) {
         status.textContent = 'Layouten sparad.';
-        status.className = 'text-xs text-green-600 mt-2';
+        status.className = 'text-xs mt-2 text-center text-green-600';
       } else {
         status.textContent = 'Fel vid sparande.';
-        status.className = 'text-xs text-red-500 mt-2';
+        status.className = 'text-xs mt-2 text-center text-red-500';
       }
     } catch {
       status.textContent = 'Nätverksfel.';
-      status.className = 'text-xs text-red-500 mt-2';
+      status.className = 'text-xs mt-2 text-center text-red-500';
     }
     status.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Spara layout';
     setTimeout(() => status.classList.add('hidden'), 3000);
   });
 })();
