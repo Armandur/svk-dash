@@ -112,6 +112,15 @@
   .rh-se { bottom:0; right:0; width:12px; height:12px; cursor:se-resize; }
   .rh-sw { bottom:0; left:0;  width:12px; height:12px; cursor:sw-resize; }
 
+  /* ICS-lista i admin-editorn */
+  #grid-editor .widget-ics-list { height:100%; overflow:hidden; padding:0.4rem 0.5rem; display:flex; flex-direction:column; font-size:clamp(8px,2.2cqh,14px); }
+  #grid-editor .ics-day { font-size:0.7em; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:rgba(255,255,255,0.4); padding:0.4em 0 0.15em; }
+  #grid-editor .ics-ev { display:flex; gap:0.4em; padding:0.15em 0; border-bottom:1px solid rgba(255,255,255,0.06); line-height:1.3; }
+  #grid-editor .ics-t { flex-shrink:0; width:3em; color:rgba(255,255,255,0.5); font-size:0.85em; }
+  #grid-editor .ics-s { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #grid-editor .ics-loc { color:rgba(255,255,255,0.4); font-size:0.8em; }
+  #grid-editor .ics-notice, #grid-editor .ics-error { display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.35); font-size:0.75rem; text-align:center; }
+
   /* Markdown-typografi i admin-editorn (Tailwind-preflight nollställer annars heading-storlekar) */
   /* Basstorlek skalas med cellbredd via cqw; rubriker använder em och följer med */
   #grid-editor .widget-markdown          { padding: 0.5rem; overflow: hidden; color: #f1f5f9; }
@@ -196,6 +205,18 @@
     </div>
 
     <div class="bg-white rounded-lg shadow p-4">
+      <h2 class="font-semibold mb-3 text-sm">Lägg till inline-widget</h2>
+      <form method="post" action="/admin/views/{{ view.id }}/inline/add" class="space-y-3">
+        <select name="kind" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <option value="clock">Klocka</option>
+          <option value="text">Text</option>
+          <option value="color_block">Färgblock</option>
+        </select>
+        <button type="submit" class="bg-indigo-700 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-800 w-full">Lägg till</button>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-4">
       <button id="save-layout" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 w-full font-medium transition-colors">Spara layout</button>
       <p id="layout-status" class="text-xs mt-2 text-center hidden"></p>
     </div>
@@ -206,40 +227,92 @@
     {% if layout_entries %}
     <div id="grid-editor" style="aspect-ratio: {{ aspect_ratio_css }}; --cols: {{ view.grid_cols }}; --rows: {{ view.grid_rows }};">
       {% for entry in layout_entries %}
-      <div class="widget-card {% if not entry.widget %}missing{% endif %}"
-           data-widget-id="{{ entry.widget_id }}"
+      {% if entry.is_inline %}
+      <div class="widget-card"
+           data-inline-id="{{ entry.inline_id }}"
+           data-inline-kind="{{ entry.kind }}"
+           data-inline-config="{{ entry.config | tojson | forceescape }}"
            data-x="{{ entry.x }}" data-y="{{ entry.y }}"
            data-w="{{ entry.w }}" data-h="{{ entry.h }}"
            data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}">
-
-        <!-- Faktisk widget-HTML -->
-        <div class="wc-preview">
-          {% if entry.widget_html %}
-            {{ entry.widget_html | safe }}
-          {% else %}
-            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;font-size:0.8rem;">Widget saknas</div>
-          {% endif %}
-        </div>
-
-        <!-- Hover-overlay med kontroller -->
+        <div class="wc-preview">{{ entry.widget_html | safe }}</div>
         <div class="wc-overlay">
           <div class="wc-header">
-            <span class="wc-label">{% if entry.widget %}{{ entry.widget.name }}{% else %}(saknas){% endif %}</span>
-            {% if entry.widget %}<span class="wc-kind-badge">{{ entry.widget.kind }}</span>{% endif %}
-            <button class="wc-menu-btn" data-wid="{{ entry.widget_id }}">⋯</button>
+            <span class="wc-label">{{ entry.label }}</span>
+            <span class="wc-kind-badge">{{ entry.kind }}</span>
+            <button class="wc-menu-btn" data-drop="wc-drop-i-{{ entry.inline_id }}">⋯</button>
           </div>
-          <div class="wc-dropdown" id="wc-drop-{{ entry.widget_id }}">
-            {% if entry.widget %}
-            <a href="/admin/widgets/{{ entry.widget.id }}">Redigera widget</a>
-            <div class="wc-sep"></div>
-            {% endif %}
-            <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" style="margin:0">
+          <div class="wc-dropdown" id="wc-drop-i-{{ entry.inline_id }}">
+            <div class="wc-icfg" style="padding:8px 12px;border-bottom:1px solid #334155">
+              {% if entry.kind == 'clock' %}
+              <div style="margin-bottom:6px">
+                <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Format</div>
+                <select class="icfg-field" data-cfg-key="format" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
+                  {% for fmt, lbl in [('time_only','Tid'), ('time_date','Tid + datum'), ('date_only','Datum'), ('day_time','Dag + tid')] %}
+                  <option value="{{ fmt }}"{% if entry.config.get('format') == fmt %} selected{% endif %}>{{ lbl }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Storlek</div>
+                <select class="icfg-field" data-cfg-key="size" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
+                  {% for sz, lbl in [('sm','Liten'), ('md','Medium'), ('lg','Stor'), ('xl','Extra stor')] %}
+                  <option value="{{ sz }}"{% if entry.config.get('size', 'xl') == sz %} selected{% endif %}>{{ lbl }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% elif entry.kind == 'text' %}
+              <div style="margin-bottom:6px">
+                <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Text</div>
+                <textarea class="icfg-field" data-cfg-key="text" rows="2" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px;resize:none">{{ entry.config.get('text', '') }}</textarea>
+              </div>
+              <div style="display:flex;gap:4px;margin-bottom:6px">
+                <div style="flex:1">
+                  <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Storlek</div>
+                  <select class="icfg-field" data-cfg-key="size" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
+                    {% for sz, lbl in [('sm','Sm'), ('normal','Normal'), ('large','Stor'), ('huge','Enorm')] %}
+                    <option value="{{ sz }}"{% if entry.config.get('size', 'large') == sz %} selected{% endif %}>{{ lbl }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Justering</div>
+                  <select class="icfg-field" data-cfg-key="align" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
+                    {% for al, lbl in [('left','Vänster'), ('center','Mitten'), ('right','Höger')] %}
+                    <option value="{{ al }}"{% if entry.config.get('align', 'center') == al %} selected{% endif %}>{{ lbl }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div>
+                  <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Färg</div>
+                  <input type="color" class="icfg-field" data-cfg-key="color" value="{{ entry.config.get('color', '#ffffff') }}" style="width:32px;height:22px;border:none;background:none;cursor:pointer;padding:0">
+                </div>
+                <div style="margin-top:14px">
+                  <label style="font-size:0.65rem;color:#94a3b8;cursor:pointer">
+                    <input type="checkbox" class="icfg-field" data-cfg-key="bold"{% if entry.config.get('bold', False) %} checked{% endif %} style="margin-right:3px">Fet stil
+                  </label>
+                </div>
+              </div>
+              {% elif entry.kind == 'color_block' %}
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div>
+                  <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Färg</div>
+                  <input type="color" class="icfg-field" data-cfg-key="color" value="{{ entry.config.get('color', '#1e3a5f') }}" style="width:40px;height:26px;border:none;background:none;cursor:pointer;padding:0">
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Rundning (px)</div>
+                  <input type="number" class="icfg-field" data-cfg-key="border_radius" value="{{ entry.config.get('border_radius', 0) }}" min="0" max="200" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            <form method="post" action="/admin/views/{{ view.id }}/inline/{{ entry.inline_id }}/remove" style="margin:0">
               <button type="submit" class="wc-danger">Ta bort från vy</button>
             </form>
           </div>
         </div>
-
-        <!-- 8 resize-handtag -->
         <div class="rh rh-n"  data-edges="n"></div>
         <div class="rh rh-ne" data-edges="n,e"></div>
         <div class="rh rh-e"  data-edges="e"></div>
@@ -249,6 +322,45 @@
         <div class="rh rh-w"  data-edges="w"></div>
         <div class="rh rh-nw" data-edges="n,w"></div>
       </div>
+      {% else %}
+      <div class="widget-card {% if not entry.widget %}missing{% endif %}"
+           data-widget-id="{{ entry.widget_id }}"
+           data-x="{{ entry.x }}" data-y="{{ entry.y }}"
+           data-w="{{ entry.w }}" data-h="{{ entry.h }}"
+           data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}">
+        <div class="wc-preview">
+          {% if entry.widget_html %}
+            {{ entry.widget_html | safe }}
+          {% else %}
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;font-size:0.8rem;">Widget saknas</div>
+          {% endif %}
+        </div>
+        <div class="wc-overlay">
+          <div class="wc-header">
+            <span class="wc-label">{% if entry.widget %}{{ entry.widget.name }}{% else %}(saknas){% endif %}</span>
+            {% if entry.widget %}<span class="wc-kind-badge">{{ entry.widget.kind }}</span>{% endif %}
+            <button class="wc-menu-btn" data-drop="wc-drop-w-{{ entry.widget_id }}">⋯</button>
+          </div>
+          <div class="wc-dropdown" id="wc-drop-w-{{ entry.widget_id }}">
+            {% if entry.widget %}
+            <a href="/admin/widgets/{{ entry.widget.id }}">Redigera widget</a>
+            <div class="wc-sep"></div>
+            {% endif %}
+            <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" style="margin:0">
+              <button type="submit" class="wc-danger">Ta bort från vy</button>
+            </form>
+          </div>
+        </div>
+        <div class="rh rh-n"  data-edges="n"></div>
+        <div class="rh rh-ne" data-edges="n,e"></div>
+        <div class="rh rh-e"  data-edges="e"></div>
+        <div class="rh rh-se" data-edges="s,e"></div>
+        <div class="rh rh-s"  data-edges="s"></div>
+        <div class="rh rh-sw" data-edges="s,w"></div>
+        <div class="rh rh-w"  data-edges="w"></div>
+        <div class="rh rh-nw" data-edges="n,w"></div>
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% else %}
@@ -266,10 +378,18 @@
       <p class="text-xs text-gray-400 mb-3">Dra för att ändra ordning. Överst = framför.</p>
       <ul id="layer-list">
         {% for entry in layout_entries | sort(attribute='z_index', reverse=True) %}
-        <li class="layer-item" draggable="true" data-widget-id="{{ entry.widget_id }}">
+        <li class="layer-item" draggable="true"
+            {% if entry.is_inline %}data-inline-id="{{ entry.inline_id }}"{% else %}data-widget-id="{{ entry.widget_id }}"{% endif %}>
           <span class="layer-handle">⠿</span>
-          <span class="layer-name">{{ entry.widget.name if entry.widget else '(saknas)' }}</span>
-          <span class="layer-kind">{{ entry.widget.kind if entry.widget else '' }}</span>
+          <span class="layer-name">
+            {%- if entry.is_inline -%}{{ entry.label }}
+            {%- elif entry.widget -%}{{ entry.widget.name }}
+            {%- else -%}(saknas){%- endif -%}
+          </span>
+          <span class="layer-kind">
+            {%- if entry.is_inline -%}{{ entry.kind }}
+            {%- elif entry.widget -%}{{ entry.widget.kind }}{%- endif -%}
+          </span>
           <div class="layer-opwrap" title="Opacitet (%)">
             <input type="number" class="lyr-opacity" min="0" max="100" step="5" value="{{ entry.opacity }}">%
           </div>
@@ -402,13 +522,39 @@
     const mb = e.target.closest('.wc-menu-btn');
     if (mb) {
       e.stopPropagation();
-      const drop = document.getElementById('wc-drop-'+mb.dataset.wid);
+      const drop = document.getElementById(mb.dataset.drop);
+      if (!drop) return;
       const was = drop.classList.contains('open');
       document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
       if (!was) drop.classList.add('open');
       return;
     }
+    if (e.target.closest('.wc-dropdown')) return;
     document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
+  });
+
+  // ── Inline-widget config ──────────────────────────────
+  gridEl.addEventListener('change', e => {
+    const field = e.target.closest('.icfg-field');
+    if (!field) return;
+    const card = field.closest('.widget-card');
+    if (!card || !card.dataset.inlineId) return;
+    const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
+    const key = field.dataset.cfgKey;
+    if (field.type === 'checkbox') cfg[key] = field.checked;
+    else cfg[key] = field.value;
+    card.dataset.inlineConfig = JSON.stringify(cfg);
+    setDirty();
+  });
+  gridEl.addEventListener('input', e => {
+    const field = e.target.closest('.icfg-field');
+    if (!field || field.tagName !== 'TEXTAREA') return;
+    const card = field.closest('.widget-card');
+    if (!card || !card.dataset.inlineId) return;
+    const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
+    cfg[field.dataset.cfgKey] = field.value;
+    card.dataset.inlineConfig = JSON.stringify(cfg);
+    setDirty();
   });
 
   // ── Lagerpanel ───────────────────────────────────────
@@ -432,14 +578,18 @@
     layerList.addEventListener('change', e=>{
       if(!e.target.classList.contains('lyr-opacity')) return;
       const item=e.target.closest('.layer-item');
-      const card=gridEl.querySelector(`[data-widget-id="${item.dataset.widgetId}"]`);
+      const card=cardForItem(item);
       if(card){card.dataset.opacity=e.target.value; applyCard(card); setDirty();}
     });
+    function cardForItem(item) {
+      if(item.dataset.inlineId) return gridEl.querySelector(`[data-inline-id="${item.dataset.inlineId}"]`);
+      return gridEl.querySelector(`[data-widget-id="${item.dataset.widgetId}"]`);
+    }
     function reassignZ() {
       const items=[...layerList.querySelectorAll('.layer-item')];
       items.forEach((item,idx)=>{
         const z=items.length-idx; item.dataset.z=z;
-        const card=gridEl.querySelector(`[data-widget-id="${item.dataset.widgetId}"]`);
+        const card=cardForItem(item);
         if(card){card.dataset.z=z; applyCard(card);}
       });
     }
@@ -448,20 +598,39 @@
   // ── Spara ────────────────────────────────────────────
   btn.addEventListener('click', async ()=>{
     btn.disabled=true; btn.textContent='Sparar…';
-    const widgets=[];
-    gridEl.querySelectorAll('.widget-card').forEach(card=>{
-      let opacity=+card.dataset.opacity;
-      if(layerList){ const li=layerList.querySelector(`[data-widget-id="${card.dataset.widgetId}"]`); if(li) opacity=+(li.querySelector('.lyr-opacity')?.value??opacity); }
-      widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
-    });
     try {
+      const widgets=[];
+      gridEl.querySelectorAll('.widget-card').forEach(card=>{
+        let opacity=+card.dataset.opacity;
+        if(layerList){
+          const li = card.dataset.inlineId
+            ? layerList.querySelector(`[data-inline-id="${card.dataset.inlineId}"]`)
+            : layerList.querySelector(`[data-widget-id="${card.dataset.widgetId}"]`);
+          if(li) opacity=+(li.querySelector('.lyr-opacity')?.value??opacity);
+        }
+        if(card.dataset.inlineId){
+          widgets.push({
+            inline_id:card.dataset.inlineId, kind:card.dataset.inlineKind,
+            config:JSON.parse(card.dataset.inlineConfig||'{}'),
+            x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h,
+            z_index:+card.dataset.z, opacity
+          });
+        } else {
+          widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
+        }
+      });
       const resp=await fetch('/admin/views/{{ view.id }}/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({widgets})});
       if(resp.ok){ clearDirty(); status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
-      else { status.textContent='Fel vid sparande.'; status.className='text-xs mt-2 text-center text-red-500'; }
-    } catch { status.textContent='Nätverksfel.'; status.className='text-xs mt-2 text-center text-red-500'; }
-    status.classList.remove('hidden');
-    btn.disabled=false; if(isDirty) btn.textContent='Spara layout ●';
-    setTimeout(()=>status.classList.add('hidden'),3000);
+      else { status.textContent='Fel vid sparande ('+resp.status+').'; status.className='text-xs mt-2 text-center text-red-500'; }
+    } catch(err) {
+      console.error('Sparfel:', err);
+      status.textContent='Fel: '+err.message;
+      status.className='text-xs mt-2 text-center text-red-500';
+    } finally {
+      status.classList.remove('hidden');
+      btn.disabled=false; if(isDirty) btn.textContent='Spara layout ●';
+      setTimeout(()=>status.classList.add('hidden'),3000);
+    }
   });
 })();
 </script>

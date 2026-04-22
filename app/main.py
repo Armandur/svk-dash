@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -9,13 +11,21 @@ from app.deps import NotAuthenticatedError
 from app.routes.admin import router as admin_router
 from app.routes.edit import router as edit_router
 from app.routes.kiosk import router as kiosk_router
+from app.services.ics_fetcher import start_refresh_loop
 
+logging.basicConfig(level=logging.INFO)
 os.makedirs("data/uploads", exist_ok=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    task = asyncio.create_task(start_refresh_loop())
     yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)

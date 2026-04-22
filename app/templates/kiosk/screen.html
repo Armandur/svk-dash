@@ -42,6 +42,37 @@
     .widget-markdown strong { font-weight: bold; }
     .widget-markdown em { font-style: italic; }
 
+    /* ICS-lista */
+    .widget-ics-list {
+      height: 100%; overflow-y: auto; padding: 0.6rem 0.75rem;
+      display: flex; flex-direction: column; gap: 0;
+      scrollbar-width: none;
+    }
+    .widget-ics-list.ics-sm { font-size: 0.8rem; }
+    .widget-ics-list.ics-lg { font-size: 1.15rem; }
+    .ics-day {
+      font-size: 0.7em; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: rgba(255,255,255,0.45);
+      padding: 0.55em 0 0.2em; margin-top: 0.3em;
+    }
+    .ics-day:first-child { margin-top: 0; }
+    .ics-ev {
+      display: flex; align-items: baseline; gap: 0.5em;
+      padding: 0.18em 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+      line-height: 1.35;
+    }
+    .ics-t {
+      flex-shrink: 0; width: 3.2em; font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,0.55); font-size: 0.85em;
+    }
+    .ics-s { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ics-loc { color: rgba(255,255,255,0.45); font-size: 0.85em; margin-left: 0.4em; }
+    .ics-notice, .ics-error { display: flex; align-items: center; justify-content: center;
+      height: 100%; color: rgba(255,255,255,0.4); font-size: 0.85rem; text-align: center;
+      padding: 1rem; }
+    .ics-error { color: #f87171; }
+    .ics-warn { font-size: 0.7em; color: rgba(251,191,36,0.7); text-align: right; margin-top: auto; padding-top: 0.3em; }
+
     /* Offline-banner */
     #offline-banner {
       display: none;

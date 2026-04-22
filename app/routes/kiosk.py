@@ -38,23 +38,27 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
         for view in views:
             layout = view.layout_json or {"widgets": []}
             rendered_widgets = []
-            row_max = 6
             for entry in layout.get("widgets", []):
                 x = entry.get("x", 0)
                 y = entry.get("y", 0)
                 w = entry.get("w", 12)
                 h = entry.get("h", 6)
-                row_max = max(row_max, y + h)
-                widget = db.get(Widget, entry["widget_id"])
-                if widget is None:
-                    inner = '<div class="widget-missing">Widget saknas</div>'
+                if "inline_id" in entry:
+                    ctx = {**context, "view_position": view.position + 1}
+                    inner = render_widget(entry["kind"], entry.get("config") or {}, ctx)
+                    eid = entry["inline_id"]
                 else:
-                    ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
-                    inner = render_widget(widget.kind, widget.config_json or {}, ctx)
+                    widget = db.get(Widget, entry["widget_id"])
+                    if widget is None:
+                        inner = '<div class="widget-missing">Widget saknas</div>'
+                    else:
+                        ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
+                        inner = render_widget(widget.kind, widget.config_json or {}, ctx)
+                    eid = entry["widget_id"]
                 rendered_widgets.append(
                     {
                         "html": inner,
-                        "widget_id": entry["widget_id"],
+                        "widget_id": eid,
                         "x": x,
                         "y": y,
                         "w": w,
@@ -136,7 +140,7 @@ def broadcast_widget_updated(widget_id: int) -> None:
         screen_ids: set[int] = set()
         for view in views:
             layout = view.layout_json or {}
-            if any(w["widget_id"] == widget_id for w in layout.get("widgets", [])):
+            if any(w.get("widget_id") == widget_id for w in layout.get("widgets", [])):
                 screen_ids.add(view.screen_id)
     for screen_id in screen_ids:
         sse_registry.broadcast(screen_id, {"type": "widget_updated", "widget_id": widget_id})

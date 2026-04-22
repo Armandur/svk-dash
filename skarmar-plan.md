@@ -259,7 +259,49 @@ Felsökningsverktyg. Admin kan slänga in HTML direkt utan att skapa en ny widge
 
 Användbart när något är trasigt i produktion och man snabbt vill testa en hypotes, eller för engångs-saker som inte är värda en full widget-typ.
 
-### 5.8 `debug` — Systemstatus-widget
+### 5.8 `color_block` — Enfärgad yta (inline-widget)
+
+En solid färgad ruta utan innehåll. Används som bakgrundselement, separator eller dekorativt block i layouten.
+
+```json
+{
+  "color": "#1e3a5f",
+  "border_radius": 8,      // px, 0 = raka kanter
+  "opacity": 100           // överlappas med layout-lagrets opacity-styrning
+}
+```
+
+Inline-widget (ingen post i `Widget`-tabellen). Renderas som en `<div>` med `background-color` och valfri `border-radius`. Ingen JS behövs — ren CSS.
+
+### 5.9 `image` — Bild (biblioteks-widget)
+
+Visar en statisk bild. Stöder två källtyper:
+
+```json
+{
+  "source": "upload",                         // "upload" | "url"
+  "filename": "uploads/abc123.jpg",           // används när source = "upload"
+  "url": "https://i.imgur.com/abc123.jpg",    // används när source = "url"
+  "object_fit": "contain",                    // cover | contain | fill
+  "alt": "Beskrivande text"
+}
+```
+
+**Mediabilbiotek (source = "upload"):**
+- Bilder laddas upp via admin (`/admin/media/`) och lagras på disk i `data/uploads/`.
+- Bildfiler namnges med UUID för att undvika kollisioner.
+- Vid uppladdning: server-side validering av MIME-typ (PIL/Pillow) + max-storlek.
+- Thumbnail-generering (Pillow) för att visa i mediabilioteket utan att ladda fullstora filer.
+- Widget-konfigurationen refererar till filnamnet, inte en DB-post — enkelt och resilient.
+
+**Extern URL (source = "url"):**
+- Bilder från imgur, Wikimedia eller annan tjänst länkas direkt i `url`-fältet.
+- Ingen server-side proxy — browsern hämtar bilden direkt (fungerar om kioskens RPi har internet).
+- Admin-varning om URL:en inte är HTTPS.
+
+Distinktionen *upload vs url* avgörs i editorn: en flik "Från fil" och en flik "Från URL".
+
+### 5.10 `debug` — Systemstatus-widget
 
 Liten widget som visar skärmens identitet och läge. Aktiveras via query-param `?debug=1` på kioskvyn eller kan placeras permanent i en vy för on-site-felsökning.
 
@@ -500,11 +542,12 @@ Milstolpe: admin kan dra och ändra storlek på widgets i en vy och se dem place
 
 ### Fas 2 — kalendrar och drift-observabilitet
 
-- [ ] **Inline-widgets** — refaktorera arkitekturen så att enkla widgets (klocka, text/rubrik) inte kräver en post i `Widget`-tabellen eller edit-token. Konfigurationen sparas direkt i `layout_json` på vyn och redigeras i vy-editorn. Biblioteks-widgets (ICS, markdown med delegerad redigering, slideshow) behåller nuvarande modell. Distinktionen: inline = vy-specifik config, bibliotek = delas/redigeras externt.
-- [ ] `ics_list`-widget med server-side cache och RRULE-expansion
+- [x] **Inline-widgets** — refaktorera arkitekturen så att enkla widgets (klocka, text/rubrik) inte kräver en post i `Widget`-tabellen eller edit-token. Konfigurationen sparas direkt i `layout_json` på vyn och redigeras i vy-editorn. Biblioteks-widgets (ICS, markdown med delegerad redigering, slideshow) behåller nuvarande modell. Distinktionen: inline = vy-specifik config, bibliotek = delas/redigeras externt.
+- [x] `color_block` inline-widget — enfärgad yta som bakgrundselement/separator, konfigurerbar färg och border-radius
+- [x] `ics_list`-widget med server-side cache och RRULE-expansion
 - [ ] Multi-källa-stöd (flera ICS-URL:er i samma lista, färgkodade)
 - [ ] `ics_month`-widget
-- [ ] Bakgrundsjobb (asyncio-loop med try/except) som refreshar alla ICS-cachar var 10:e minut
+- [x] Bakgrundsjobb (asyncio-loop med try/except) som refreshar alla ICS-cachar var 10:e minut
 - [ ] Felhantering + senast-uppdaterad-indikator per widget
 - [ ] **Heartbeat-logik**: skärmar uppdaterar `last_seen_at` på `Screen` via SSE-keepalive
 - [ ] **Live-status på admin-dashboard**: grön/gul/röd indikator baserad på heartbeat-ålder
@@ -514,6 +557,9 @@ Milstolpe: vaktmästeri-skärmen och domprostens namnskylt är i drift. Du får 
 
 ### Fas 3 — resterande widgets och drift-ergonomi
 
+- [ ] Bättre färgväljare för inline-widgets (text-widgetens färginput) — ersätt OS-inbyggd `<input type="color">` med t.ex. Coloris (lättviktig vanilla JS, CDN) för att få konsekvent UX på Windows/Linux/Mac.
+- [ ] `image`-widget — biblioteks-widget med stöd för både uppladdning (mediabiliotek i `data/uploads/`, thumbnail-generering via Pillow) och extern URL (imgur m.fl.). Två-flikar i editorn: "Från fil" / "Från URL". `object_fit` (cover/contain) och alt-text.
+- [ ] Mediabiliotek-vy i admin (`/admin/media/`) för att hantera uppladdade bilder — lista, förhandsgranska, ta bort. Filreferenser i widget-config, inte DB-poster.
 - [ ] `slideshow` med uppladdning + server-side resize och on-disk-cache (Pillow)
 - [ ] `iframe` med CSP-förhandstest (HEAD/GET-kontroll + varning om `frame-ancestors` blockerar)
 - [ ] Förhandsvisning i admin (rendera vyn i en liten ram)

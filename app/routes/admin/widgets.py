@@ -1,3 +1,4 @@
+import asyncio
 import json
 import secrets
 from datetime import datetime
@@ -10,7 +11,10 @@ from app.database import get_session
 from app.deps import require_admin
 from app.models import View, Widget, WidgetRevision
 from app.routes.kiosk import broadcast_widget_updated
+from app.services.ics_fetcher import fetch_and_cache
 from app.templating import templates
+
+_ICS_KINDS = frozenset({"ics_list", "ics_month"})
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 
@@ -75,6 +79,10 @@ async def widget_create(
         db.add(widget)
         db.commit()
         db.refresh(widget)
+    if kind in _ICS_KINDS:
+        ics_url = config.get("ics_url")
+        if isinstance(ics_url, str) and ics_url:
+            asyncio.create_task(fetch_and_cache(widget.id, ics_url))
     return RedirectResponse(f"/admin/widgets/{widget.id}", status_code=302)
 
 
@@ -158,6 +166,10 @@ async def widget_edit(
         _prune_revisions(db, widget_id)
 
     broadcast_widget_updated(widget_id)
+    if widget.kind in _ICS_KINDS:
+        ics_url = config.get("ics_url")
+        if isinstance(ics_url, str) and ics_url:
+            asyncio.create_task(fetch_and_cache(widget_id, ics_url))
     return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
 
 
@@ -246,7 +258,7 @@ def _views_using_widget(db, widget_id: int) -> list[View]:
     return [
         v
         for v in all_views
-        if any(w["widget_id"] == widget_id for w in (v.layout_json or {}).get("widgets", []))
+        if any(w.get("widget_id") == widget_id for w in (v.layout_json or {}).get("widgets", []))
     ]
 
 

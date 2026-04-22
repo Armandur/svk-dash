@@ -1,4 +1,5 @@
 import copy
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -22,6 +23,18 @@ _ASPECT_CSS = {
     "A-P": "1 / 1.414",
 }
 
+_INLINE_DEFAULTS: dict[str, dict] = {
+    "clock": {"format": "time_date", "size": "xl", "timezone": "Europe/Stockholm", "locale": "sv-SE"},
+    "text": {"text": "Text", "size": "large", "align": "center", "bold": False, "color": "#ffffff"},
+    "color_block": {"color": "#1e3a5f", "border_radius": 0},
+}
+
+_INLINE_LABELS: dict[str, str] = {
+    "clock": "Klocka",
+    "text": "Text",
+    "color_block": "Färgblock",
+}
+
 router = APIRouter(dependencies=[Depends(require_admin)])
 
 
@@ -35,24 +48,47 @@ async def view_detail(request: Request, view_id: int):
         layout = view.layout_json or {"widgets": []}
         layout_entries = []
         for entry in layout.get("widgets", []):
-            w = db.get(Widget, entry["widget_id"])
-            widget_html = None
-            if w:
-                ctx = {"widget_id": w.id, "version": "admin-preview"}
-                widget_html = render_widget(w.kind, w.config_json or {}, ctx)
-            layout_entries.append(
-                {
-                    "widget": w,
-                    "widget_html": widget_html,
-                    "widget_id": entry["widget_id"],
-                    "x": entry.get("x", 0),
-                    "y": entry.get("y", 0),
-                    "w": entry.get("w", 12),
-                    "h": entry.get("h", 6),
-                    "z_index": entry.get("z_index", 1),
-                    "opacity": entry.get("opacity", 100),
-                }
-            )
+            if "inline_id" in entry:
+                kind = entry["kind"]
+                config = entry.get("config", copy.deepcopy(_INLINE_DEFAULTS.get(kind, {})))
+                ctx: dict = {"version": "admin-preview"}
+                widget_html = render_widget(kind, config, ctx)
+                layout_entries.append(
+                    {
+                        "is_inline": True,
+                        "inline_id": entry["inline_id"],
+                        "kind": kind,
+                        "config": config,
+                        "label": _INLINE_LABELS.get(kind, kind),
+                        "widget_html": widget_html,
+                        "x": entry.get("x", 0),
+                        "y": entry.get("y", 0),
+                        "w": entry.get("w", 4),
+                        "h": entry.get("h", 3),
+                        "z_index": entry.get("z_index", 1),
+                        "opacity": entry.get("opacity", 100),
+                    }
+                )
+            else:
+                w = db.get(Widget, entry["widget_id"])
+                widget_html = None
+                if w:
+                    ctx = {"widget_id": w.id, "version": "admin-preview"}
+                    widget_html = render_widget(w.kind, w.config_json or {}, ctx)
+                layout_entries.append(
+                    {
+                        "is_inline": False,
+                        "widget": w,
+                        "widget_html": widget_html,
+                        "widget_id": entry["widget_id"],
+                        "x": entry.get("x", 0),
+                        "y": entry.get("y", 0),
+                        "w": entry.get("w", 12),
+                        "h": entry.get("h", 6),
+                        "z_index": entry.get("z_index", 1),
+                        "opacity": entry.get("opacity", 100),
+                    }
+                )
         all_widgets = db.exec(select(Widget).order_by(Widget.name)).all()
     aspect_ratio = screen.aspect_ratio if screen else "16:9"
     aspect_ratio_css = _ASPECT_CSS.get(aspect_ratio, "16 / 9")
@@ -104,6 +140,7 @@ async def view_add_widget(request: Request, view_id: int, widget_id: int = Form(
         widgets_list = layout.get("widgets", [])
         if not any(w["widget_id"] == widget_id for w in widgets_list):
             next_y = max((w.get("y", 0) + w.get("h", 6) for w in widgets_list), default=0)
+            top_z = max((w.get("z_index", 1) for w in widgets_list), default=0) + 1
             widgets_list.append(
                 {
                     "widget_id": widget_id,
@@ -111,11 +148,60 @@ async def view_add_widget(request: Request, view_id: int, widget_id: int = Form(
                     "y": next_y,
                     "w": 12,
                     "h": 6,
-                    "z_index": 1,
+                    "z_index": top_z,
                     "opacity": 100,
                 }
             )
         layout["widgets"] = widgets_list
+        view.layout_json = layout
+        flag_modified(view, "layout_json")
+        view.updated_at = datetime.utcnow()
+        db.add(view)
+        db.commit()
+    return RedirectResponse(f"/admin/views/{view_id}", status_code=302)
+
+
+@router.post("/views/{view_id}/inline/add")
+async def view_add_inline(request: Request, view_id: int, kind: str = Form(...)):
+    if kind not in _INLINE_DEFAULTS:
+        return HTMLResponse("Okänd inline-typ.", status_code=400)
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if not view:
+            return HTMLResponse("Vyn hittades inte.", status_code=404)
+        layout = copy.deepcopy(view.layout_json or {"widgets": []})
+        inline_id = "inline-" + uuid.uuid4().hex[:8]
+        existing = layout.setdefault("widgets", [])
+        top_z = max((w.get("z_index", 1) for w in existing), default=0) + 1
+        existing.append(
+            {
+                "inline_id": inline_id,
+                "kind": kind,
+                "config": copy.deepcopy(_INLINE_DEFAULTS[kind]),
+                "x": 0,
+                "y": 0,
+                "w": 4,
+                "h": 3,
+                "z_index": top_z,
+                "opacity": 100,
+            }
+        )
+        view.layout_json = layout
+        flag_modified(view, "layout_json")
+        view.updated_at = datetime.utcnow()
+        db.add(view)
+        db.commit()
+    return RedirectResponse(f"/admin/views/{view_id}", status_code=302)
+
+
+@router.post("/views/{view_id}/inline/{inline_id}/remove")
+async def view_remove_inline(request: Request, view_id: int, inline_id: str):
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if not view:
+            return HTMLResponse("Vyn hittades inte.", status_code=404)
+        layout = copy.deepcopy(view.layout_json or {"widgets": []})
+        layout["widgets"] = [w for w in layout.get("widgets", []) if w.get("inline_id") != inline_id]
         view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
@@ -132,21 +218,35 @@ async def view_save_layout(request: Request, view_id: int):
         view = db.get(View, view_id)
         if not view:
             return JSONResponse({"error": "Vyn hittades inte."}, status_code=404)
-        layout = {
-            "widgets": [
-                {
-                    "widget_id": int(w["widget_id"]),
-                    "x": int(w["x"]),
-                    "y": int(w["y"]),
-                    "w": int(w["w"]),
-                    "h": int(w["h"]),
-                    "z_index": max(1, min(20, int(w.get("z_index", 1)))),
-                    "opacity": max(0, min(100, int(w.get("opacity", 100)))),
-                }
-                for w in widgets
-            ]
-        }
-        view.layout_json = layout
+        result: list[dict] = []
+        for w in widgets:
+            if "inline_id" in w:
+                result.append(
+                    {
+                        "inline_id": str(w["inline_id"]),
+                        "kind": str(w["kind"]),
+                        "config": w.get("config") or {},
+                        "x": int(w["x"]),
+                        "y": int(w["y"]),
+                        "w": int(w["w"]),
+                        "h": int(w["h"]),
+                        "z_index": max(1, min(20, int(w.get("z_index", 1)))),
+                        "opacity": max(0, min(100, int(w.get("opacity", 100)))),
+                    }
+                )
+            else:
+                result.append(
+                    {
+                        "widget_id": int(w["widget_id"]),
+                        "x": int(w["x"]),
+                        "y": int(w["y"]),
+                        "w": int(w["w"]),
+                        "h": int(w["h"]),
+                        "z_index": max(1, min(20, int(w.get("z_index", 1)))),
+                        "opacity": max(0, min(100, int(w.get("opacity", 100)))),
+                    }
+                )
+        view.layout_json = {"widgets": result}
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
         db.add(view)
