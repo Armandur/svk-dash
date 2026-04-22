@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -96,6 +97,25 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
     )
 
 
+def _update_heartbeat(screen_id: int) -> None:
+    with get_session() as db:
+        screen = db.get(Screen, screen_id)
+        if screen:
+            screen.last_seen_at = datetime.utcnow()
+            screen.last_connection_count = sse_registry.connection_count(screen_id)
+            db.add(screen)
+            db.commit()
+
+
+def _update_connection_count(screen_id: int) -> None:
+    with get_session() as db:
+        screen = db.get(Screen, screen_id)
+        if screen:
+            screen.last_connection_count = sse_registry.connection_count(screen_id)
+            db.add(screen)
+            db.commit()
+
+
 @router.get("/s/{slug}/events")
 async def kiosk_events(request: Request, slug: str):
     with get_session() as db:
@@ -105,6 +125,7 @@ async def kiosk_events(request: Request, slug: str):
         screen_id = screen.id
 
     q = sse_registry.register(screen_id)
+    _update_heartbeat(screen_id)
 
     async def event_generator():
         try:
@@ -114,10 +135,11 @@ async def kiosk_events(request: Request, slug: str):
                     event = await asyncio.wait_for(q.get(), timeout=30)
                     yield {"event": event.get("type", "message"), "data": json.dumps(event)}
                 except TimeoutError:
-                    # keepalive — håller proxier och klienter vakna
+                    _update_heartbeat(screen_id)
                     yield {"comment": "keepalive"}
         finally:
             sse_registry.unregister(screen_id, q)
+            _update_connection_count(screen_id)
 
     return EventSourceResponse(event_generator())
 

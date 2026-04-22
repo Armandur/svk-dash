@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
+from app import sse as sse_registry
 from app.database import get_session
 from app.deps import require_admin
 from app.models import Screen, View
@@ -12,12 +13,40 @@ from app.templating import templates
 router = APIRouter(dependencies=[Depends(require_admin)])
 
 
+def _screen_status(screen: Screen, now: datetime) -> dict:
+    conn_count = sse_registry.connection_count(screen.id)
+    if conn_count > 0:
+        status = "online"
+    elif screen.last_seen_at and (now - screen.last_seen_at).total_seconds() < 900:
+        status = "recent"
+    elif screen.last_seen_at:
+        status = "offline"
+    else:
+        status = "never"
+
+    last_seen_str = None
+    if screen.last_seen_at:
+        delta_s = int((now - screen.last_seen_at).total_seconds())
+        if delta_s < 60:
+            last_seen_str = "nyss"
+        elif delta_s < 3600:
+            last_seen_str = f"{delta_s // 60} min sedan"
+        else:
+            last_seen_str = f"{delta_s // 3600} tim sedan"
+
+    return {"screen": screen, "status": status, "conn_count": conn_count, "last_seen": last_seen_str}
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     with get_session() as db:
         screens = db.exec(select(Screen).order_by(Screen.name)).all()
+    now = datetime.utcnow()
+    screen_statuses = [_screen_status(s, now) for s in screens]
     return HTMLResponse(
-        templates.get_template("admin/index.html").render(request=request, screens=screens)
+        templates.get_template("admin/index.html").render(
+            request=request, screen_statuses=screen_statuses
+        )
     )
 
 
