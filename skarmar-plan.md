@@ -500,7 +500,7 @@ Milstolpe: admin kan dra och ändra storlek på widgets i en vy och se dem place
 
 ### Fas 2 — kalendrar och drift-observabilitet
 
-- [ ] **Inline text/rubrik-block**: en enkel widget-typ (`text`) utan edit-token som redigeras direkt i vy-editorn (inte via widget-biblioteket). Tanken är att man ska kunna lägga till rubriker, etiketter och korta texter utan att behöva skapa en namngiven widget-instans i biblioteket. Konfigurationen (text, teckenstorlek, färg, justering) sparas direkt i `layout_json` på vyn, inte i `Widget`-tabellen.
+- [ ] **Inline-widgets** — refaktorera arkitekturen så att enkla widgets (klocka, text/rubrik) inte kräver en post i `Widget`-tabellen eller edit-token. Konfigurationen sparas direkt i `layout_json` på vyn och redigeras i vy-editorn. Biblioteks-widgets (ICS, markdown med delegerad redigering, slideshow) behåller nuvarande modell. Distinktionen: inline = vy-specifik config, bibliotek = delas/redigeras externt.
 - [ ] `ics_list`-widget med server-side cache och RRULE-expansion
 - [ ] Multi-källa-stöd (flera ICS-URL:er i samma lista, färgkodade)
 - [ ] `ics_month`-widget
