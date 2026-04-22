@@ -151,8 +151,6 @@
   .layer-handle { cursor:grab; color:#94a3b8; font-size:15px; flex-shrink:0; }
   .layer-name   { flex:1; font-weight:500; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .layer-kind   { color:#94a3b8; font-size:0.65rem; flex-shrink:0; }
-  .layer-opwrap { display:flex; align-items:center; gap:2px; flex-shrink:0; }
-  .layer-opwrap input { width:34px; border:1px solid #e2e8f0; border-radius:3px; padding:1px 2px; font-size:10px; text-align:center; }
 </style>
 {% endblock %}
 
@@ -307,6 +305,13 @@
                 </div>
               </div>
               {% endif %}
+              <div style="margin-top:8px;padding-top:6px;border-top:1px solid #1e293b">
+                <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:3px">Opacitet</div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <input type="range" class="wc-opacity" min="0" max="100" step="5" value="{{ entry.opacity }}" style="flex:1;accent-color:#60a5fa">
+                  <span class="wc-opval" style="font-size:0.7rem;color:#e2e8f0;width:2.5em;text-align:right">{{ entry.opacity }}%</span>
+                </div>
+              </div>
             </div>
             <form method="post" action="/admin/views/{{ view.id }}/inline/{{ entry.inline_id }}/remove" style="margin:0">
               <button type="submit" class="wc-danger">Ta bort från vy</button>
@@ -346,6 +351,13 @@
             <a href="/admin/widgets/{{ entry.widget.id }}">Redigera widget</a>
             <div class="wc-sep"></div>
             {% endif %}
+            <div style="padding:8px 12px;border-bottom:1px solid #334155">
+              <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:3px">Opacitet</div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="range" class="wc-opacity" min="0" max="100" step="5" value="{{ entry.opacity }}" style="flex:1;accent-color:#60a5fa">
+                <span class="wc-opval" style="font-size:0.7rem;color:#e2e8f0;width:2.5em;text-align:right">{{ entry.opacity }}%</span>
+              </div>
+            </div>
             <form method="post" action="/admin/views/{{ view.id }}/widgets/{{ entry.widget_id }}/remove" style="margin:0">
               <button type="submit" class="wc-danger">Ta bort från vy</button>
             </form>
@@ -390,9 +402,6 @@
             {%- if entry.is_inline -%}{{ entry.kind }}
             {%- elif entry.widget -%}{{ entry.widget.kind }}{%- endif -%}
           </span>
-          <div class="layer-opwrap" title="Opacitet (%)">
-            <input type="number" class="lyr-opacity" min="0" max="100" step="5" value="{{ entry.opacity }}">%
-          </div>
         </li>
         {% endfor %}
       </ul>
@@ -547,14 +556,29 @@
     setDirty();
   });
   gridEl.addEventListener('input', e => {
+    // Textarea i inline config
     const field = e.target.closest('.icfg-field');
-    if (!field || field.tagName !== 'TEXTAREA') return;
-    const card = field.closest('.widget-card');
-    if (!card || !card.dataset.inlineId) return;
-    const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
-    cfg[field.dataset.cfgKey] = field.value;
-    card.dataset.inlineConfig = JSON.stringify(cfg);
-    setDirty();
+    if (field && field.tagName === 'TEXTAREA') {
+      const card = field.closest('.widget-card');
+      if (card && card.dataset.inlineId) {
+        const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
+        cfg[field.dataset.cfgKey] = field.value;
+        card.dataset.inlineConfig = JSON.stringify(cfg);
+        setDirty();
+      }
+      return;
+    }
+    // Opacitetsreglage
+    const opInput = e.target.closest('.wc-opacity');
+    if (opInput) {
+      const card = opInput.closest('.widget-card');
+      if (!card) return;
+      card.dataset.opacity = opInput.value;
+      applyCard(card);
+      const opval = opInput.nextElementSibling;
+      if (opval) opval.textContent = opInput.value + '%';
+      setDirty();
+    }
   });
 
   // ── Lagerpanel ───────────────────────────────────────
@@ -574,12 +598,6 @@
       const t=e.target.closest('.layer-item');
       layerList.querySelectorAll('.layer-over').forEach(el=>el.classList.remove('layer-over'));
       if(t&&t!==lyrDrag){ t.classList.add('layer-over'); const r=t.getBoundingClientRect(); e.clientY<r.top+r.height/2?layerList.insertBefore(lyrDrag,t):t.after(lyrDrag); }
-    });
-    layerList.addEventListener('change', e=>{
-      if(!e.target.classList.contains('lyr-opacity')) return;
-      const item=e.target.closest('.layer-item');
-      const card=cardForItem(item);
-      if(card){card.dataset.opacity=e.target.value; applyCard(card); setDirty();}
     });
     function cardForItem(item) {
       if(item.dataset.inlineId) return gridEl.querySelector(`[data-inline-id="${item.dataset.inlineId}"]`);
@@ -601,13 +619,7 @@
     try {
       const widgets=[];
       gridEl.querySelectorAll('.widget-card').forEach(card=>{
-        let opacity=+card.dataset.opacity;
-        if(layerList){
-          const li = card.dataset.inlineId
-            ? layerList.querySelector(`[data-inline-id="${card.dataset.inlineId}"]`)
-            : layerList.querySelector(`[data-widget-id="${card.dataset.widgetId}"]`);
-          if(li) opacity=+(li.querySelector('.lyr-opacity')?.value??opacity);
-        }
+        const opacity=+card.dataset.opacity;
         if(card.dataset.inlineId){
           widgets.push({
             inline_id:card.dataset.inlineId, kind:card.dataset.inlineKind,
