@@ -110,12 +110,12 @@
     font-size: 1.1rem; line-height: 1; padding: 0 2px;
   }
   .wc-modal-close:hover { color: #e2e8f0; }
-  .wc-dropdown a, .wc-dropdown button {
+  .wc-dropdown a, .wc-dropdown button:not(.wc-modal-close) {
     display: block; width: 100%; text-align: left;
     padding: 8px 12px; font-size: 0.75rem; color: #e2e8f0;
     background: none; border: none; cursor: pointer; text-decoration: none;
   }
-  .wc-dropdown a:hover, .wc-dropdown button:hover { background: #334155; }
+  .wc-dropdown a:hover, .wc-dropdown button:not(.wc-modal-close):hover { background: #334155; }
   .wc-sep { height: 1px; background: #334155; }
   .wc-danger { color: #f87171 !important; }
 
