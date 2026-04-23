@@ -240,9 +240,12 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append('</div>')
 
     # Tidsblock-sektion
-    parts.append('<div class="isch-time-col" style="position:relative;">')
+    now_time_attrs = f' data-now-start="{start_hour}" data-now-end="{end_hour}"' if today in days else ""
+    parts.append(f'<div class="isch-time-col" style="position:relative;"{now_time_attrs}>')
     for label in hour_labels:
         parts.append(label)
+    if today in days:
+        parts.append('<div class="isch-now-dot"></div>')
     parts.append('</div>')
 
     for dd in day_data:

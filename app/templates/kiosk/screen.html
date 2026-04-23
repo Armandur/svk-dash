@@ -107,10 +107,12 @@
       box-shadow: 0 0 4px rgba(239,68,68,0.7);
       pointer-events:none; z-index:10;
     }
-    .isch-now-line::before {
-      content:''; position:absolute; left:-3px; top:-3px;
-      width:8px; height:8px; border-radius:50%;
-      background:#ef4444;
+    .isch-now-dot {
+      position:absolute; right:-4px; width:8px; height:8px;
+      border-radius:50%; background:#ef4444;
+      box-shadow: 0 0 4px rgba(239,68,68,0.7);
+      transform:translateY(-50%);
+      pointer-events:none; z-index:11;
     }
     .widget-ics-schedule.ics-sm { font-size:clamp(7px,1.2cqh,10px); }
     .widget-ics-schedule.ics-lg { font-size:clamp(9px,1.9cqh,14px); }

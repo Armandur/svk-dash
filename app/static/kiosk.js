@@ -135,18 +135,17 @@
     var now = new Date();
     var nowMin = now.getHours() * 60 + now.getMinutes();
     document.querySelectorAll('[data-now-start]').forEach(function (col) {
-      var line = col.querySelector('.isch-now-line');
-      if (!line) return;
       var startH = parseInt(col.dataset.nowStart, 10);
       var endH   = parseInt(col.dataset.nowEnd, 10);
       var totalMin = (endH - startH) * 60;
       var offset   = nowMin - startH * 60;
-      if (offset < 0 || offset > totalMin) {
-        line.style.display = 'none';
-      } else {
-        line.style.display = '';
-        line.style.top = (100 * offset / totalMin).toFixed(4) + '%';
-      }
+      var topPct   = (100 * offset / totalMin).toFixed(4) + '%';
+      var hidden   = offset < 0 || offset > totalMin;
+
+      var line = col.querySelector('.isch-now-line');
+      var dot  = col.querySelector('.isch-now-dot');
+      if (line) { line.style.display = hidden ? 'none' : ''; if (!hidden) line.style.top = topPct; }
+      if (dot)  { dot.style.display  = hidden ? 'none' : ''; if (!hidden) dot.style.top  = topPct; }
     });
   }
 
