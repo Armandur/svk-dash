@@ -1,5 +1,16 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ widget.name }}{% endblock %}
+
+{% macro color_picker(field, value, default='#000000') %}
+{%- set v = value if value else default -%}
+<div class="color-picker-wrap flex items-center gap-1.5">
+  <input type="color" class="color-swatch h-8 w-8 rounded border border-gray-300 cursor-pointer p-0.5 flex-shrink-0" value="{{ v }}">
+  <input type="text" data-field="{{ field }}" value="{{ v }}"
+         class="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm font-mono"
+         maxlength="7" placeholder="#rrggbb">
+</div>
+{% endmacro %}
+
 {% block content %}
 <div class="mb-6 flex items-center gap-3">
   <a href="/admin/widgets" class="text-sm text-gray-500 hover:text-gray-900">← Widgets</a>
@@ -125,8 +136,7 @@ function removeIcsUrl(btn) {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
-            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
-                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+            {{ color_picker('free_color', cfg.get('free_color', '#f59e0b'), '#f59e0b') }}
           </div>
           <div class="flex flex-col justify-end gap-1">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -219,8 +229,7 @@ function removeIcsUrl(btn) {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
-            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
-                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+            {{ color_picker('free_color', cfg.get('free_color', '#f59e0b'), '#f59e0b') }}
           </div>
           <div class="flex flex-col justify-end gap-1">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -317,8 +326,7 @@ function removeIcsUrl(btn) {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
-            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
-                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+            {{ color_picker('free_color', cfg.get('free_color', '#f59e0b'), '#f59e0b') }}
           </div>
           <div class="flex flex-col justify-end gap-1">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -454,8 +462,7 @@ function removeIcsUrl(btn) {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
-            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
-                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+            {{ color_picker('free_color', cfg.get('free_color', '#f59e0b'), '#f59e0b') }}
           </div>
           <div class="flex flex-col justify-end gap-1">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -587,8 +594,7 @@ function removeIcsUrl(btn) {
           </label>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Textfärg</label>
-            <input type="color" data-field="color" value="{{ cfg.get('color', '#ffffff') }}"
-                   class="w-12 h-8 border border-gray-300 rounded cursor-pointer">
+            {{ color_picker('color', cfg.get('color', '#ffffff'), '#ffffff') }}
           </div>
         </div>
 
@@ -596,8 +602,7 @@ function removeIcsUrl(btn) {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Färg</label>
-            <input type="color" data-field="color" value="{{ cfg.get('color', '#1e3a5f') }}"
-                   class="w-full h-10 border border-gray-300 rounded cursor-pointer">
+            {{ color_picker('color', cfg.get('color', '#1e3a5f'), '#1e3a5f') }}
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Hörnradius (px)</label>
@@ -728,6 +733,17 @@ function removeIcsUrl(btn) {
 </div>
 
 <script>
+// Color picker sync: swatch ↔ hex input
+document.querySelectorAll('.color-picker-wrap').forEach(function(wrap) {
+  var swatch = wrap.querySelector('.color-swatch');
+  var hex = wrap.querySelector('[data-field]');
+  if (!swatch || !hex) return;
+  swatch.addEventListener('input', function() { hex.value = this.value; });
+  hex.addEventListener('input', function() {
+    if (/^#[0-9a-fA-F]{6}$/.test(this.value)) swatch.value = this.value;
+  });
+});
+
 document.getElementById('widget-form').addEventListener('submit', function(e) {
   var fields = this.querySelectorAll('[data-field]');
   var urlInputs = this.querySelectorAll('[data-ics-url]');
