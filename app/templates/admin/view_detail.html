@@ -649,29 +649,37 @@
   }
 
   // ── Spara ────────────────────────────────────────────
+  function collectWidgets() {
+    const widgets=[];
+    gridEl.querySelectorAll('.widget-card').forEach(card=>{
+      const opacity=+card.dataset.opacity;
+      if(card.dataset.inlineId){
+        widgets.push({
+          inline_id:card.dataset.inlineId, kind:card.dataset.inlineKind,
+          config:JSON.parse(card.dataset.inlineConfig||'{}'),
+          x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h,
+          z_index:+card.dataset.z, opacity
+        });
+      } else {
+        widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
+      }
+    });
+    return widgets;
+  }
+
+  async function saveLayout() {
+    const widgets = collectWidgets();
+    const resp=await fetch('/admin/views/{{ view.id }}/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({widgets})});
+    if(resp.ok && !resp.redirected){ clearDirty(); return true; }
+    return false;
+  }
+
   btn.addEventListener('click', async ()=>{
     btn.disabled=true; btn.textContent='Sparar…';
     try {
-      const widgets=[];
-      gridEl.querySelectorAll('.widget-card').forEach(card=>{
-        const opacity=+card.dataset.opacity;
-        if(card.dataset.inlineId){
-          widgets.push({
-            inline_id:card.dataset.inlineId, kind:card.dataset.inlineKind,
-            config:JSON.parse(card.dataset.inlineConfig||'{}'),
-            x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h,
-            z_index:+card.dataset.z, opacity
-          });
-        } else {
-          widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
-        }
-      });
-      console.log('Sparar layout:', JSON.stringify({widgets}));
-      const resp=await fetch('/admin/views/{{ view.id }}/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({widgets})});
-      console.log('Svar:', resp.status, resp.redirected, resp.url);
-      if(resp.ok && !resp.redirected){ clearDirty(); status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
-      else if(resp.redirected){ status.textContent='Session utgången – ladda om sidan.'; status.className='text-xs mt-2 text-center text-red-500'; }
-      else { status.textContent='Fel vid sparande ('+resp.status+').'; status.className='text-xs mt-2 text-center text-red-500'; }
+      const ok = await saveLayout();
+      if(ok){ status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
+      else { status.textContent='Fel vid sparande.'; status.className='text-xs mt-2 text-center text-red-500'; }
     } catch(err) {
       console.error('Sparfel:', err);
       status.textContent='Fel: '+err.message;
@@ -682,6 +690,17 @@
       setTimeout(()=>status.classList.add('hidden'),3000);
     }
   });
+
+  // Auto-spara layout om dirty när vy-inställningar sparas
+  const settingsForm = document.querySelector('form[action="/admin/views/{{ view.id }}/edit"]');
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', async e => {
+      if (!isDirty) return;
+      e.preventDefault();
+      try { await saveLayout(); } catch(_) {}
+      settingsForm.submit();
+    });
+  }
 })();
 </script>
 {% endblock %}
