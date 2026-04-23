@@ -18,6 +18,35 @@ router = APIRouter()
 _VERSION = "dev"
 
 
+def _active_assignment(assignments, now: datetime):
+    """Väljer den mest prioriterade aktiva tilldelningen baserat på schema."""
+    active = []
+    current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))]
+    current_time = now.strftime("%H:%M")
+
+    for a in assignments:
+        # Veckodagar
+        if a.weekdays:
+            days = [d.strip() for d in a.weekdays.split(",")]
+            if current_day not in days:
+                continue
+
+        # Tid
+        if a.time_start and current_time < a.time_start:
+            continue
+        if a.time_end and current_time >= a.time_end:
+            continue
+
+        active.append(a)
+
+    if not active:
+        return None
+
+    # Sortera på prioritet (högst först)
+    active.sort(key=lambda x: x.priority, reverse=True)
+    return active[0]
+
+
 def _render_view(view: View, context: dict, db) -> dict:
     layout = view.layout_json or {"widgets": []}
     rendered_widgets = []
@@ -55,6 +84,9 @@ def _render_view(view: View, context: dict, db) -> dict:
         "name": view.name,
         "position": view.position,
         "duration_seconds": view.duration_seconds,
+        "schedule_weekdays": view.schedule_weekdays,
+        "schedule_time_start": view.schedule_time_start,
+        "schedule_time_end": view.schedule_time_end,
         "widgets": rendered_widgets,
         "grid_cols": view.grid_cols,
         "grid_rows": view.grid_rows,
@@ -75,9 +107,12 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
         }
 
         # Kolla om skärmen har en layout
-        assignment = db.exec(
+        assignments = db.exec(
             select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen.id)
-        ).first()
+        ).all()
+
+        now = datetime.now()
+        assignment = _active_assignment(assignments, now)
 
         zones_rendered = None
         layout = None
@@ -140,6 +175,9 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     "position": v["position"],
                     "name": v["name"],
                     "duration_seconds": v["duration_seconds"],
+                    "schedule_weekdays": v["schedule_weekdays"],
+                    "schedule_time_start": v["schedule_time_start"],
+                    "schedule_time_end": v["schedule_time_end"],
                 }
                 for v in z["views"]
             ]
@@ -154,6 +192,9 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                 "position": v["position"],
                 "name": v["name"],
                 "duration_seconds": v["duration_seconds"],
+                "schedule_weekdays": v["schedule_weekdays"],
+                "schedule_time_start": v["schedule_time_start"],
+                "schedule_time_end": v["schedule_time_end"],
             }
             for v in views
         ]

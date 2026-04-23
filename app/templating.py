@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
@@ -8,4 +9,5 @@ templates = Environment(
     autoescape=select_autoescape(["html"]),
 )
 
+templates.globals["now_local"] = datetime.now
 templates.filters["tojson"] = lambda v: Markup(json.dumps(v, ensure_ascii=False))

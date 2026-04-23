@@ -3,25 +3,39 @@
 
   // --- Vy-rotation (Zon-baserad eller Legacy) ---
 
-  let zoneStates = {}; // zoneId -> { currentIdx, timer, paused }
+  let zoneStates = {}; // zoneId -> { currentIdx, timer, paused, activeViews, lastActiveKey }
   let legacyState = { currentPosition: 0, timer: null, paused: false };
   let isLegacy = (typeof KIOSK_ZONES === 'undefined' || KIOSK_ZONES === null);
   let isPaused = false;
 
+  function _isViewActive(view, now) {
+    if (view.schedule_weekdays) {
+      const days = view.schedule_weekdays.split(',').map(d => d.trim());
+      const currentDay = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
+      if (!days.includes(currentDay)) return false;
+    }
+    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    if (view.schedule_time_start && currentTime < view.schedule_time_start) return false;
+    if (view.schedule_time_end && currentTime >= view.schedule_time_end) return false;
+    return true;
+  }
+
   function initRotation() {
     if (!isLegacy) {
       KIOSK_ZONES.forEach(function(zone) {
-        if (zone.role === 'schedulable' && zone.views && zone.views.length > 1) {
+        if (zone.role === 'schedulable' && zone.views && zone.views.length > 0) {
           zoneStates[zone.id] = {
             currentIdx: 0,
             timer: null,
-            paused: false
+            paused: false,
+            activeViews: [],
+            lastActiveKey: ''
           };
           scheduleZone(zone.id);
         }
       });
     } else {
-      if (LEGACY_VIEWS && LEGACY_VIEWS.length > 1) {
+      if (LEGACY_VIEWS && LEGACY_VIEWS.length > 0) {
         scheduleLegacy();
       }
     }
@@ -34,11 +48,13 @@
     if (!zone || !zoneStates[zoneId]) return;
 
     const state = zoneStates[zoneId];
-    const prevIdx = state.currentIdx;
-    state.currentIdx = idx;
+    const views = state.activeViews || zone.views;
+    if (!views.length) return;
 
-    const views = zone.views;
-    const nextView = views[idx];
+    const prevIdx = state.currentIdx;
+    state.currentIdx = idx % views.length;
+
+    const nextView = views[state.currentIdx];
     const nextEl = document.getElementById('z' + zoneId + '-v' + nextView.position);
     if (!nextEl) return;
 
@@ -114,30 +130,59 @@
     clearTimeout(state.timer);
     if (state.paused) return;
 
-    const currentView = zone.views[state.currentIdx];
+    // Filtrera aktiva vyer
+    const now = new Date();
+    const activeViews = zone.views.filter(v => _isViewActive(v, now));
+    const activeKey = JSON.stringify(activeViews.map(v => v.position));
+
+    if (activeViews.length === 0) {
+      state.activeViews = [];
+      state.lastActiveKey = '';
+      return; // Inga aktiva vyer, behåll nuvarande (om någon) stilla
+    }
+
+    if (activeKey !== state.lastActiveKey) {
+      state.activeViews = activeViews;
+      state.lastActiveKey = activeKey;
+      state.currentIdx = 0;
+      showZoneView(zoneId, 0);
+    }
+
+    const currentView = state.activeViews[state.currentIdx];
     const duration = currentView.duration_seconds || zone.rotation_seconds || 30;
     state.nextAt = Date.now() + duration * 1000;
 
     state.timer = setTimeout(function() {
-      const nextIdx = (state.currentIdx + 1) % zone.views.length;
+      const nextIdx = (state.currentIdx + 1) % state.activeViews.length;
       showZoneView(zoneId, nextIdx);
       scheduleZone(zoneId);
     }, duration * 1000);
   }
 
+  function checkSchedules() {
+    if (isLegacy) return;
+    KIOSK_ZONES.forEach(function(zone) {
+      if (zone.role === 'schedulable' && zoneStates[zone.id]) {
+        scheduleZone(zone.id);
+      }
+    });
+  }
+
+  setInterval(checkSchedules, 60000);
+
   function nextZoneView(zoneId) {
     const zone = KIOSK_ZONES.find(z => z.id === zoneId);
     const state = zoneStates[zoneId];
-    if (!zone || !state) return;
-    const nextIdx = (state.currentIdx + 1) % zone.views.length;
+    if (!zone || !state || !state.activeViews.length) return;
+    const nextIdx = (state.currentIdx + 1) % state.activeViews.length;
     showZoneView(zoneId, nextIdx);
   }
 
   function prevZoneView(zoneId) {
     const zone = KIOSK_ZONES.find(z => z.id === zoneId);
     const state = zoneStates[zoneId];
-    if (!zone || !state) return;
-    const prevIdx = (state.currentIdx - 1 + zone.views.length) % zone.views.length;
+    if (!zone || !state || !state.activeViews.length) return;
+    const prevIdx = (state.currentIdx - 1 + state.activeViews.length) % state.activeViews.length;
     showZoneView(zoneId, prevIdx);
   }
 

@@ -12,6 +12,7 @@ from app.routes.admin import router as admin_router
 from app.routes.edit import router as edit_router
 from app.routes.kiosk import router as kiosk_router
 from app.services.ics_fetcher import start_refresh_loop
+from app.services.layout_scheduler import start_layout_scheduler
 from app.services.screen_monitor import start_monitor_loop
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(start_refresh_loop()),
         asyncio.create_task(start_monitor_loop()),
+        asyncio.create_task(start_layout_scheduler()),
     ]
     yield
     for task in tasks:

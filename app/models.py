@@ -26,6 +26,9 @@ class View(SQLModel, table=True):
     grid_cols: int = 12
     grid_rows: int = 9
     layout_json: Any = Field(default_factory=dict, sa_column=Column(JSON))
+    schedule_weekdays: str | None = None   # t.ex. 'mon,tue,wed,thu,fri' eller None = alltid aktiv
+    schedule_time_start: str | None = None  # 'HH:MM' eller None
+    schedule_time_end: str | None = None    # 'HH:MM' eller None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

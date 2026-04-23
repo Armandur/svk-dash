@@ -59,6 +59,33 @@
         </div>
       </div>
 
+      <!-- Layout-schema -->
+      <form method="post" action="/admin/screens/{{ screen.id }}/layout/schedule"
+            class="bg-gray-50 rounded p-3 text-xs mb-4">
+        <h3 class="font-semibold text-[10px] uppercase text-gray-400 mb-2 tracking-wider">Schema för denna layout-tilldelning</h3>
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div class="flex items-center gap-2">
+            {% for day_code, day_name in [('mon','Mån'), ('tue','Tis'), ('wed','Ons'), ('thu','Tor'), ('fri','Fre'), ('sat','Lör'), ('sun','Sön')] %}
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" name="weekdays" value="{{ day_code }}"
+                     {% if assignment.weekdays and day_code in assignment.weekdays.split(',') %}checked{% endif %}
+                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+              <span>{{ day_name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-gray-500">Tid:</span>
+            <input type="time" name="time_start" value="{{ assignment.time_start or '' }}"
+                   class="border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 outline-none">
+            <span class="text-gray-400">–</span>
+            <input type="time" name="time_end" value="{{ assignment.time_end or '' }}"
+                   class="border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 outline-none">
+            <button type="submit" class="ml-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors font-medium">Spara schema</button>
+          </div>
+        </div>
+      </form>
+
       <!-- Layout-preview: klickbara zoner, drop-target för legacy-vyer -->
       {% if zones %}
       <div id="layout-preview" style="position:relative; width:100%; aspect-ratio:{{ layout.aspect_ratio.replace(':', '/') }};

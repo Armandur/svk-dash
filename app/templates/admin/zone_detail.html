@@ -102,43 +102,74 @@
     <div class="bg-white rounded-lg shadow p-5">
       <h2 class="font-semibold text-sm mb-4">Vyer i denna zon</h2>
 
-      {% if views %}
-      <div class="space-y-2 mb-4">
+      <div class="space-y-3 mb-4">
         {% for view in views %}
-        <div class="flex items-center justify-between border border-gray-200 rounded px-3 py-2 hover:border-gray-300 transition-colors">
-          <div>
-            <span class="text-sm font-medium">{{ view.position + 1 }}. {{ view.name }}</span>
-            {% if view.duration_seconds %}
-            <span class="ml-2 text-xs text-gray-500">{{ view.duration_seconds }}s</span>
-            {% else %}
-            <span class="ml-2 text-xs text-gray-400">standard</span>
-            {% endif %}
+        <div class="border border-gray-200 rounded p-3 hover:border-gray-300 transition-colors">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-sm font-medium">{{ view.position + 1 }}. {{ view.name }}</span>
+              {% if view.duration_seconds %}
+              <span class="ml-2 text-xs text-gray-500">{{ view.duration_seconds }}s</span>
+              {% else %}
+              <span class="ml-2 text-xs text-gray-400">standard</span>
+              {% endif %}
+
+              {% set is_active = True %}
+              {% if view.schedule_weekdays or view.schedule_time_start or view.schedule_time_end %}
+                {% set now = now_local() %}
+                {% set current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))] %}
+                {% set current_time = now.strftime("%H:%M") %}
+                {% if view.schedule_weekdays and current_day not in view.schedule_weekdays.split(',') %}{% set is_active = False %}{% endif %}
+                {% if view.schedule_time_start and current_time < view.schedule_time_start %}{% set is_active = False %}{% endif %}
+                {% if view.schedule_time_end and current_time >= view.schedule_time_end %}{% set is_active = False %}{% endif %}
+              {% endif %}
+
+              {% if is_active %}
+              <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">Aktiv nu</span>
+              {% else %}
+              <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">Inaktiv</span>
+              {% endif %}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <a href="/admin/views/{{ view.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
+              <form method="post"
+                    action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/detach"
+                    class="inline" title="Koppla loss från zon — vyn hamnar i 'Vyer utan zon'">
+                <button type="submit" class="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">Koppla loss</button>
+              </form>
+              <form method="post"
+                    action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/delete"
+                    onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">
+                <button type="submit" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Ta bort</button>
+              </form>
+            </div>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <a href="/admin/views/{{ view.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
-            <form method="post"
-                  action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/detach"
-                  class="inline" title="Koppla loss från zon — vyn hamnar i 'Vyer utan zon'">
-              <button type="submit" class="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">Koppla loss</button>
-            </form>
-            {% if other_zones %}
-            <form method="post"
-                  action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/move"
-                  class="inline flex items-center gap-1">
-              <select name="target_zone_id" class="text-xs border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
-                {% for z in other_zones %}
-                <option value="{{ z.id }}">{{ z.name }}</option>
+
+          <!-- Schema-formulär -->
+          <form method="post" action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule"
+                class="bg-gray-50 rounded p-2 text-xs">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div class="flex items-center gap-2">
+                {% for day_code, day_name in [('mon','Mån'), ('tue','Tis'), ('wed','Ons'), ('thu','Tor'), ('fri','Fre'), ('sat','Lör'), ('sun','Sön')] %}
+                <label class="flex items-center gap-1 cursor-pointer">
+                  <input type="checkbox" name="weekdays" value="{{ day_code }}"
+                         {% if view.schedule_weekdays and day_code in view.schedule_weekdays.split(',') %}checked{% endif %}
+                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span>{{ day_name }}</span>
+                </label>
                 {% endfor %}
-              </select>
-              <button type="submit" class="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">Flytta</button>
-            </form>
-            {% endif %}
-            <form method="post"
-                  action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/delete"
-                  onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">
-              <button type="submit" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Ta bort</button>
-            </form>
-          </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-gray-500">Tid:</span>
+                <input type="time" name="time_start" value="{{ view.schedule_time_start or '' }}"
+                       class="border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none">
+                <span class="text-gray-400">–</span>
+                <input type="time" name="time_end" value="{{ view.schedule_time_end or '' }}"
+                       class="border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none">
+                <button type="submit" class="ml-2 bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors">Spara schema</button>
+              </div>
+            </div>
+          </form>
         </div>
         {% endfor %}
       </div>

@@ -226,6 +226,28 @@ async def screen_remove_layout(screen_id: int):
     return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
 
 
+@router.post("/screens/{screen_id}/layout/schedule")
+async def screen_layout_schedule(
+    screen_id: int,
+    weekdays: list[str] = Form(default=[]),
+    time_start: str = Form(None),
+    time_end: str = Form(None),
+):
+    with get_session() as db:
+        assignment = db.exec(
+            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
+        ).first()
+        if not assignment:
+            return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+
+        assignment.weekdays = ",".join(weekdays) if weekdays else None
+        assignment.time_start = time_start if time_start and time_start.strip() else None
+        assignment.time_end = time_end if time_end and time_end.strip() else None
+        db.add(assignment)
+        db.commit()
+    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+
+
 # ── Zon-hantering ─────────────────────────────────────────────────────────────
 
 
@@ -338,6 +360,28 @@ async def zone_view_delete(screen_id: int, zone_id: int, view_id: int):
             db.delete(view)
             db.commit()
             _reorder_views(db, screen_id, zone_id)
+    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
+
+
+@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/schedule")
+async def zone_view_schedule(
+    screen_id: int,
+    zone_id: int,
+    view_id: int,
+    weekdays: list[str] = Form(default=[]),
+    time_start: str = Form(None),
+    time_end: str = Form(None),
+):
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if not view or view.screen_id != screen_id:
+            return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
+
+        view.schedule_weekdays = ",".join(weekdays) if weekdays else None
+        view.schedule_time_start = time_start if time_start and time_start.strip() else None
+        view.schedule_time_end = time_end if time_end and time_end.strip() else None
+        db.add(view)
+        db.commit()
     return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
 
 
