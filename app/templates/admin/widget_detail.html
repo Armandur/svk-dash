@@ -884,27 +884,39 @@ function removeIcsUrl(btn) {
     {% endif %}
 
     <!-- Revisioner -->
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="font-semibold mb-3">Revisionshistorik</h2>
-      {% if revisions %}
-      <div class="space-y-2">
-        {% for rev in revisions %}
-        <div class="flex items-start justify-between text-xs">
-          <div>
-            <div class="text-gray-700">{{ rev.saved_at.strftime('%Y-%m-%d %H:%M') }}</div>
-            <div class="text-gray-400">{{ rev.saved_via }}{% if rev.editor_ip %} · {{ rev.editor_ip }}{% endif %}</div>
-          </div>
-          <form method="post" action="/admin/widgets/{{ widget.id }}/revert/{{ rev.id }}"
-            onsubmit="return confirm('Återställ till denna version?')">
-            <button type="submit" class="text-blue-600 hover:text-blue-800">Återställ</button>
-          </form>
-        </div>
-        {% endfor %}
+    {% if revisions %}
+    <button id="open-revisions" class="w-full text-left bg-white rounded-lg shadow p-5 hover:bg-gray-50 transition-colors">
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-sm">Revisionshistorik</span>
+        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ revisions | length }}</span>
       </div>
-      {% else %}
-      <p class="text-xs text-gray-500">Ingen historik ännu.</p>
-      {% endif %}
+      <p class="text-xs text-gray-400 mt-1">Senast: {{ revisions[0].saved_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </button>
+
+    <!-- Revisionsmodal -->
+    <div id="revision-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.45)">
+      <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:480px;max-height:80vh;margin:1rem">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
+          <h2 class="font-semibold text-sm">Revisionshistorik</h2>
+          <button id="close-revisions" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="overflow-y-auto flex-1">
+          {% for rev in revisions %}
+          <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 last:border-0">
+            <div>
+              <div class="text-sm text-gray-700">{{ rev.saved_at.strftime('%Y-%m-%d %H:%M') }}</div>
+              <div class="text-xs text-gray-400">{{ rev.saved_via }}{% if rev.editor_ip %} · {{ rev.editor_ip }}{% endif %}</div>
+            </div>
+            <form method="post" action="/admin/widgets/{{ widget.id }}/revert/{{ rev.id }}"
+              onsubmit="return confirm('Återställ till denna version?')">
+              <button type="submit" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Återställ</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
+    {% endif %}
 
     <!-- ICS-cache-status -->
     {% if ics_caches %}
@@ -1112,6 +1124,18 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !mpm.classList.contains('hidden')) closeMpm(); });
 
     window.openMediaPicker = openMpm;
+  })();
+
+  // ── Revisionsmodal ──────────────────────────────────
+  (function() {
+    var openBtn  = document.getElementById('open-revisions');
+    var modal    = document.getElementById('revision-modal');
+    var closeBtn = document.getElementById('close-revisions');
+    if (!openBtn || !modal) return;
+    openBtn.addEventListener('click', function() { modal.classList.remove('hidden'); });
+    closeBtn.addEventListener('click', function() { modal.classList.add('hidden'); });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.classList.add('hidden'); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !modal.classList.contains('hidden')) modal.classList.add('hidden'); });
   })();
 
 </script>

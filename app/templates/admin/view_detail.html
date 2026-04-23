@@ -985,7 +985,11 @@ if (lyrAddBtn) {
   // ── Trepunktsmeny ────────────────────────────────────
   const gridEditor = document.getElementById('grid-editor');
   function closeAllDropdowns() {
-    document.querySelectorAll('.wc-dropdown.open').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.wc-dropdown.open').forEach(function(d) {
+      d.classList.remove('open');
+      // Returnera till ursprungsföräldern om den portalades till body
+      if (d._portalParent) { d._portalParent.appendChild(d); d._portalParent = null; }
+    });
     if (gridEditor) {
       gridEditor.classList.remove('has-open-panel');
       gridEditor.querySelectorAll('.panel-owner').forEach(c => c.classList.remove('panel-owner'));
@@ -1001,7 +1005,10 @@ if (lyrAddBtn) {
       closeAllDropdowns();
       if (!was) {
         const rect = mb.getBoundingClientRect();
-        drop.style.top  = (rect.bottom + 4) + 'px';
+        // Flytta dropdownen till body för att undvika stacking-context-fällor
+        drop._portalParent = drop.parentElement;
+        document.body.appendChild(drop);
+        drop.style.top   = (rect.bottom + 4) + 'px';
         drop.style.right = (window.innerWidth - rect.right) + 'px';
         drop.classList.add('open');
         const card = mb.closest('.widget-card');
