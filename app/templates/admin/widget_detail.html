@@ -618,6 +618,176 @@ function removeIcsUrl(btn) {
           </div>
         </div>
 
+        {% elif widget.kind == 'image' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-2">Bildkälla</label>
+          <div class="flex gap-3 mb-3">
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="img-src-type" value="url"
+                     {% if not cfg.get('upload_path') %}checked{% endif %}
+                     class="img-src-radio">
+              Extern URL
+            </label>
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="img-src-type" value="upload"
+                     {% if cfg.get('upload_path') %}checked{% endif %}
+                     class="img-src-radio">
+              Uppladdad fil
+            </label>
+          </div>
+
+          <div class="img-url-section" {% if cfg.get('upload_path') %}style="display:none"{% endif %}>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Bild-URL</label>
+            <input type="text" data-field="url" value="{{ cfg.get('url', '') }}"
+                   placeholder="https://imgur.com/..."
+                   class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+
+          <div class="img-upload-section" {% if not cfg.get('upload_path') %}style="display:none"{% endif %}>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Uppladdad bild</label>
+            <input type="hidden" data-field="upload_path" value="{{ cfg.get('upload_path', '') }}" id="img-upload-path">
+            {% if cfg.get('upload_path') %}
+            <div class="mb-2">
+              <img src="/uploads/{{ cfg.get('upload_path') }}" alt="" class="max-h-24 rounded border border-gray-200" id="img-preview">
+            </div>
+            {% else %}
+            <div class="mb-2 hidden" id="img-preview-wrap">
+              <img src="" alt="" class="max-h-24 rounded border border-gray-200" id="img-preview">
+            </div>
+            {% endif %}
+            <input type="file" accept="image/*" id="img-file-input"
+                   class="text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer">
+            <p class="text-xs text-gray-400 mt-1">jpg, png, gif, webp, svg — max storlek begränsas av servern</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Bildpassning</label>
+          <select data-field="fit" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="cover" {% if cfg.get('fit', 'cover') == 'cover' %}selected{% endif %}>Cover (fyller, beskär)</option>
+            <option value="contain" {% if cfg.get('fit') == 'contain' %}selected{% endif %}>Contain (hela bilden, letterbox)</option>
+            <option value="fill" {% if cfg.get('fit') == 'fill' %}selected{% endif %}>Fill (sträck)</option>
+          </select>
+        </div>
+
+        <script>
+        (function() {
+          var radios = document.querySelectorAll('.img-src-radio');
+          var urlSec = document.querySelector('.img-url-section');
+          var upSec = document.querySelector('.img-upload-section');
+          radios.forEach(function(r) {
+            r.addEventListener('change', function() {
+              var isUpload = this.value === 'upload';
+              urlSec.style.display = isUpload ? 'none' : '';
+              upSec.style.display = isUpload ? '' : 'none';
+            });
+          });
+
+          var fileInput = document.getElementById('img-file-input');
+          if (fileInput) {
+            fileInput.addEventListener('change', function() {
+              var file = this.files[0];
+              if (!file) return;
+              var btn = fileInput.previousElementSibling;
+              uploadImage(file, function(path, url) {
+                document.getElementById('img-upload-path').value = path;
+                var preview = document.getElementById('img-preview');
+                var previewWrap = document.getElementById('img-preview-wrap');
+                if (preview) { preview.src = url; }
+                if (previewWrap) { previewWrap.classList.remove('hidden'); }
+              });
+            });
+          }
+        })();
+        </script>
+
+        {% elif widget.kind == 'slideshow' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Bilder</label>
+          <div id="ss-image-list" class="flex flex-col gap-2 mb-2"></div>
+          <button type="button" id="ss-add-url" class="text-xs text-blue-600 hover:text-blue-800 mr-3">+ Lägg till URL</button>
+          <label class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+            + Ladda upp bild
+            <input type="file" accept="image/*" id="ss-file-input" class="hidden" multiple>
+          </label>
+          <input type="hidden" data-field="images" id="ss-images-hidden">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Intervall (sekunder)</label>
+            <input type="number" data-field="interval" value="{{ cfg.get('interval', 5) }}"
+                   min="1" max="300" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Bildpassning</label>
+            <select data-field="fit" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="cover" {% if cfg.get('fit', 'cover') == 'cover' %}selected{% endif %}>Cover</option>
+              <option value="contain" {% if cfg.get('fit') == 'contain' %}selected{% endif %}>Contain</option>
+              <option value="fill" {% if cfg.get('fit') == 'fill' %}selected{% endif %}>Fill</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Övergång</label>
+          <select data-field="transition" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="fade" {% if cfg.get('transition', 'fade') == 'fade' %}selected{% endif %}>Tona (fade)</option>
+            <option value="none" {% if cfg.get('transition') == 'none' %}selected{% endif %}>Ingen</option>
+          </select>
+        </div>
+
+        <script>
+        (function() {
+          var listEl = document.getElementById('ss-image-list');
+          var hidden = document.getElementById('ss-images-hidden');
+
+          var images = {{ cfg.get('images', []) | tojson }};
+          if (!Array.isArray(images)) images = [];
+
+          function renderList() {
+            listEl.innerHTML = '';
+            images.forEach(function(img, idx) {
+              var src = img.url || (img.upload_path ? '/uploads/' + img.upload_path : '');
+              var label = img.url || img.upload_path || '';
+              var row = document.createElement('div');
+              row.className = 'flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1.5';
+              row.innerHTML =
+                (src ? '<img src="' + src + '" class="h-8 w-12 object-cover rounded flex-shrink-0">' : '<div class="h-8 w-12 bg-gray-200 rounded flex-shrink-0"></div>') +
+                '<span class="flex-1 text-xs text-gray-600 truncate">' + label + '</span>' +
+                '<button type="button" class="text-red-400 hover:text-red-600 text-xs flex-shrink-0" data-idx="' + idx + '">✕</button>';
+              row.querySelector('button').addEventListener('click', function() {
+                images.splice(+this.dataset.idx, 1);
+                renderList();
+              });
+              listEl.appendChild(row);
+            });
+            hidden.value = JSON.stringify(images);
+          }
+
+          renderList();
+
+          document.getElementById('ss-add-url').addEventListener('click', function() {
+            var url = prompt('Klistra in bild-URL:');
+            if (url && url.trim()) { images.push({url: url.trim()}); renderList(); }
+          });
+
+          document.getElementById('ss-file-input').addEventListener('change', function() {
+            var files = Array.from(this.files);
+            var pending = files.length;
+            if (!pending) return;
+            files.forEach(function(file) {
+              uploadImage(file, function(path) {
+                images.push({upload_path: path});
+                pending--;
+                if (pending === 0) renderList();
+              });
+            });
+            this.value = '';
+          });
+        })();
+        </script>
+
         {% elif widget.kind == 'debug' %}
         <p class="text-sm text-gray-400 italic">Debug-widget har ingen konfiguration.</p>
 
@@ -750,6 +920,18 @@ document.querySelectorAll('.color-picker-wrap').forEach(function(wrap) {
     if (/^#[0-9a-fA-F]{6}$/.test(this.value)) swatch.value = this.value;
   });
 });
+
+function uploadImage(file, callback) {
+  var fd = new FormData();
+  fd.append('file', file);
+  fetch('/admin/uploads', {method: 'POST', body: fd})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert('Uppladdningsfel: ' + data.error); return; }
+      callback(data.path, data.url);
+    })
+    .catch(function() { alert('Uppladdningen misslyckades.'); });
+}
 
 document.getElementById('widget-form').addEventListener('submit', function(e) {
   var fields = this.querySelectorAll('[data-field]');

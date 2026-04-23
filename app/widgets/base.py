@@ -6,7 +6,7 @@ class WidgetRenderer(Protocol):
 
 
 def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) -> str:
-    from app.widgets import clock, color_block, debug, ics_list, ics_month, ics_schedule, ics_week, markdown, raw_html, text
+    from app.widgets import clock, color_block, debug, image, ics_list, ics_month, ics_schedule, ics_week, markdown, raw_html, slideshow, text
 
     renderers: dict[str, WidgetRenderer] = {
         "markdown": markdown,
@@ -15,6 +15,8 @@ def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) ->
         "debug": debug,
         "text": text,
         "color_block": color_block,
+        "image": image,
+        "slideshow": slideshow,
         "ics_list": ics_list,
         "ics_month": ics_month,
         "ics_week": ics_week,

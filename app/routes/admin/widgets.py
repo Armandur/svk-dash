@@ -1,14 +1,17 @@
 import asyncio
 import json
 import secrets
+import uuid
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import select
 
 from sqlmodel import select
 
+from app.config import UPLOADS_DIR
 from app.database import get_session
 from app.deps import require_admin
 from app.models import IcsCache, View, Widget, WidgetRevision
@@ -25,8 +28,9 @@ WIDGET_KINDS = [
     ("ics_month", "ICS-kalender (månad)"),
     ("ics_week", "ICS-kalender (vecka)"),
     ("ics_schedule", "ICS-kalender (schema/block)"),
-    ("markdown", "Markdown/text"),
+    ("image", "Bild"),
     ("slideshow", "Bildspel"),
+    ("markdown", "Markdown/text"),
     ("iframe", "Iframe"),
     ("clock", "Klocka/datum"),
     ("raw_html", "Rå HTML (admin-only)"),
@@ -281,6 +285,27 @@ def _views_using_widget(db, widget_id: int) -> list[View]:
         for v in all_views
         if any(w.get("widget_id") == widget_id for w in (v.layout_json or {}).get("widgets", []))
     ]
+
+
+_ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+}
+
+
+@router.post("/uploads", response_class=JSONResponse)
+async def upload_image(file: UploadFile = File(...)):
+    content_type = file.content_type or ""
+    ext = _ALLOWED_IMAGE_TYPES.get(content_type.split(";")[0].strip())
+    if not ext:
+        return JSONResponse({"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400)
+    filename = uuid.uuid4().hex + ext
+    dest = Path(UPLOADS_DIR) / filename
+    dest.write_bytes(await file.read())
+    return JSONResponse({"path": filename, "url": f"/uploads/{filename}"})
 
 
 def _prune_revisions(db, widget_id: int) -> None:
