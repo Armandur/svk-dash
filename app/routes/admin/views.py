@@ -231,8 +231,21 @@ async def view_edit(
             return HTMLResponse("Vyn hittades inte.", status_code=404)
         view.name = name
         view.duration_seconds = int(duration_seconds) if duration_seconds.strip() else None
-        view.grid_cols = max(1, min(24, grid_cols))
-        view.grid_rows = max(1, min(24, grid_rows))
+        new_cols = max(1, min(24, grid_cols))
+        new_rows = max(1, min(24, grid_rows))
+        if new_cols != view.grid_cols or new_rows != view.grid_rows:
+            layout = copy.deepcopy(view.layout_json or {"widgets": []})
+            for w in layout.get("widgets", []):
+                x = min(w.get("x", 0), new_cols - 1)
+                y = min(w.get("y", 0), new_rows - 1)
+                w["x"] = x
+                w["y"] = y
+                w["w"] = max(1, min(w.get("w", 1), new_cols - x))
+                w["h"] = max(1, min(w.get("h", 1), new_rows - y))
+            view.layout_json = layout
+            flag_modified(view, "layout_json")
+        view.grid_cols = new_cols
+        view.grid_rows = new_rows
         view.updated_at = datetime.utcnow()
         db.add(view)
         db.commit()
