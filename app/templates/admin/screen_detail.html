@@ -16,23 +16,23 @@
   <!-- Inställningar -->
   <div class="lg:col-span-1">
     <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="font-semibold mb-4">Inställningar</h2>
+      <h2 class="font-semibold text-sm mb-3">Inställningar</h2>
       <form method="post" action="/admin/screens/{{ screen.id }}/edit" class="space-y-3">
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
-          <input type="text" name="name" value="{{ screen.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <input type="text" name="name" value="{{ screen.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
-          <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Rotationstid (s)</label>
-          <input type="number" name="rotation_seconds" value="{{ screen.rotation_seconds }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <input type="number" name="rotation_seconds" value="{{ screen.rotation_seconds }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Bildformat</label>
-          <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="16:9" {% if screen.aspect_ratio == "16:9" %}selected{% endif %}>16:9 liggande</option>
             <option value="9:16" {% if screen.aspect_ratio == "9:16" %}selected{% endif %}>9:16 stående</option>
             <option value="4:3" {% if screen.aspect_ratio == "4:3" %}selected{% endif %}>4:3 liggande</option>
@@ -44,7 +44,7 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Vy-övergång</label>
-          <select name="transition" id="screen-transition-sel" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <select name="transition" id="screen-transition-sel" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="fade" {% if screen.transition == "fade" or not screen.transition %}selected{% endif %}>Tona (fade)</option>
             <option value="slide" {% if screen.transition == "slide" %}selected{% endif %}>Glid (slide)</option>
             <option value="none" {% if screen.transition == "none" %}selected{% endif %}>Ingen</option>
@@ -52,7 +52,7 @@
         </div>
         <div id="screen-direction-wrap" {% if screen.transition != "slide" %}style="display:none"{% endif %}>
           <label class="block text-xs font-medium text-gray-600 mb-1">Riktning</label>
-          <select name="transition_direction" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <select name="transition_direction" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="left"  {% if (screen.transition_direction or 'left') == 'left'  %}selected{% endif %}>Vänster → höger</option>
             <option value="right" {% if screen.transition_direction == 'right' %}selected{% endif %}>Höger → vänster</option>
             <option value="up"    {% if screen.transition_direction == 'up'    %}selected{% endif %}>Nedåt → uppåt</option>
@@ -68,13 +68,13 @@
           });
         })();
         </script>
-        <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700">Spara</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 w-full">Spara ändringar</button>
       </form>
 
       <hr class="my-4">
       <form method="post" action="/admin/screens/{{ screen.id }}/delete"
         onsubmit="return confirm('Ta bort skärmen {{ screen.name }}? Alla vyer tas också bort.')">
-        <button type="submit" class="text-sm text-red-600 hover:text-red-800">Ta bort skärm</button>
+        <button type="submit" class="w-full text-sm text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded transition-colors">Ta bort skärm</button>
       </form>
     </div>
   </div>
@@ -83,13 +83,13 @@
   <div class="lg:col-span-2">
     <div class="bg-white rounded-lg shadow p-5">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold">Vyer ({{ views|length }})</h2>
+        <h2 class="font-semibold text-sm">Vyer ({{ views|length }})</h2>
       </div>
 
       {% if views %}
       <div class="space-y-2 mb-4">
         {% for view in views %}
-        <div class="flex items-center justify-between border border-gray-200 rounded px-3 py-2">
+        <div class="flex items-center justify-between border border-gray-200 rounded px-3 py-2 hover:border-gray-300 transition-colors">
           <div>
             <span class="text-sm font-medium">{{ view.position + 1 }}. {{ view.name }}</span>
             {% if view.duration_seconds %}
@@ -98,31 +98,33 @@
             <span class="ml-2 text-xs text-gray-400">standard</span>
             {% endif %}
           </div>
-          <div class="flex gap-3">
-            <a href="/s/{{ screen.slug }}" target="_blank" class="text-sm text-gray-400 hover:text-gray-700">Kiosk ↗</a>
-            <a href="/admin/views/{{ view.id }}" class="text-sm text-blue-600 hover:text-blue-800">Redigera</a>
+          <div class="flex items-center gap-3">
+            <a href="/s/{{ screen.slug }}" target="_blank" class="text-xs text-gray-500 hover:text-gray-900 bg-gray-100 px-2 py-1 rounded">Kiosk ↗</a>
+            <a href="/admin/views/{{ view.id }}" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded">Redigera</a>
             <form method="post" action="/admin/screens/{{ screen.id }}/views/{{ view.id }}/delete"
               onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">
-              <button type="submit" class="text-sm text-red-500 hover:text-red-700">Ta bort</button>
+              <button type="submit" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Ta bort</button>
             </form>
           </div>
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-500 mb-4">Inga vyer ännu.</p>
+      <div class="py-8 text-center border border-dashed border-gray-200 rounded-lg mb-4">
+        <p class="text-sm text-gray-400">Inga vyer ännu.</p>
+      </div>
       {% endif %}
 
       <form method="post" action="/admin/screens/{{ screen.id }}/views/new" class="flex gap-2 items-end">
-        <div>
+        <div class="flex-1">
           <label class="block text-xs font-medium text-gray-600 mb-1">Vy-namn</label>
-          <input type="text" name="name" required placeholder="t.ex. Kalender" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-48">
+          <input type="text" name="name" required placeholder="t.ex. Kalender" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s, lämna tomt = standard)</label>
-          <input type="number" name="duration_seconds" min="5" placeholder="–" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-24">
+        <div class="w-24">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s)</label>
+          <input type="number" name="duration_seconds" min="5" placeholder="std" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <button type="submit" class="bg-gray-800 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-900">+ Lägg till vy</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 whitespace-nowrap">+ Lägg till vy</button>
       </form>
     </div>
   </div>

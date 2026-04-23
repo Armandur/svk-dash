@@ -657,7 +657,7 @@ function removeIcsUrl(btn) {
             {% endif %}
             <input type="file" accept="image/*" id="img-file-input"
                    class="text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer">
-            <button type="button" id="img-library-btn" class="mt-2 text-xs text-blue-600 hover:text-blue-800">Välj från bibliotek…</button>
+            <button type="button" id="img-library-btn" class="mt-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Välj från bibliotek…</button>
             <p class="text-xs text-gray-400 mt-1">jpg, png, gif, webp, svg — max storlek begränsas av servern</p>
           </div>
         </div>
@@ -717,11 +717,11 @@ function removeIcsUrl(btn) {
           <label class="block text-xs font-medium text-gray-600 mb-1">Bilder</label>
           <div id="ss-image-list" class="flex flex-col gap-2 mb-2"></div>
           <button type="button" id="ss-add-url" class="text-xs text-blue-600 hover:text-blue-800 mr-3">+ Lägg till URL</button>
-          <label class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+          <label class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mr-3">
             + Ladda upp bild
             <input type="file" accept="image/*" id="ss-file-input" class="hidden" multiple>
           </label>
-          <button type="button" id="ss-library-btn" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1">+ Välj från bibliotek</button>
+          <button type="button" id="ss-library-btn" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">+ Välj från bibliotek</button>
           <input type="hidden" data-field="images" data-field-type="json" id="ss-images-hidden">
         </div>
 

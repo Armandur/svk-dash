@@ -31,7 +31,7 @@
           <span class="font-medium text-sm">{{ w.name }}</span>
           <span class="ml-2 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ w.kind }}</span>
         </div>
-        <a href="/admin/widgets/{{ w.id }}" class="text-sm text-blue-600 hover:text-blue-800">Redigera</a>
+        <a href="/admin/widgets/{{ w.id }}" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors">Redigera</a>
       </div>
       {% endfor %}
       {% else %}
@@ -39,19 +39,22 @@
       {% endif %}
     </div>
     {% endfor %}
+  {% if widgets %}
+  ...
+  {% else %}
+  <div class="bg-white rounded-xl shadow p-12 text-center">
+    <p class="text-gray-400 mb-4">Inga widgets ännu.</p>
+    <button onclick="document.getElementById('open-new-widget').click()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Skapa din första widget</button>
   </div>
-</div>
-{% else %}
-<p class="text-gray-500">Inga widgets ännu.</p>
-{% endif %}
+  {% endif %}
 
-<!-- Ny widget-modal -->
-<div id="new-widget-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.45)">
-  <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:560px;max-height:85vh;margin:1rem">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-      <h2 class="font-semibold text-base">Ny widget</h2>
-      <button id="nwm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
-    </div>
+  <!-- Ny widget-modal -->
+  <div id="new-widget-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.45)">
+    <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:560px;max-height:85vh;margin:1rem">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-sm">Ny widget</h2>
+        <button id="nwm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+      </div>
 
     <div class="flex-1 overflow-y-auto p-4 space-y-4" id="nwm-step-kind">
       <p class="text-sm text-gray-500 mb-2">Välj typ:</p>

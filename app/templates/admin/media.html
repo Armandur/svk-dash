@@ -6,11 +6,11 @@
 <div class="flex items-center gap-3 mb-3 flex-wrap">
   <h1 class="text-2xl font-bold mr-auto">Mediebibliotek</h1>
   <div class="flex border border-gray-200 rounded overflow-hidden">
-    <button id="view-grid" class="px-3 py-1.5 text-sm" title="Rutnät">⊞</button>
-    <button id="view-list" class="px-3 py-1.5 text-sm" title="Lista">☰</button>
+    <button id="view-grid" class="px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors" title="Rutnät">⊞</button>
+    <button id="view-list" class="px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors" title="Lista">☰</button>
   </div>
-  <button id="open-folder-form" class="border border-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50">+ Ny mapp</button>
-  <button id="open-upload" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700">+ Ladda upp</button>
+  <button id="open-folder-form" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm transition-colors">+ Ny mapp</button>
+  <button id="open-upload" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 transition-colors">+ Ladda upp</button>
 </div>
 
 <!-- Ny mapp-formulär -->
@@ -19,22 +19,22 @@
     <input type="hidden" name="parent_id" value="{{ current_folder_id or '' }}">
     <input type="text" name="name" required placeholder="Mappnamn"
            class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
-    <button type="submit" class="bg-gray-700 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-900">Skapa</button>
-    <button type="button" id="cancel-folder-form" class="text-sm text-gray-500 hover:text-gray-800">Avbryt</button>
+    <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700">Skapa</button>
+    <button type="button" id="cancel-folder-form" class="text-sm text-gray-500 hover:text-gray-900">Avbryt</button>
   </form>
 </div>
 
 <!-- Batch-fält -->
 <div id="batch-bar" class="hidden mb-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3 flex-wrap">
   <span id="batch-count" class="text-sm font-medium text-blue-800">0 markerade</span>
-  <select id="batch-move-target" class="border border-gray-300 rounded px-2 py-1 text-sm">
+  <select id="batch-move-target" class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
     <option value="">Flytta till rot</option>
     {% for folder in all_folders %}
     <option value="{{ folder.id }}">{{ folder.name }}</option>
     {% endfor %}
   </select>
-  <button id="batch-move-btn" class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-900">Flytta</button>
-  <button id="batch-delete-btn" class="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Ta bort markerade</button>
+  <button id="batch-move-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors">Flytta</button>
+  <button id="batch-delete-btn" class="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors">Ta bort markerade</button>
   <button id="batch-clear" class="text-sm text-gray-500 hover:text-gray-800 ml-auto">Avmarkera alla</button>
 </div>
 <form id="batch-form" method="post" action="/admin/media/batch">
@@ -191,7 +191,7 @@
 <div id="upload-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
   <div class="bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4" style="width:100%;max-width:440px;margin:1rem">
     <div class="flex items-center justify-between">
-      <h2 class="font-semibold text-base" id="upload-modal-title">Ladda upp bilder</h2>
+      <h2 class="font-semibold text-sm" id="upload-modal-title">Ladda upp bilder</h2>
       <button id="upload-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
     </div>
     <div id="upload-drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
@@ -209,17 +209,17 @@
 <!-- Flytta-modal -->
 <div id="move-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
   <div class="bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4" style="width:100%;max-width:360px;margin:1rem">
-    <h2 class="font-semibold text-base">Flytta fil</h2>
+    <h2 class="font-semibold text-sm">Flytta fil</h2>
     <p class="text-sm text-gray-500 truncate" id="move-file-name"></p>
     <form id="move-form" method="post" action="" class="flex flex-col gap-3">
-      <select name="folder_id" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      <select name="folder_id" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">Rot (ingen mapp)</option>
         {% for folder in all_folders %}
         <option value="{{ folder.id }}">{{ folder.name }}</option>
         {% endfor %}
       </select>
       <div class="flex gap-3">
-        <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900">Flytta</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Flytta</button>
         <button type="button" id="move-cancel" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</button>
       </div>
     </form>
@@ -229,7 +229,7 @@
 <!-- Bekräftelsemodal radering -->
 <div id="delete-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
   <div class="bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4" style="width:100%;max-width:380px;margin:1rem">
-    <h2 class="font-semibold text-base">Ta bort fil</h2>
+    <h2 class="font-semibold text-sm">Ta bort fil</h2>
     <p class="text-sm text-gray-600" id="delete-modal-body"></p>
     <div class="flex gap-3">
       <form id="delete-form" method="post" action="">

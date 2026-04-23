@@ -36,11 +36,14 @@
         </div>
       </div>
     </div>
-    <a href="/admin/screens/{{ s.screen.id }}" class="text-sm text-blue-600 hover:text-blue-800">Redigera</a>
+    <a href="/admin/screens/{{ s.screen.id }}" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors">Redigera</a>
   </div>
   {% endfor %}
 </div>
 {% else %}
-<p class="text-gray-500">Inga skärmar skapade ännu.</p>
+<div class="bg-white rounded-lg shadow p-12 text-center">
+  <p class="text-gray-400 mb-4">Inga skärmar skapade ännu.</p>
+  <a href="/admin/screens/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Skapa din första skärm</a>
+</div>
 {% endif %}
 {% endblock %}

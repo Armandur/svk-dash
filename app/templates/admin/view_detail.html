@@ -436,18 +436,18 @@
               <div>
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Ladda upp bild</div>
                 <input type="file" accept="image/*" class="icfg-img-upload" style="font-size:0.65rem;color:#94a3b8;width:100%">
-                <button type="button" class="icfg-img-library mt-1 text-xs text-blue-600 hover:text-blue-800">Välj från bibliotek…</button>
+                <button type="button" class="icfg-img-library mt-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Välj från bibliotek…</button>
               </div>
               {% elif entry.kind == 'slideshow' %}
               <div style="margin-bottom:6px">
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:3px">Bilder</div>
                 <div class="ss-inline-list"></div>
-                <div style="display:flex;gap:6px;margin-top:4px">
+                <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
                   <button type="button" class="ss-inline-add-url" style="font-size:0.65rem;color:#60a5fa;background:none;border:none;cursor:pointer;padding:0">+ URL</button>
                   <label style="font-size:0.65rem;color:#60a5fa;cursor:pointer">+ Ladda upp
                     <input type="file" accept="image/*" class="ss-inline-upload" style="display:none" multiple>
                   </label>
-                  <button type="button" class="ss-inline-library text-xs text-blue-600 hover:text-blue-800 px-1">+ Bibliotek</button>
+                  <button type="button" class="ss-inline-library text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">+ Bibliotek</button>
                 </div>
               </div>
               <div style="display:flex;gap:6px">
