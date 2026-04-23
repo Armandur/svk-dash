@@ -93,33 +93,33 @@
         </div>
       </div>
 
-      <!-- Zoner som klickbara kort -->
+      <!-- Layout-preview: klickbara zoner i sina faktiska positioner -->
       {% if zones %}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div style="position:relative; width:100%; aspect-ratio:{{ layout.aspect_ratio.replace(':', '/') }};
+                  background:#0f172a; border-radius:0.5rem; overflow:hidden;">
         {% for zone in zones %}
+        {% set count = zone_view_counts.get(zone.id, 0) %}
         <a href="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}"
-           class="block border-2 rounded-lg p-4 hover:shadow-md transition-shadow
-                  {% if zone.role == 'persistent' %}border-emerald-200 bg-emerald-50 hover:border-emerald-400{% else %}border-blue-200 bg-blue-50 hover:border-blue-400{% endif %}">
-          <div class="flex items-start justify-between">
-            <div>
-              <div class="font-medium text-sm text-gray-800">{{ zone.name }}</div>
-              <div class="text-xs text-gray-500 mt-0.5">
-                {{ "%.0f"|format(zone.w_pct) }}×{{ "%.0f"|format(zone.h_pct) }} % av skärmen
-              </div>
-            </div>
-            <span class="text-xs px-1.5 py-0.5 rounded font-medium
-                         {% if zone.role == 'persistent' %}bg-emerald-100 text-emerald-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-              {{ "Persistent" if zone.role == "persistent" else "Schemaläggbar" }}
-            </span>
-          </div>
-          {% set count = zone_view_counts.get(zone.id, 0) %}
-          {% if zone.role == 'schedulable' %}
-          <div class="mt-2 text-xs text-gray-500">
-            {{ count }} vy{% if count != 1 %}er{% endif %}
-          </div>
-          {% else %}
-          <div class="mt-2 text-xs text-gray-500">Klicka för att konfigurera widgets</div>
-          {% endif %}
+           style="position:absolute;
+                  left:{{ zone.x_pct }}%; top:{{ zone.y_pct }}%;
+                  width:{{ zone.w_pct }}%; height:{{ zone.h_pct }}%;
+                  z-index:{{ zone.z_index }};
+                  box-sizing:border-box;
+                  border:2px solid {{ '#10b981' if zone.role == 'persistent' else '#3b82f6' }};
+                  background:{{ 'rgba(16,185,129,0.15)' if zone.role == 'persistent' else 'rgba(59,130,246,0.15)' }};
+                  overflow:hidden; display:flex; flex-direction:column;
+                  align-items:center; justify-content:center;
+                  transition:filter 0.15s;"
+           onmouseover="this.style.filter='brightness(1.4)'"
+           onmouseout="this.style.filter=''">
+          <span style="font-size:0.7rem; font-weight:700; color:white;
+                       text-shadow:0 1px 2px rgba(0,0,0,0.8);
+                       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                       max-width:90%; text-align:center;">{{ zone.name }}</span>
+          <span style="font-size:0.55rem; margin-top:3px; padding:1px 5px; border-radius:3px; font-weight:600;
+                       background:{{ '#10b981' if zone.role == 'persistent' else '#3b82f6' }}; color:white;">
+            {% if zone.role == 'schedulable' %}{{ count }} vy{% if count != 1 %}er{% endif %}{% else %}persistent{% endif %}
+          </span>
         </a>
         {% endfor %}
       </div>
