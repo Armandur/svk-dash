@@ -8,10 +8,7 @@ class Screen(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True, index=True)
     name: str
-    rotation_seconds: int = 30
     aspect_ratio: str = "16:9"
-    transition: str = "fade"
-    transition_direction: str = "left"
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0
@@ -112,6 +109,9 @@ class LayoutZone(SQLModel, table=True):
     grid_cols: int = 12
     grid_rows: int = 9
     z_index: int = 0
+    rotation_seconds: int = 30
+    transition: str = "fade"
+    transition_direction: str = "left"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

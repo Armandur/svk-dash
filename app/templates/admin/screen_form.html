@@ -20,10 +20,6 @@
       <p class="text-xs text-gray-500 mt-1">Endast gemener, siffror och bindestreck.</p>
     </div>
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Rotationstid (sekunder)</label>
-      <input type="number" name="rotation_seconds" value="30" min="5" class="w-32 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-    </div>
-    <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Bildformat</label>
       <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="16:9" selected>16:9 liggande</option>
@@ -31,25 +27,6 @@
         <option value="4:3">4:3 liggande</option>
         <option value="3:4">3:4 stående</option>
         <option value="1:1">1:1 kvadrat</option>
-        <option value="A-L">A-format liggande (√2:1)</option>
-        <option value="A-P">A-format stående (1:√2)</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Vyövergång</label>
-      <select name="transition" id="screen-transition-sel" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="fade" selected>Tona (fade)</option>
-        <option value="slide">Glida (slide)</option>
-        <option value="none">Ingen</option>
-      </select>
-    </div>
-    <div id="screen-direction-wrap" style="display:none">
-      <label class="block text-sm font-medium text-gray-700 mb-1">Riktning</label>
-      <select name="transition_direction" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="left" selected>Vänster</option>
-        <option value="right">Höger</option>
-        <option value="up">Upp</option>
-        <option value="down">Ner</option>
       </select>
     </div>
     <div class="pt-2 flex gap-3">
@@ -57,13 +34,5 @@
       <a href="/admin/screens" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</a>
     </div>
   </form>
-  <script>
-  (function() {
-    var sel = document.getElementById('screen-transition-sel');
-    var wrap = document.getElementById('screen-direction-wrap');
-    function update() { wrap.style.display = sel.value === 'slide' ? '' : 'none'; }
-    sel.addEventListener('change', update);
-  })();
-  </script>
 </div>
 {% endblock %}

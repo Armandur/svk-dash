@@ -283,7 +283,7 @@
     #nav-pause { font-size: 1rem; width: 2.4rem; height: 2.4rem; }
   </style>
 </head>
-<body class="vt-{{ screen.transition or 'fade' }}" data-vt-dir="{{ screen.transition_direction or 'left' }}">
+<body class="vt-fade" data-vt-dir="left">
   <div id="offline-banner">Ingen anslutning till server</div>
 
   <div id="kiosk-nav">
@@ -311,7 +311,7 @@
 
   <script>
     const SCREEN_SLUG       = {{ screen.slug | tojson }};
-    const SCREEN_TRANSITION = {{ (screen.transition or 'fade') | tojson }};
+    const SCREEN_TRANSITION = 'fade';
     const VIEW_COUNT  = {{ views | length }};
     const VIEWS       = [
       {% for v in views %}

@@ -98,6 +98,9 @@ async def layout_detail(request: Request, layout_id: int):
                 "w_pct": z.w_pct, "h_pct": z.h_pct,
                 "grid_cols": z.grid_cols, "grid_rows": z.grid_rows,
                 "z_index": z.z_index,
+                "rotation_seconds": z.rotation_seconds,
+                "transition": z.transition,
+                "transition_direction": z.transition_direction,
             }
             for z in zones
         ]
@@ -172,6 +175,9 @@ async def zones_save(request: Request, layout_id: int):
             zone.grid_cols = int(z.get("grid_cols", 12))
             zone.grid_rows = int(z.get("grid_rows", 9))
             zone.z_index   = int(z.get("z_index", 0))
+            zone.rotation_seconds = int(z.get("rotation_seconds", 30))
+            zone.transition = z.get("transition", "fade")
+            zone.transition_direction = z.get("transition_direction", "left")
             db.add(zone)
 
         layout.updated_at = datetime.utcnow()
@@ -184,7 +190,8 @@ async def zones_save(request: Request, layout_id: int):
         snapshot = [
             {"id": z.id, "name": z.name, "role": z.role,
              "x_pct": z.x_pct, "y_pct": z.y_pct, "w_pct": z.w_pct, "h_pct": z.h_pct,
-             "grid_cols": z.grid_cols, "grid_rows": z.grid_rows, "z_index": z.z_index}
+             "grid_cols": z.grid_cols, "grid_rows": z.grid_rows, "z_index": z.z_index,
+             "rotation_seconds": z.rotation_seconds, "transition": z.transition, "transition_direction": z.transition_direction}
             for z in existing_zones
         ]
         db.add(LayoutRevision(layout_id=layout_id, zones_json=snapshot))
@@ -235,6 +242,9 @@ async def layout_revert(layout_id: int, revision_id: int):
                 grid_cols=int(z.get("grid_cols", 12)),
                 grid_rows=int(z.get("grid_rows", 9)),
                 z_index=int(z.get("z_index", 0)),
+                rotation_seconds=int(z.get("rotation_seconds", 30)),
+                transition=z.get("transition", "fade"),
+                transition_direction=z.get("transition_direction", "left"),
             ))
 
         layout.updated_at = datetime.utcnow()

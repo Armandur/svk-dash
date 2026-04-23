@@ -82,7 +82,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     "id": view.id,
                     "position": view.position,
                     "name": view.name,
-                    "duration_seconds": view.duration_seconds or screen.rotation_seconds,
+                    "duration_seconds": view.duration_seconds or 30,
                     "widgets": rendered_widgets,
                     "grid_cols": view.grid_cols,
                     "grid_rows": view.grid_rows,

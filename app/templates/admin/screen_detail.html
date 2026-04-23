@@ -30,11 +30,6 @@
                  class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Rotationstid (s)</label>
-          <input type="number" name="rotation_seconds" value="{{ screen.rotation_seconds }}" min="5"
-                 class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Bildformat</label>
           <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             {% for val, lbl in [("16:9","16:9 liggande"),("9:16","9:16 stående"),("4:3","4:3"),("1:1","1:1")] %}
@@ -42,27 +37,6 @@
             {% endfor %}
           </select>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Övergång</label>
-          <select name="transition" id="trans-sel" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="fade"{% if screen.transition == "fade" or not screen.transition %} selected{% endif %}>Tona (fade)</option>
-            <option value="slide"{% if screen.transition == "slide" %} selected{% endif %}>Glid (slide)</option>
-            <option value="none"{% if screen.transition == "none" %} selected{% endif %}>Ingen</option>
-          </select>
-        </div>
-        <div id="dir-wrap"{% if screen.transition != "slide" %} style="display:none"{% endif %}>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Riktning</label>
-          <select name="transition_direction" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="left"{% if (screen.transition_direction or 'left') == 'left' %} selected{% endif %}>Vänster → höger</option>
-            <option value="right"{% if screen.transition_direction == 'right' %} selected{% endif %}>Höger → vänster</option>
-            <option value="up"{% if screen.transition_direction == 'up' %} selected{% endif %}>Nedåt → uppåt</option>
-            <option value="down"{% if screen.transition_direction == 'down' %} selected{% endif %}>Uppåt → nedåt</option>
-          </select>
-        </div>
-        <script>(function(){
-          var s=document.getElementById('trans-sel'),w=document.getElementById('dir-wrap');
-          if(s&&w)s.addEventListener('change',function(){w.style.display=this.value==='slide'?'':'none';});
-        })();</script>
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 w-full">Spara ändringar</button>
       </form>
       <hr class="my-4">
