@@ -34,7 +34,12 @@ def _screen_status(screen: Screen, now: datetime) -> dict:
         else:
             last_seen_str = f"{delta_s // 3600} tim sedan"
 
-    return {"screen": screen, "status": status, "conn_count": conn_count, "last_seen": last_seen_str}
+    return {
+        "screen": screen,
+        "status": status,
+        "conn_count": conn_count,
+        "last_seen": last_seen_str,
+    }
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -24,7 +24,12 @@ _ASPECT_CSS = {
 }
 
 _INLINE_DEFAULTS: dict[str, dict] = {
-    "clock": {"format": "time_date", "size": "xl", "timezone": "Europe/Stockholm", "locale": "sv-SE"},
+    "clock": {
+        "format": "time_date",
+        "size": "xl",
+        "timezone": "Europe/Stockholm",
+        "locale": "sv-SE",
+    },
     "text": {"text": "Text", "size": "large", "align": "center", "bold": False, "color": "#ffffff"},
     "color_block": {"color": "#1e3a5f", "border_radius": 0},
 }
@@ -201,7 +206,9 @@ async def view_remove_inline(request: Request, view_id: int, inline_id: str):
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
         layout = copy.deepcopy(view.layout_json or {"widgets": []})
-        layout["widgets"] = [w for w in layout.get("widgets", []) if w.get("inline_id") != inline_id]
+        layout["widgets"] = [
+            w for w in layout.get("widgets", []) if w.get("inline_id") != inline_id
+        ]
         view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()

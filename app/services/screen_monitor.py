@@ -44,7 +44,7 @@ def _send_alert_email(screen: Screen, offline_since: str) -> None:
         return
 
     body = (
-        f"Skärmen \"{screen.name}\" (/s/{screen.slug}) har inte anslutit sedan {offline_since}.\n\n"
+        f'Skärmen "{screen.name}" (/s/{screen.slug}) har inte anslutit sedan {offline_since}.\n\n'
         f"Kontrollera att enheten är påslagen och har nätverksåtkomst.\n\n"
         f"-- Skärmar"
     )

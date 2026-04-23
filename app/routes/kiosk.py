@@ -53,7 +53,11 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     if widget is None:
                         inner = '<div class="widget-missing">Widget saknas</div>'
                     else:
-                        ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
+                        ctx = {
+                            **context,
+                            "view_position": view.position + 1,
+                            "widget_id": widget.id,
+                        }
                         inner = render_widget(widget.kind, widget.config_json or {}, ctx)
                     eid = entry["widget_id"]
                 rendered_widgets.append(
