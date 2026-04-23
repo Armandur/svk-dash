@@ -93,6 +93,27 @@
   .rh-se { bottom: 0; right: 0; width: 10px; height: 10px; cursor: se-resize; }
   .rh-sw { bottom: 0; left: 0; width: 10px; height: 10px; cursor: sw-resize; }
 
+  /* Layer Panel Styles */
+  .lyr-add-top-btn { font-size:0.72rem; color:#3b82f6; background:none; border:1px solid #bfdbfe; border-radius:4px; padding:2px 7px; cursor:pointer; }
+  .lyr-add-top-btn:hover { background:#eff6ff; }
+  .lyr-panel { display:flex; flex-direction:column; gap:3px; }
+  .lyr-item { border:1px solid #e2e8f0; border-radius:6px; background:#fff; }
+  .lyr-item.lyr-active { border-left:3px solid #3b82f6; }
+  .lyr-item-head { display:flex; align-items:center; gap:3px; padding:5px 6px; user-select:none; }
+  .lyr-drag { cursor:grab; color:#94a3b8; font-size:1.1em; flex-shrink:0; }
+  .lyr-toggle { background:none; border:none; cursor:pointer; color:#64748b; font-size:0.75em; width:14px; flex-shrink:0; }
+  .lyr-name { border:none; outline:none; font-size:0.78rem; font-weight:600; color:#1e293b; flex:1; background:transparent; min-width:0; cursor:pointer; }
+  .lyr-name:focus { background:#f1f5f9; border-radius:3px; padding:1px 3px; cursor:text; }
+  .lyr-eye { background:none; border:none; cursor:pointer; font-size:0.85em; padding:0 2px; line-height:1; }
+  .lyr-menu-wrap { position:relative; flex-shrink:0; }
+  .lyr-menu-btn { background:none; border:none; cursor:pointer; color:#94a3b8; font-size:1em; padding:0 3px; line-height:1; }
+  .lyr-dropdown { display:none; position:absolute; right:0; top:100%; background:#1e293b; border-radius:6px; min-width:130px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+  .lyr-dropdown.open { display:block; }
+  .lyr-dropdown button { display:block; width:100%; text-align:left; padding:7px 12px; font-size:0.75rem; color:#e2e8f0; background:none; border:none; cursor:pointer; }
+  .lyr-dropdown button:hover:not(:disabled) { background:#334155; }
+  .lyr-dropdown button:disabled { color:#64748b; cursor:not-allowed; }
+  .lyr-item.layer-dragging { opacity:0.4; }
+
   /* Modal-overlay */
   .modal-overlay {
     position: fixed; inset: 0; z-index: 50;
@@ -129,21 +150,22 @@
     </div>
   </div>
 
-  <!-- Egenskapspanel (Höger) -->
-  <div class="lg:w-1/3">
+  <!-- Panel-kolumn (Höger) -->
+  <div class="lg:w-1/3 space-y-4">
+    <!-- Lagerpanel -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-sm text-gray-700">Lager</h2>
+        <button id="lyr-add-btn" class="lyr-add-top-btn">+ Nytt</button>
+      </div>
+      <div id="layer-list" class="lyr-panel"></div>
+    </div>
+
+    <!-- Egenskapspanel -->
     <div class="bg-white rounded-xl shadow p-5 sticky top-6">
       <h2 class="font-semibold text-gray-700 mb-4">Zon-egenskaper</h2>
       <div id="property-panel-content">
         <p class="text-sm text-gray-400 py-8 text-center border border-dashed border-gray-100 rounded-lg">Välj en zon för att redigera den</p>
-      </div>
-
-      <!-- Lagerlista -->
-      <div class="mt-6 pt-4 border-t border-gray-100">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Lager</h3>
-          <span class="text-[10px] text-gray-400">Klicka för att välja</span>
-        </div>
-        <div id="layer-list" class="space-y-1"></div>
       </div>
 
       <div class="mt-6 pt-6 border-t border-gray-100">
@@ -220,6 +242,9 @@
       box.style.width = zone.w_pct + '%';
       box.style.height = zone.h_pct + '%';
       box.style.zIndex = zone.z_index;
+      if (zone.visible === false) {
+        box.style.opacity = '0.3';
+      }
 
       box.innerHTML = `
         <div class="zone-label">
@@ -251,54 +276,128 @@
     // Sortera: högst z_index överst i listan
     const sorted = [...zones].sort((a, b) => b.z_index - a.z_index);
     list.innerHTML = '';
-    sorted.forEach(zone => {
+    
+    sorted.forEach((zone, idx) => {
       const item = document.createElement('div');
-      const isSelected = zone.id === selectedId;
-      item.className = `flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs transition-colors
-        ${isSelected ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 hover:bg-gray-100 border border-transparent'}`;
-      const dot = zone.role === 'persistent' ? 'bg-emerald-500' : 'bg-blue-500';
+      item.className = 'lyr-item' + (zone.id === selectedId ? ' lyr-active' : '');
+      item.dataset.id = zone.id;
+      item.setAttribute('draggable', 'true');
+
+      const isVisible = zone.visible !== false;
+
       item.innerHTML = `
-        <span class="w-2 h-2 rounded-full flex-shrink-0 ${dot}"></span>
-        <span class="flex-1 truncate font-medium">${zone.name}</span>
-        <div class="flex gap-0.5 ml-auto">
-          <button data-id="${zone.id}" data-dir="up"   title="Upp"   class="layer-move w-5 h-5 flex items-center justify-center rounded hover:bg-white text-gray-500 hover:text-gray-800">↑</button>
-          <button data-id="${zone.id}" data-dir="down" title="Ner"   class="layer-move w-5 h-5 flex items-center justify-center rounded hover:bg-white text-gray-500 hover:text-gray-800">↓</button>
+        <div class="lyr-item-head">
+          <div class="lyr-drag" title="Dra för att ändra ordning">⠿</div>
+          <button class="lyr-toggle" style="visibility:hidden">▼</button>
+          <input type="text" class="lyr-name" value="${zone.name}" title="Klicka för att välja, dubbelklicka för att ändra namn">
+          <button class="lyr-eye" title="${isVisible ? 'Dölj i editor' : 'Visa i editor'}">${isVisible ? '👁️' : '🕶️'}</button>
+          <div class="lyr-menu-wrap">
+            <button class="lyr-menu-btn">⋯</button>
+            <div class="lyr-dropdown">
+              <button class="lyr-del-btn text-red-400">Ta bort zon</button>
+            </div>
+          </div>
         </div>
       `;
-      item.addEventListener('click', e => {
-        if (e.target.classList.contains('layer-move') || e.target.closest('.layer-move')) return;
-        selectedId = zone.id;
+
+      // Välj zon vid klick
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.lyr-drag') || e.target.closest('.lyr-eye') || e.target.closest('.lyr-menu-wrap') || e.target.closest('.lyr-toggle')) return;
+        if (selectedId !== zone.id) {
+          selectedId = zone.id;
+          renderZones();
+        }
+      });
+
+      // Namnändring
+      const nameInput = item.querySelector('.lyr-name');
+      nameInput.addEventListener('input', (e) => {
+        zone.name = e.target.value;
+        isDirty = true;
+        const box = editor.querySelector(`[data-id="${zone.id}"]`);
+        if (box) box.querySelector('.zone-name').textContent = zone.name;
+        updateSaveButton();
+      });
+      nameInput.addEventListener('click', (e) => {
+        if (selectedId !== zone.id) {
+          selectedId = zone.id;
+          renderZones();
+        }
+      });
+
+      // Synlighet
+      item.querySelector('.lyr-eye').addEventListener('click', (e) => {
+        e.stopPropagation();
+        zone.visible = !isVisible;
         renderZones();
       });
-      list.appendChild(item);
-    });
 
-    list.querySelectorAll('.layer-move').forEach(btn => {
-      btn.addEventListener('click', e => {
+      // Meny
+      const menuBtn = item.querySelector('.lyr-menu-btn');
+      const dropdown = item.querySelector('.lyr-dropdown');
+      menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const id = parseInt(btn.dataset.id);
-        const dir = btn.dataset.dir;
-        moveLayer(id, dir);
+        document.querySelectorAll('.lyr-dropdown').forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        dropdown.classList.toggle('open');
       });
+
+      dropdown.querySelector('.lyr-del-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedId = zone.id;
+        deleteSelectedZone();
+      });
+
+      // Drag and Drop
+      item.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', zone.id);
+        item.classList.add('layer-dragging');
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('layer-dragging');
+      });
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const draggingId = e.dataTransfer.getData('text/plain');
+        item.style.borderTop = '2px solid #3b82f6';
+      });
+      item.addEventListener('dragleave', () => {
+        item.style.borderTop = '';
+      });
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.style.borderTop = '';
+        const draggingId = parseInt(e.dataTransfer.getData('text/plain'));
+        if (draggingId === zone.id) return;
+        
+        reorderZones(draggingId, zone.id);
+      });
+
+      list.appendChild(item);
     });
   }
 
-  function moveLayer(id, dir) {
-    const zone = zones.find(z => z.id === id);
-    if (!zone) return;
+  function reorderZones(draggingId, targetId) {
+    const draggingZone = zones.find(z => z.id === draggingId);
+    const targetZone = zones.find(z => z.id === targetId);
+    if (!draggingZone || !targetZone) return;
+
+    // Vi vill flytta draggingZone till positionen PRECIS OVANFÖR targetZone i listan.
+    // Listan är sorterad b.z_index - a.z_index (högst överst).
+    // Så att flytta "upp" i listan innebär högre z-index.
+    
     const sorted = [...zones].sort((a, b) => a.z_index - b.z_index);
-    const idx = sorted.findIndex(z => z.id === id);
-    if (dir === 'up' && idx < sorted.length - 1) {
-      const other = sorted[idx + 1];
-      const tmp = zone.z_index;
-      zone.z_index = other.z_index;
-      other.z_index = tmp;
-    } else if (dir === 'down' && idx > 0) {
-      const other = sorted[idx - 1];
-      const tmp = zone.z_index;
-      zone.z_index = other.z_index;
-      other.z_index = tmp;
-    }
+    const dragIdx = sorted.findIndex(z => z.id === draggingId);
+    const targetIdx = sorted.findIndex(z => z.id === targetId);
+
+    sorted.splice(dragIdx, 1);
+    const newTargetIdx = sorted.findIndex(z => z.id === targetId);
+    sorted.splice(newTargetIdx + 1, 0, draggingZone);
+
+    // Uppdatera alla z_index baserat på nya ordningen
+    sorted.forEach((z, i) => {
+      z.z_index = i;
+    });
+
     isDirty = true;
     renderZones();
   }
@@ -552,7 +651,7 @@
       : 'bg-gray-600 text-gray-400 px-3 py-2 rounded text-sm hover:bg-gray-500 transition-colors';
   };
 
-  document.getElementById('add-zone').onclick = () => {
+  const addZoneAction = () => {
     const newId = -(Date.now()); // Temporärt negativt ID
     const newZone = {
       id: newId,
@@ -560,13 +659,23 @@
       role: "schedulable",
       x_pct: 10, y_pct: 10, w_pct: 30, h_pct: 20,
       grid_cols: 12, grid_rows: 9,
-      z_index: zones.length
+      z_index: zones.length > 0 ? Math.max(...zones.map(z => z.z_index)) + 1 : 0,
+      visible: true
     };
     zones.push(newZone);
     selectedId = newId;
     isDirty = true;
     renderZones();
   };
+
+  document.getElementById('add-zone').onclick = addZoneAction;
+  const lyrAddBtn = document.getElementById('lyr-add-btn');
+  if (lyrAddBtn) lyrAddBtn.onclick = addZoneAction;
+
+  // Stäng dropdowns vid klick utanför
+  window.addEventListener('click', () => {
+    document.querySelectorAll('.lyr-dropdown').forEach(d => d.classList.remove('open'));
+  });
 
   function deleteSelectedZone() {
     if (!selectedId) return;
