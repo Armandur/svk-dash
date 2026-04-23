@@ -87,6 +87,9 @@
                 class="zone-count-badge">
             {% if zone.role == 'schedulable' %}{{ count }} vy{% if count != 1 %}er{% endif %}{% else %}persistent{% endif %}
           </span>
+          <span style="font-size:0.5rem; margin-top:2px; color:rgba(255,255,255,0.5); pointer-events:none;">
+            {{ zone.grid_cols }}×{{ zone.grid_rows }}
+          </span>
         </div>
         {% endfor %}
       </div>
