@@ -295,6 +295,7 @@ async def screen_layout_assignment_schedule(
         a.transition_duration_ms = int(transition_duration_ms) if transition_duration_ms else 700
         db.add(a)
         db.commit()
+    sse_registry.broadcast(screen_id, {"type": "reload"})
     return RedirectResponse(f"/admin/screens/{screen_id}?sel={assignment_id}", status_code=302)
 
 
@@ -468,6 +469,7 @@ async def zone_view_schedule(
 
         db.add(view)
         db.commit()
+    sse_registry.broadcast(screen_id, {"type": "reload"})
     return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
 
 
