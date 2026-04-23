@@ -146,3 +146,46 @@ uv run alembic upgrade head
 ```bash
 uv run ruff check app/ --fix && uv run ruff format app/
 ```
+
+## UI/UX-konventioner
+
+### Knappstilar
+- **Primär**: `bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700`
+- **Sekundär (Grå)**: `bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm transition-colors`
+- **Destruktiv (Stor)**: `text-sm text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded transition-colors`
+- **Destruktiv (Mini)**: `text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded`
+- **Länk-knapp (Blå)**: `text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors`
+- **Länk-knapp (Grå)**: `text-xs text-gray-500 hover:text-gray-900 bg-gray-100 px-2 py-1 rounded`
+- **Avbryt**: `text-sm text-gray-600 hover:text-gray-900` (ofta enbart text)
+
+### Formulärelement
+- **Input/Select**: `w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`
+- **Etikett (Label)**: `block text-xs font-medium text-gray-600 mb-1`
+- **Checkbox**: `rounded border-gray-300 text-blue-600 focus:ring-blue-500`
+- **Fältgruppering**: Använd `space-y-4` för vertikal separation mellan fält.
+
+### Kort och Paneler
+- **Standardkort**: `bg-white rounded-lg shadow p-5` (använd `rounded-xl` för större ytor)
+- **Tomma tillstånd**: `bg-white rounded-lg shadow p-12 text-center` med `text-gray-400`
+- **Dashed container**: `py-8 text-center border border-dashed border-gray-200 rounded-lg`
+
+### Rubriker och Etiketter
+- **Huvudrubrik**: `text-2xl font-bold mb-6`
+- **Kortrubrik**: `font-semibold text-sm mb-3` (ofta inne i en panel)
+- **Kategorirubrik**: `text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2`
+- **Badges**: `text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded`
+
+### Modaler
+- **Overlay**: `fixed inset-0 z-50 flex items-center justify-center` med `background:rgba(0,0,0,0.45)`
+- **Struktur**: `bg-white rounded-xl shadow-2xl flex flex-col` (bredd ofta `max-width:440px` eller `560px`)
+- **Stängning**: Stäng vid klick på overlay, Escape-tangent eller `&times;` ( `text-gray-400 hover:text-gray-700 text-2xl` )
+
+### Navigering och Layout
+- **Navbar**: `bg-white border-b border-gray-200 px-6 py-3`, länkar `text-sm text-gray-600 hover:text-gray-900`
+- **Brödsmulor/Tillbaka**: `text-sm text-gray-500 hover:text-gray-900` med pil `←`
+- **Sidopanel (Sidoflikar)**: `w-44 border-r border-gray-100 py-3`. Aktiv: `bg-blue-50 text-blue-700 font-semibold`.
+
+### Färgpalett & Feedback
+- **Status-dots**: `bg-green-500` (online), `bg-yellow-400` (recent), `bg-red-500` (offline)
+- **Feedback (Fel)**: `text-sm text-red-600 bg-red-50 rounded px-3 py-2`
+- **Editor-vy**: Mörkt tema med `bg-slate-900` (#0f172a), ramar `#334155` och accent `#60a5fa`.

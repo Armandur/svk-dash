@@ -25,7 +25,7 @@
 </div>
 
 <!-- Batch-fält -->
-<div id="batch-bar" class="hidden mb-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3 flex-wrap">
+<div id="batch-bar" class="invisible mb-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3 flex-wrap">
   <span id="batch-count" class="text-sm font-medium text-blue-800">0 markerade</span>
   <select id="batch-move-target" class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
     <option value="">Flytta till rot</option>
@@ -426,7 +426,7 @@
       if (cb) cb.checked = sel;
     });
     batchCount.textContent = selected.size + ' markerade';
-    batchBar.classList.toggle('hidden', selected.size === 0);
+    batchBar.classList.toggle('invisible', selected.size === 0);
   }
   function toggleCard(card) {
     var id = String(card.dataset.fileId);
