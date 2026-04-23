@@ -45,6 +45,14 @@
 - Hover-navigering (föregående/nästa/paus) per zon i kiosk-läge
 - Debug-overlay (hover-aktiverad) med skärmnamn, lokal IP, SSE-ålder och reconnect-räknare
 
+### Kvalitet och robusthet
+- Widget-renderingsfel ger placeholder istället för 500-svar
+- JSON-validering av inkommande layout-data med svenska felmeddelanden
+- SQL-filtrering i broadcast och medieradering (tidigare laddades allt i minnet)
+- Zombie-timers i kiosk: klocka och auto-scroll pausas vid paus-läge
+- Mediepicker lazy-initierad (DOM-ordningsbug fixad)
+- Reaktiv UI: namn, bildval och token uppdateras direkt utan omladdning
+
 ### Mediebibliotek
 - Administrationssida `/admin/media` med grid- och listvy, mappstruktur
 - Batch-markering med flytta/ta bort
