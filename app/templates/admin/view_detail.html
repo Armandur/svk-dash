@@ -401,7 +401,10 @@
               <div style="display:flex;gap:8px;align-items:center">
                 <div>
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Färg</div>
-                  <input type="color" class="icfg-field" data-cfg-key="color" value="{{ entry.config.get('color', '#ffffff') }}" style="width:32px;height:22px;border:none;background:none;cursor:pointer;padding:0">
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <input type="color" class="icfg-field icfg-color-swatch" data-cfg-key="color" value="{{ entry.config.get('color', '#ffffff') }}" style="width:26px;height:26px;border:none;background:none;cursor:pointer;padding:0;flex-shrink:0">
+                    <input type="text" class="icfg-color-hex" maxlength="7" value="{{ entry.config.get('color', '#ffffff') }}" style="width:62px;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px;font-family:monospace">
+                  </div>
                 </div>
                 <div style="margin-top:14px">
                   <label style="font-size:0.65rem;color:#94a3b8;cursor:pointer">
@@ -413,7 +416,10 @@
               <div style="display:flex;gap:8px;align-items:flex-end">
                 <div>
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Färg</div>
-                  <input type="color" class="icfg-field" data-cfg-key="color" value="{{ entry.config.get('color', '#1e3a5f') }}" style="width:40px;height:26px;border:none;background:none;cursor:pointer;padding:0">
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <input type="color" class="icfg-field icfg-color-swatch" data-cfg-key="color" value="{{ entry.config.get('color', '#1e3a5f') }}" style="width:26px;height:26px;border:none;background:none;cursor:pointer;padding:0;flex-shrink:0">
+                    <input type="text" class="icfg-color-hex" maxlength="7" value="{{ entry.config.get('color', '#1e3a5f') }}" style="width:62px;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px;font-family:monospace">
+                  </div>
                 </div>
                 <div style="flex:1">
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Rundning (px)</div>
@@ -1341,6 +1347,17 @@ if (lyrAddBtn) {
 
   // Initialisering
   renderLayerPanel();
+
+  // ── Färgpicker-sync ────────────────────────────────
+  document.querySelectorAll('.icfg-color-swatch').forEach(function(swatch) {
+    var wrap = swatch.parentElement;
+    var hexInput = wrap.querySelector('.icfg-color-hex');
+    if (!hexInput) return;
+    swatch.addEventListener('input', function() { hexInput.value = this.value; });
+    hexInput.addEventListener('input', function() {
+      if (/^#[0-9a-fA-F]{6}$/.test(this.value)) swatch.value = this.value;
+    });
+  });
 })();
 </script>
 
