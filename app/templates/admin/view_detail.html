@@ -83,18 +83,33 @@
     padding: 2px 7px; cursor: pointer; flex-shrink: 0;
   }
   .wc-menu-btn:hover { background: rgba(0,0,0,0.75); }
+  /* Modal-overlay */
+  #wc-modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.45);
+  }
+  #wc-modal-overlay.open { display: block; }
+
   .wc-dropdown {
     display: none; position: fixed; z-index: 10000;
-    background: #1e293b; border: 1px solid #334155; border-radius: 0.375rem;
-    min-width: 200px; max-height: 80vh; overflow-y: auto;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem;
+    width: 340px; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
     pointer-events: auto;
   }
-  /* Blockera hover på widgets utan öppen panel */
-  #grid-editor.has-open-panel .widget-card:not(.panel-owner) {
-    pointer-events: none;
-  }
   .wc-dropdown.open { display: block; }
+  .wc-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-bottom: 1px solid #334155;
+    font-size: 0.75rem; font-weight: 600; color: #94a3b8;
+    position: sticky; top: 0; background: #1e293b; z-index: 1;
+  }
+  .wc-modal-close {
+    background: none; border: none; color: #64748b; cursor: pointer;
+    font-size: 1.1rem; line-height: 1; padding: 0 2px;
+  }
+  .wc-modal-close:hover { color: #e2e8f0; }
   .wc-dropdown a, .wc-dropdown button {
     display: block; width: 100%; text-align: left;
     padding: 8px 12px; font-size: 0.75rem; color: #e2e8f0;
@@ -1013,17 +1028,53 @@ if (lyrAddBtn) {
 
   // ── Trepunktsmeny ────────────────────────────────────
   const gridEditor = document.getElementById('grid-editor');
+  const wcOverlay = document.getElementById('wc-modal-overlay');
+
   function closeAllDropdowns() {
     document.querySelectorAll('.wc-dropdown.open').forEach(function(d) {
       d.classList.remove('open');
-      // Returnera till ursprungsföräldern om den portalades till body
       if (d._portalParent) { d._portalParent.appendChild(d); d._portalParent = null; }
     });
+    if (wcOverlay) wcOverlay.classList.remove('open');
     if (gridEditor) {
       gridEditor.classList.remove('has-open-panel');
       gridEditor.querySelectorAll('.panel-owner').forEach(c => c.classList.remove('panel-owner'));
     }
   }
+
+  function openWidgetModal(drop, card) {
+    closeAllDropdowns();
+    // Lägg till modal-header om den saknas
+    if (!drop.querySelector('.wc-modal-header')) {
+      var hdr = document.createElement('div');
+      hdr.className = 'wc-modal-header';
+      var titleSpan = document.createElement('span');
+      hdr.appendChild(titleSpan);
+      var closeBtn = document.createElement('button');
+      closeBtn.className = 'wc-modal-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.addEventListener('click', closeAllDropdowns);
+      hdr.appendChild(closeBtn);
+      drop.insertBefore(hdr, drop.firstChild);
+    }
+    // Sätt titel
+    var titleEl = drop.querySelector('.wc-modal-header span');
+    if (titleEl && card) {
+      var label = (card.querySelector('.wc-label') || {}).textContent || '';
+      var kind  = (card.querySelector('.wc-kind-badge') || {}).textContent || '';
+      titleEl.textContent = label || kind;
+    }
+    // Portala till body
+    drop._portalParent = drop.parentElement;
+    document.body.appendChild(drop);
+    drop.classList.add('open');
+    if (wcOverlay) wcOverlay.classList.add('open');
+    if (card) card.classList.add('panel-owner');
+    if (gridEditor) gridEditor.classList.add('has-open-panel');
+  }
+
+  if (wcOverlay) wcOverlay.addEventListener('click', closeAllDropdowns);
+
   document.addEventListener('click', e => {
     const mb = e.target.closest('.wc-menu-btn');
     if (mb) {
@@ -1031,19 +1082,9 @@ if (lyrAddBtn) {
       const drop = document.getElementById(mb.dataset.drop);
       if (!drop) return;
       const was = drop.classList.contains('open');
-      closeAllDropdowns();
-      if (!was) {
-        const rect = mb.getBoundingClientRect();
-        // Flytta dropdownen till body för att undvika stacking-context-fällor
-        drop._portalParent = drop.parentElement;
-        document.body.appendChild(drop);
-        drop.style.top   = (rect.bottom + 4) + 'px';
-        drop.style.right = (window.innerWidth - rect.right) + 'px';
-        drop.classList.add('open');
-        const card = mb.closest('.widget-card');
-        if (card) card.classList.add('panel-owner');
-        if (gridEditor) gridEditor.classList.add('has-open-panel');
-      }
+      if (was) { closeAllDropdowns(); return; }
+      const card = mb.closest('.widget-card');
+      openWidgetModal(drop, card);
       return;
     }
     if (e.target.closest('.wc-dropdown')) return;
@@ -1434,4 +1475,6 @@ if (lyrAddBtn) {
     </div>
   </div>
 </div>
+
+<div id="wc-modal-overlay"></div>
 {% endblock %}
