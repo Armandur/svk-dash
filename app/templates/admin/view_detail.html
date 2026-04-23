@@ -187,19 +187,32 @@
   #grid-editor .widget-markdown em { font-style: italic; }
   #grid-editor .widget-markdown a { color: #93c5fd; }
 
-  /* ── Lagerpanel ──────────────────────────────────── */
-  #layer-list { list-style:none; margin:0; padding:0; }
-  .layer-item {
-    display:flex; align-items:center; gap:5px;
-    padding:5px 7px; border-radius:5px; margin-bottom:3px;
-    background:#fff; border:1px solid #e2e8f0;
-    font-size:0.72rem; user-select:none;
-  }
-  .layer-item.layer-dragging { opacity:0.3; }
-  .layer-item.layer-over     { border-top:2px solid #3b82f6; }
-  .layer-handle { cursor:grab; color:#94a3b8; font-size:15px; flex-shrink:0; }
-  .layer-name   { flex:1; font-weight:500; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .layer-kind   { color:#94a3b8; font-size:0.65rem; flex-shrink:0; }
+.lyr-add-top-btn { font-size:0.72rem; color:#3b82f6; background:none; border:1px solid #bfdbfe; border-radius:4px; padding:2px 7px; cursor:pointer; }
+  .lyr-add-top-btn:hover { background:#eff6ff; }
+  .lyr-panel { display:flex; flex-direction:column; gap:3px; }
+  .lyr-item { border:1px solid #e2e8f0; border-radius:6px; background:#fff; }
+  .lyr-item.lyr-active { border-left:3px solid #3b82f6; }
+  .lyr-item-head { display:flex; align-items:center; gap:3px; padding:5px 6px; user-select:none; }
+  .lyr-drag { cursor:grab; color:#94a3b8; font-size:1.1em; flex-shrink:0; }
+  .lyr-toggle { background:none; border:none; cursor:pointer; color:#64748b; font-size:0.75em; width:14px; flex-shrink:0; }
+  .lyr-name { border:none; outline:none; font-size:0.78rem; font-weight:600; color:#1e293b; flex:1; background:transparent; min-width:0; cursor:pointer; }
+  .lyr-name:focus { background:#f1f5f9; border-radius:3px; padding:1px 3px; cursor:text; }
+  .lyr-eye { background:none; border:none; cursor:pointer; font-size:0.85em; padding:0 2px; line-height:1; }
+  .lyr-menu-wrap { position:relative; flex-shrink:0; }
+  .lyr-menu-btn { background:none; border:none; cursor:pointer; color:#94a3b8; font-size:1em; padding:0 3px; line-height:1; }
+  .lyr-dropdown { display:none; position:absolute; right:0; top:100%; background:#1e293b; border-radius:6px; min-width:130px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+  .lyr-dropdown.open { display:block; }
+  .lyr-dropdown button { display:block; width:100%; text-align:left; padding:7px 12px; font-size:0.75rem; color:#e2e8f0; background:none; border:none; cursor:pointer; }
+  .lyr-dropdown button:hover:not(:disabled) { background:#334155; }
+  .lyr-dropdown button:disabled { color:#64748b; cursor:not-allowed; }
+  .lyr-widgets { padding:0 6px 5px 22px; display:flex; flex-direction:column; gap:2px; }
+  .lyr-widget-item { display:flex; align-items:center; gap:3px; padding:2px 4px; border-radius:3px; font-size:0.7rem; color:#475569; background:#f8fafc; }
+  .lyr-widget-item[draggable="true"] { cursor:grab; }
+  .lyr-widget-item:hover { background:#f1f5f9; }
+  .lyr-widget-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lyr-widget-kind { font-size:0.62rem; background:#e2e8f0; color:#64748b; border-radius:3px; padding:0 3px; flex-shrink:0; }
+  .lyr-item.layer-dragging { opacity:0.4; }
+  .lyr-widget-item.layer-dragging { opacity:0.4; }
 </style>
 {% endblock %}
 
@@ -295,7 +308,8 @@
            data-inline-config="{{ entry.config | tojson | forceescape }}"
            data-x="{{ entry.x }}" data-y="{{ entry.y }}"
            data-w="{{ entry.w }}" data-h="{{ entry.h }}"
-           data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}">
+           data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}"
+           data-layer-id="{{ entry.layer_id }}">
         <div class="wc-preview">{{ entry.widget_html | safe }}</div>
         <div class="wc-overlay">
           <div class="wc-header">
@@ -395,7 +409,8 @@
            data-widget-id="{{ entry.widget_id }}"
            data-x="{{ entry.x }}" data-y="{{ entry.y }}"
            data-w="{{ entry.w }}" data-h="{{ entry.h }}"
-           data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}">
+           data-z="{{ entry.z_index }}" data-opacity="{{ entry.opacity }}"
+           data-layer-id="{{ entry.layer_id }}">
         <div class="wc-preview">
           {% if entry.widget_html %}
             {{ entry.widget_html | safe }}
@@ -439,50 +454,116 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="text-sm text-gray-400 text-center py-24 border border-dashed border-gray-200 rounded-lg bg-white">
+    <div id="grid-editor-empty" class="text-sm text-gray-400 text-center py-24 border border-dashed border-gray-200 rounded-lg bg-white">
       Inga widgets ännu — lägg till en från sidopanelen.
     </div>
+    <div id="grid-editor" class="hidden" style="aspect-ratio: {{ aspect_ratio_css or '16/9' }}; --cols: {{ view.grid_cols }}; --rows: {{ view.grid_rows }};"></div>
     {% endif %}
   </div>
 
   <!-- Lagerpanel -->
-  {% if layout_entries %}
-  <div class="w-52 shrink-0">
+  <div class="w-56 shrink-0">
     <div class="bg-white rounded-lg shadow p-3">
-      <h2 class="font-semibold text-sm mb-1 text-gray-700">Lager</h2>
-      <p class="text-xs text-gray-400 mb-3">Dra för att ändra ordning. Överst = framför.</p>
-      <ul id="layer-list">
-        {% for entry in layout_entries | sort(attribute='z_index', reverse=True) %}
-        <li class="layer-item" draggable="true"
-            {% if entry.is_inline %}data-inline-id="{{ entry.inline_id }}"{% else %}data-widget-id="{{ entry.widget_id }}"{% endif %}>
-          <span class="layer-handle">⠿</span>
-          <span class="layer-name">
-            {%- if entry.is_inline -%}{{ entry.label }}
-            {%- elif entry.widget -%}{{ entry.widget.name }}
-            {%- else -%}(saknas){%- endif -%}
-          </span>
-          <span class="layer-kind">
-            {%- if entry.is_inline -%}{{ entry.kind }}
-            {%- elif entry.widget -%}{{ entry.widget.kind }}{%- endif -%}
-          </span>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="font-semibold text-sm text-gray-700">Lager</h2>
+        <button id="lyr-add-btn" class="lyr-add-top-btn">+ Nytt</button>
+      </div>
+      <div id="layer-list" class="lyr-panel"></div>
     </div>
   </div>
-  {% endif %}
 
 </div>
 
 <script>
 (function () {
-  const COLS = {{ view.grid_cols }};
-  const ROWS = {{ view.grid_rows }};
+  const VIEW_ID   = {{ view.id }};
+  const COLS      = {{ view.grid_cols }};
+  const ROWS      = {{ view.grid_rows }};
+  const INIT_LAYERS = {{ layers | tojson }};
+  let activeLyr = INIT_LAYERS.length > 0 ? INIT_LAYERS[INIT_LAYERS.length - 1].id : 'l-default';
   const gridEl    = document.getElementById('grid-editor');
   const layerList = document.getElementById('layer-list');
   const btn       = document.getElementById('save-layout');
   const status    = document.getElementById('layout-status');
   if (!gridEl) return;
+
+  function renderLayerPanel() {
+    if (!layerList) return;
+    layerList.innerHTML = '';
+    // Visa lager i omvänd ordning (topp = visas först)
+    const reversed = [...INIT_LAYERS].reverse();
+    reversed.forEach(function(layer) {
+      const item = document.createElement('div');
+      item.className = 'lyr-item' + (layer.id === activeLyr ? ' lyr-active' : '');
+      item.dataset.layerId = layer.id;
+      item.dataset.visible = layer.visible !== false ? 'true' : 'false';
+      item.setAttribute('draggable', 'true');
+
+      // Hitta widgets som tillhör detta lager
+      const layerCards = gridEl ? [...gridEl.querySelectorAll('[data-layer-id="' + layer.id + '"]')] : [];
+
+      item.innerHTML =
+        '<div class="lyr-item-head">' +
+          '<span class="lyr-drag">⠿</span>' +
+          '<button class="lyr-toggle" title="Fäll ut/in">▼</button>' +
+          '<input class="lyr-name" type="text" value="' + layer.name.replace(/"/g, '&quot;') + '" title="Klicka för att byta namn">' +
+          '<button class="lyr-eye" title="Visa/dölj lager">' + (layer.visible !== false ? '👁' : '🙈') + '</button>' +
+          '<div class="lyr-menu-wrap">' +
+            '<button class="lyr-menu-btn" title="Mer">⋯</button>' +
+            '<div class="lyr-dropdown">' +
+              '<button class="lyr-del-btn"' + (INIT_LAYERS.length <= 1 ? ' disabled' : '') + '>Ta bort lager</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lyr-widgets">' +
+          layerCards.map(function(card) {
+            var name = card.dataset.inlineId
+              ? (card.querySelector('.wc-label') ? card.querySelector('.wc-label').textContent : card.dataset.inlineKind)
+              : (card.querySelector('.wc-label') ? card.querySelector('.wc-label').textContent : '(widget)');
+            var kind = card.dataset.inlineKind || card.dataset.widgetId ? 'inline' : '';
+            var kindBadge = card.querySelector('.wc-kind-badge');
+            if (kindBadge) kind = kindBadge.textContent;
+            var wid = card.dataset.inlineId || card.dataset.widgetId;
+            return '<div class="lyr-widget-item" draggable="true" data-card-ref="' + wid + '" data-is-inline="' + (!!card.dataset.inlineId) + '">' +
+              '<span class="lyr-drag">⠿</span>' +
+              '<span class="lyr-widget-name">' + name + '</span>' +
+              '<span class="lyr-widget-kind">' + kind + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+
+      layerList.appendChild(item);
+      applyLayerVisibility(item);
+    });
+  }
+
+  function applyLayerVisibility(layerItem) {
+    if (!gridEl) return;
+    var visible = layerItem.dataset.visible !== 'false';
+    var lid = layerItem.dataset.layerId;
+    gridEl.querySelectorAll('[data-layer-id="' + lid + '"]').forEach(function(card) {
+      if (visible) {
+        card.style.opacity = (+card.dataset.opacity / 100) + '';
+        card.style.pointerEvents = '';
+      } else {
+        card.style.opacity = '0.15';
+        card.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  function collectLayers() {
+    if (!layerList) return [];
+    // Panel visar lager top-to-bottom (reversed), återställ original-ordning (bottom-to-top)
+    var items = [...layerList.querySelectorAll('.lyr-item')].reverse();
+    return items.map(function(item) {
+      return {
+        id: item.dataset.layerId,
+        name: item.querySelector('.lyr-name').value,
+        visible: item.dataset.visible !== 'false',
+      };
+    });
+  }
 
   // ── Dirty ────────────────────────────────────────────
   let isDirty = false;
@@ -519,6 +600,168 @@
 
   gridEl.querySelectorAll('.widget-card').forEach(applyCard);
   new ResizeObserver(() => gridEl.querySelectorAll('.widget-card').forEach(applyCard)).observe(gridEl);
+  renderLayerPanel();
+
+// ── Lagerpanel ───────────────────────────────────────
+var lyrDrag = null, lyrWidgetDrag = null;
+
+layerList.addEventListener('click', function(e) {
+  // Stäng alla dropdowns vid klick utanför
+  if (!e.target.closest('.lyr-menu-wrap')) {
+    layerList.querySelectorAll('.lyr-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+  }
+
+  // Trepunktsmeny
+  var menuBtn = e.target.closest('.lyr-menu-btn');
+  if (menuBtn) {
+    e.stopPropagation();
+    var drop = menuBtn.nextElementSibling;
+    var was = drop.classList.contains('open');
+    layerList.querySelectorAll('.lyr-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+    if (!was) drop.classList.add('open');
+    return;
+  }
+
+  // Ta bort lager
+  var delBtn = e.target.closest('.lyr-del-btn');
+  if (delBtn && !delBtn.disabled) {
+    var item = delBtn.closest('.lyr-item');
+    if (!item) return;
+    var lid = item.dataset.layerId;
+    // Flytta widgets i detta lager till nästa lager
+    var allItems = [...layerList.querySelectorAll('.lyr-item')];
+    if (allItems.length <= 1) return;
+    var otherItem = allItems.find(function(i) { return i.dataset.layerId !== lid; });
+    var newLid = otherItem ? otherItem.dataset.layerId : '';
+    if (gridEl) {
+      gridEl.querySelectorAll('[data-layer-id="' + lid + '"]').forEach(function(card) {
+        card.dataset.layerId = newLid;
+      });
+    }
+    // Uppdatera INIT_LAYERS
+    var idx = INIT_LAYERS.findIndex(function(l) { return l.id === lid; });
+    if (idx !== -1) INIT_LAYERS.splice(idx, 1);
+    if (activeLyr === lid) activeLyr = newLid;
+    renderLayerPanel();
+    setDirty();
+    return;
+  }
+
+  // Fäll ut/in
+  var toggleBtn = e.target.closest('.lyr-toggle');
+  if (toggleBtn) {
+    var item2 = toggleBtn.closest('.lyr-item');
+    var widgets2 = item2.querySelector('.lyr-widgets');
+    if (widgets2) {
+      var collapsed = widgets2.style.display === 'none';
+      widgets2.style.display = collapsed ? '' : 'none';
+      toggleBtn.textContent = collapsed ? '▼' : '▶';
+    }
+    return;
+  }
+
+  // Visa/dölj lager
+  var eyeBtn = e.target.closest('.lyr-eye');
+  if (eyeBtn) {
+    var item3 = eyeBtn.closest('.lyr-item');
+    var vis = item3.dataset.visible !== 'false';
+    item3.dataset.visible = vis ? 'false' : 'true';
+    eyeBtn.textContent = vis ? '🙈' : '👁';
+    applyLayerVisibility(item3);
+    setDirty();
+    return;
+  }
+
+  // Sätt aktivt lager vid klick på lager-raden
+  var head = e.target.closest('.lyr-item-head');
+  if (head && !e.target.closest('button') && !e.target.closest('input')) {
+    var item4 = head.closest('.lyr-item');
+    activeLyr = item4.dataset.layerId;
+    layerList.querySelectorAll('.lyr-item').forEach(function(i) { i.classList.remove('lyr-active'); });
+    item4.classList.add('lyr-active');
+  }
+});
+
+// Drag av hela lager-rader (omodifiering av lagerordning)
+layerList.addEventListener('dragstart', function(e) {
+  var item = e.target.closest('.lyr-item');
+  if (item && !e.target.closest('.lyr-widget-item')) {
+    lyrDrag = item;
+    setTimeout(function() { item.classList.add('layer-dragging'); }, 0);
+    return;
+  }
+  var wi = e.target.closest('.lyr-widget-item');
+  if (wi) {
+    lyrWidgetDrag = wi;
+    setTimeout(function() { wi.classList.add('layer-dragging'); }, 0);
+  }
+});
+
+layerList.addEventListener('dragend', function() {
+  if (lyrDrag) { lyrDrag.classList.remove('layer-dragging'); lyrDrag = null; setDirty(); }
+  if (lyrWidgetDrag) {
+    lyrWidgetDrag.classList.remove('layer-dragging');
+    // Uppdatera data-layer-id på grid-card baserat på var widget-item nu befinner sig
+    var parentItem = lyrWidgetDrag.closest('.lyr-item');
+    if (parentItem) {
+      var newLid = parentItem.dataset.layerId;
+      var ref = lyrWidgetDrag.dataset.cardRef;
+      var isInline = lyrWidgetDrag.dataset.isInline === 'true';
+      if (gridEl) {
+        var card = isInline
+          ? gridEl.querySelector('[data-inline-id="' + ref + '"]')
+          : gridEl.querySelector('[data-widget-id="' + ref + '"]');
+        if (card) { card.dataset.layerId = newLid; applyLayerVisibility(parentItem); }
+      }
+    }
+    lyrWidgetDrag = null;
+    setDirty();
+  }
+});
+
+layerList.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  if (lyrDrag) {
+    var t = e.target.closest('.lyr-item');
+    if (t && t !== lyrDrag && !t.contains(lyrDrag)) {
+      var r = t.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) layerList.insertBefore(lyrDrag, t);
+      else t.after(lyrDrag);
+    }
+  }
+  if (lyrWidgetDrag) {
+    var tw = e.target.closest('.lyr-widget-item');
+    if (tw && tw !== lyrWidgetDrag) {
+      var rw = tw.getBoundingClientRect();
+      var parentWidgets = tw.closest('.lyr-widgets');
+      if (parentWidgets) {
+        if (e.clientY < rw.top + rw.height / 2) parentWidgets.insertBefore(lyrWidgetDrag, tw);
+        else tw.after(lyrWidgetDrag);
+      }
+    }
+    // Tillåt drop till annat lager
+    var targetLyrWidgets = e.target.closest('.lyr-widgets');
+    if (targetLyrWidgets && !targetLyrWidgets.contains(lyrWidgetDrag)) {
+      targetLyrWidgets.appendChild(lyrWidgetDrag);
+    }
+  }
+});
+
+// Ny lager-knapp
+var lyrAddBtn = document.getElementById('lyr-add-btn');
+if (lyrAddBtn) {
+  lyrAddBtn.addEventListener('click', function() {
+    var newId = 'l-' + Math.random().toString(16).slice(2, 10);
+    var newLayer = {id: newId, name: 'Nytt lager', visible: true};
+    INIT_LAYERS.push(newLayer);
+    activeLyr = newId;
+    renderLayerPanel();
+    setDirty();
+    // Fokusera namnfältet för det nya lagret
+    var newItem = layerList.querySelector('[data-layer-id="' + newId + '"] .lyr-name');
+    if (newItem) { newItem.focus(); newItem.select(); }
+  });
+}
 
   // ── Drag ─────────────────────────────────────────────
   let drag=null, resize=null;
@@ -607,6 +850,9 @@
     }
     if (e.target.closest('.wc-dropdown')) return;
     document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
+    if (!e.target.closest('.lyr-menu-wrap')) {
+      document.querySelectorAll('.lyr-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+    }
   });
 
   // ── Inline-widget config ──────────────────────────────
@@ -648,13 +894,11 @@
     if (field) updateInlineCfgField(field);
   });
   gridEl.addEventListener('input', e => {
-    // Färgväljare och textarea: live-uppdatering medan man håller ned
     const field = e.target.closest('.icfg-field');
     if (field && (field.type === 'color' || field.tagName === 'TEXTAREA')) {
       updateInlineCfgField(field);
       return;
     }
-    // Opacitetsreglage
     const opInput = e.target.closest('.wc-opacity');
     if (opInput) {
       const card = opInput.closest('.widget-card');
@@ -667,91 +911,71 @@
     }
   });
 
-  // ── Lagerpanel ───────────────────────────────────────
-  if (layerList) {
-    let lyrDrag=null;
-    layerList.addEventListener('dragstart', e => {
-      const item=e.target.closest('.layer-item'); if(!item) return;
-      lyrDrag=item; setTimeout(()=>item.classList.add('layer-dragging'),0);
-    });
-    layerList.addEventListener('dragend', ()=>{
-      lyrDrag?.classList.remove('layer-dragging');
-      layerList.querySelectorAll('.layer-over').forEach(el=>el.classList.remove('layer-over'));
-      lyrDrag=null; reassignZ(); setDirty();
-    });
-    layerList.addEventListener('dragover', e=>{
-      e.preventDefault();
-      const t=e.target.closest('.layer-item');
-      layerList.querySelectorAll('.layer-over').forEach(el=>el.classList.remove('layer-over'));
-      if(t&&t!==lyrDrag){ t.classList.add('layer-over'); const r=t.getBoundingClientRect(); e.clientY<r.top+r.height/2?layerList.insertBefore(lyrDrag,t):t.after(lyrDrag); }
-    });
-    function cardForItem(item) {
-      if(item.dataset.inlineId) return gridEl.querySelector(`[data-inline-id="${item.dataset.inlineId}"]`);
-      return gridEl.querySelector(`[data-widget-id="${item.dataset.widgetId}"]`);
-    }
-    function reassignZ() {
-      const items=[...layerList.querySelectorAll('.layer-item')];
-      items.forEach((item,idx)=>{
-        const z=items.length-idx; item.dataset.z=z;
-        const card=cardForItem(item);
-        if(card){card.dataset.z=z; applyCard(card);}
-      });
-    }
-  }
-
-  // ── Spara ────────────────────────────────────────────
   function collectWidgets() {
-    const widgets=[];
-    gridEl.querySelectorAll('.widget-card').forEach(card=>{
-      const opacity=+card.dataset.opacity;
-      if(card.dataset.inlineId){
+    var widgets = [];
+    gridEl.querySelectorAll('.widget-card').forEach(function(card) {
+      var opacity = +card.dataset.opacity;
+      var layerId = card.dataset.layerId || activeLyr;
+      if (card.dataset.inlineId) {
         widgets.push({
-          inline_id:card.dataset.inlineId, kind:card.dataset.inlineKind,
-          config:JSON.parse(card.dataset.inlineConfig||'{}'),
-          x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h,
-          z_index:+card.dataset.z, opacity
+          inline_id: card.dataset.inlineId,
+          kind: card.dataset.inlineKind,
+          config: JSON.parse(card.dataset.inlineConfig || '{}'),
+          x: +card.dataset.x, y: +card.dataset.y, w: +card.dataset.w, h: +card.dataset.h,
+          opacity: opacity, layer_id: layerId
         });
       } else {
-        widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
+        widgets.push({
+          widget_id: +card.dataset.widgetId,
+          x: +card.dataset.x, y: +card.dataset.y, w: +card.dataset.w, h: +card.dataset.h,
+          opacity: opacity, layer_id: layerId
+        });
       }
     });
     return widgets;
   }
 
   async function saveLayout() {
-    const widgets = collectWidgets();
-    const resp=await fetch('/admin/views/{{ view.id }}/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({widgets})});
-    if(resp.ok && !resp.redirected){ clearDirty(); return true; }
+    var widgets = collectWidgets();
+    var layers = collectLayers();
+    var resp = await fetch('/admin/views/{{ view.id }}/layout', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({widgets: widgets, layers: layers})
+    });
+    if (resp.ok && !resp.redirected) { clearDirty(); return true; }
     return false;
   }
 
-  btn.addEventListener('click', async ()=>{
-    btn.disabled=true; btn.textContent='Sparar…';
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Sparar…';
     try {
       const ok = await saveLayout();
-      if(ok){ status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
-      else { status.textContent='Fel vid sparande.'; status.className='text-xs mt-2 text-center text-red-500'; }
-    } catch(err) {
+      if (ok) { status.textContent = 'Sparad.'; status.className = 'text-xs mt-2 text-center text-green-600'; }
+      else { status.textContent = 'Fel vid sparande.'; status.className = 'text-xs mt-2 text-center text-red-500'; }
+    } catch (err) {
       console.error('Sparfel:', err);
-      status.textContent='Fel: '+err.message;
-      status.className='text-xs mt-2 text-center text-red-500';
+      status.textContent = 'Fel: ' + err.message;
+      status.className = 'text-xs mt-2 text-center text-red-500';
     } finally {
       status.classList.remove('hidden');
-      btn.disabled=false; if(isDirty) btn.textContent='Spara layout ●';
-      setTimeout(()=>status.classList.add('hidden'),3000);
+      btn.disabled = false; if (isDirty) btn.textContent = 'Spara layout ●';
+      setTimeout(() => status.classList.add('hidden'), 3000);
     }
   });
 
-  // Auto-spara layout om dirty när vy-inställningar sparas
-  const settingsForm = document.querySelector('form[action="/admin/views/{{ view.id }}/edit"]');
+  const settingsForm = document.querySelector(`form[action="/admin/views/${VIEW_ID}/edit"]`);
   if (settingsForm) {
     settingsForm.addEventListener('submit', async e => {
       if (!isDirty) return;
       e.preventDefault();
-      try { await saveLayout(); } catch(_) {}
+      try { await saveLayout(); } catch (_) {}
       settingsForm.submit();
     });
   }
+
+  // Initialisering
+  renderLayerPanel();
 })();
 </script>
 {% endblock %}

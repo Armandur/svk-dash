@@ -43,6 +43,46 @@ _INLINE_LABELS: dict[str, str] = {
 router = APIRouter(dependencies=[Depends(require_admin)])
 
 
+def _migrate_layout(layout: dict) -> dict:
+    """Säkerställer att layout har layers-fält. Migrerar äldre format."""
+    if "layers" not in layout:
+        default_layer_id = "l-default"
+        layout["layers"] = [{"id": default_layer_id, "name": "Standard", "visible": True}]
+        for w in layout.get("widgets", []):
+            if "layer_id" not in w:
+                w["layer_id"] = default_layer_id
+    return layout
+
+
+def _top_layer_id(layout: dict) -> str:
+    """Returnerar ID för det översta lagret (sist i listan = framför)."""
+    layers = layout.get("layers", [])
+    return layers[-1]["id"] if layers else "l-default"
+
+
+def _compute_z_indices(layout: dict) -> None:
+    """Räknar om z_index för alla widgets baserat på lagerposition och intra-ordning."""
+    layers = layout.get("layers", [])
+    layer_pos = {layer["id"]: idx for idx, layer in enumerate(layers)}
+    # Gruppera widgets per lager, i ordning de finns i widgets-listan
+    layer_widgets: dict[str, list] = {layer["id"]: [] for layer in layers}
+    orphans = []
+    for w in layout.get("widgets", []):
+        lid = w.get("layer_id", "")
+        if lid in layer_widgets:
+            layer_widgets[lid].append(w)
+        else:
+            orphans.append(w)
+    # Tilldela z_index: lager 0 (botten) → z 100..199, lager 1 → z 200..299 osv.
+    for layer in layers:
+        lid = layer["id"]
+        base = (layer_pos[lid] + 1) * 100
+        for intra, w in enumerate(layer_widgets[lid]):
+            w["z_index"] = base + intra
+    for idx, w in enumerate(orphans):
+        w["z_index"] = idx + 1
+
+
 @router.get("/views/{view_id}", response_class=HTMLResponse)
 async def view_detail(request: Request, view_id: int):
     with get_session() as db:
@@ -50,7 +90,8 @@ async def view_detail(request: Request, view_id: int):
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
         screen = db.get(Screen, view.screen_id)
-        layout = view.layout_json or {"widgets": []}
+        layout = _migrate_layout(copy.deepcopy(view.layout_json or {"widgets": []}))
+        layers = layout.get("layers", [])
         layout_entries = []
         for entry in layout.get("widgets", []):
             if "inline_id" in entry:
@@ -72,6 +113,7 @@ async def view_detail(request: Request, view_id: int):
                         "h": entry.get("h", 3),
                         "z_index": entry.get("z_index", 1),
                         "opacity": entry.get("opacity", 100),
+                        "layer_id": entry.get("layer_id", _top_layer_id(layout)),
                     }
                 )
             else:
@@ -92,6 +134,7 @@ async def view_detail(request: Request, view_id: int):
                         "h": entry.get("h", 6),
                         "z_index": entry.get("z_index", 1),
                         "opacity": entry.get("opacity", 100),
+                        "layer_id": entry.get("layer_id", _top_layer_id(layout)),
                     }
                 )
         all_widgets = db.exec(select(Widget).order_by(Widget.name)).all()
@@ -111,6 +154,7 @@ async def view_detail(request: Request, view_id: int):
             screen=screen,
             aspect_ratio_css=aspect_ratio_css,
             layout_entries=layout_entries,
+            layers=layers,
             all_widgets=all_widgets,
             prev_view=prev_view,
             next_view=next_view,
@@ -152,11 +196,10 @@ async def view_add_widget(request: Request, view_id: int, widget_id: int = Form(
         widget = db.get(Widget, widget_id)
         if not widget:
             return HTMLResponse("Widgeten hittades inte.", status_code=404)
-        layout = copy.deepcopy(view.layout_json or {"widgets": []})
+        layout = _migrate_layout(copy.deepcopy(view.layout_json or {"widgets": []}))
         widgets_list = layout.get("widgets", [])
-        if not any(w["widget_id"] == widget_id for w in widgets_list):
+        if not any(w.get("widget_id") == widget_id for w in widgets_list):
             next_y = max((w.get("y", 0) + w.get("h", 6) for w in widgets_list), default=0)
-            top_z = max((w.get("z_index", 1) for w in widgets_list), default=0) + 1
             widgets_list.append(
                 {
                     "widget_id": widget_id,
@@ -164,11 +207,12 @@ async def view_add_widget(request: Request, view_id: int, widget_id: int = Form(
                     "y": next_y,
                     "w": 12,
                     "h": 6,
-                    "z_index": top_z,
                     "opacity": 100,
+                    "layer_id": _top_layer_id(layout),
                 }
             )
         layout["widgets"] = widgets_list
+        _compute_z_indices(layout)
         view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
@@ -185,10 +229,9 @@ async def view_add_inline(request: Request, view_id: int, kind: str = Form(...))
         view = db.get(View, view_id)
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
-        layout = copy.deepcopy(view.layout_json or {"widgets": []})
+        layout = _migrate_layout(copy.deepcopy(view.layout_json or {"widgets": []}))
         inline_id = "inline-" + uuid.uuid4().hex[:8]
         existing = layout.setdefault("widgets", [])
-        top_z = max((w.get("z_index", 1) for w in existing), default=0) + 1
         existing.append(
             {
                 "inline_id": inline_id,
@@ -198,10 +241,11 @@ async def view_add_inline(request: Request, view_id: int, kind: str = Form(...))
                 "y": 0,
                 "w": 4,
                 "h": 3,
-                "z_index": top_z,
                 "opacity": 100,
+                "layer_id": _top_layer_id(layout),
             }
         )
+        _compute_z_indices(layout)
         view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
@@ -232,12 +276,33 @@ async def view_remove_inline(request: Request, view_id: int, inline_id: str):
 async def view_save_layout(request: Request, view_id: int):
     body = await request.json()
     widgets = body.get("widgets", [])
+    layers = body.get("layers", [])
     with get_session() as db:
         view = db.get(View, view_id)
         if not view:
             return JSONResponse({"error": "Vyn hittades inte."}, status_code=404)
+
+        # Validera och normalisera lager
+        valid_layer_ids = {layer["id"] for layer in layers if "id" in layer}
+        if not layers:
+            # Fallback om inga lager skickades — behåll befintliga
+            existing = view.layout_json or {}
+            layers = existing.get("layers", [{"id": "l-default", "name": "Standard", "visible": True}])
+            valid_layer_ids = {layer["id"] for layer in layers}
+
+        clean_layers = [
+            {
+                "id": str(layer["id"]),
+                "name": str(layer.get("name", "Lager"))[:40],
+                "visible": bool(layer.get("visible", True)),
+            }
+            for layer in layers
+            if "id" in layer
+        ]
+
         result: list[dict] = []
         for w in widgets:
+            layer_id = str(w.get("layer_id", "")) if w.get("layer_id") in valid_layer_ids else (clean_layers[-1]["id"] if clean_layers else "l-default")
             if "inline_id" in w:
                 result.append(
                     {
@@ -248,8 +313,8 @@ async def view_save_layout(request: Request, view_id: int):
                         "y": int(w["y"]),
                         "w": int(w["w"]),
                         "h": int(w["h"]),
-                        "z_index": max(1, min(20, int(w.get("z_index", 1)))),
                         "opacity": max(0, min(100, int(w.get("opacity", 100)))),
+                        "layer_id": layer_id,
                     }
                 )
             else:
@@ -260,11 +325,14 @@ async def view_save_layout(request: Request, view_id: int):
                         "y": int(w["y"]),
                         "w": int(w["w"]),
                         "h": int(w["h"]),
-                        "z_index": max(1, min(20, int(w.get("z_index", 1)))),
                         "opacity": max(0, min(100, int(w.get("opacity", 100)))),
+                        "layer_id": layer_id,
                     }
                 )
-        view.layout_json = {"widgets": result}
+
+        layout = {"layers": clean_layers, "widgets": result}
+        _compute_z_indices(layout)
+        view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
         db.add(view)
@@ -279,7 +347,7 @@ async def view_remove_widget(request: Request, view_id: int, widget_id: int):
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
         layout = copy.deepcopy(view.layout_json or {"widgets": []})
-        layout["widgets"] = [w for w in layout.get("widgets", []) if w["widget_id"] != widget_id]
+        layout["widgets"] = [w for w in layout.get("widgets", []) if w.get("widget_id") != widget_id]
         view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()
