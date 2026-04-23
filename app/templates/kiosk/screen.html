@@ -399,9 +399,10 @@
   </div>
 
   <script>
-    const SCREEN_SLUG       = {{ screen.slug | tojson }};
-    const KIOSK_LAYOUTS     = {{ (layouts_js or None) | tojson }};
-    const LAYOUT_ROTATION   = {{ layout_rotation | tojson }};
+    const SCREEN_SLUG         = {{ screen.slug | tojson }};
+    const KIOSK_LAYOUTS       = {{ (layouts_js or None) | tojson }};
+    const LAYOUT_ROTATION     = {{ layout_rotation | tojson }};
+    const SHOW_OFFLINE_BANNER = {{ show_offline_banner | tojson }};
   </script>
   <script src="/static/kiosk.js"></script>
 

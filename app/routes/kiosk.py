@@ -110,15 +110,17 @@ def _render_layout(assignment, screen, context, db):
                 "rotation_seconds": zone.rotation_seconds,
                 "transition": zone.transition,
                 "transition_direction": zone.transition_direction,
+                "transition_duration_ms": zone.transition_duration_ms,
                 "views": views_data,
             }
         )
-    
+
     return {
         "assignment_id": assignment.id,
         "layout_id": layout.id,
         "duration_seconds": assignment.duration_seconds,
         "transition": assignment.transition,
+        "transition_direction": assignment.transition_direction,
         "transition_duration_ms": assignment.transition_duration_ms,
         "zones": zones_rendered,
     }
@@ -161,6 +163,9 @@ def _render_view(view: View, context: dict, db) -> dict:
         "name": view.name,
         "position": view.position,
         "duration_seconds": view.duration_seconds,
+        "transition": view.transition,
+        "transition_direction": view.transition_direction,
+        "transition_duration_ms": view.transition_duration_ms,
         "schedule_json": view.schedule_json,
         "widgets": rendered_widgets,
         "grid_cols": view.grid_cols,
@@ -214,6 +219,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
             "assignment_id": layout["assignment_id"],
             "duration_seconds": layout["duration_seconds"],
             "transition": layout["transition"],
+            "transition_direction": layout["transition_direction"],
             "transition_duration_ms": layout["transition_duration_ms"],
             "zones": stripped_zones,
         }
@@ -233,8 +239,10 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
             layout_rotation={
                 "duration_seconds": first_layout["duration_seconds"] if first_layout else None,
                 "transition": first_layout["transition"] if first_layout else "fade",
+                "transition_direction": first_layout["transition_direction"] if first_layout else "left",
                 "transition_duration_ms": first_layout["transition_duration_ms"] if first_layout else 700,
             },
+            show_offline_banner=screen.show_offline_banner,
             show_debug=show_debug,
             version=_VERSION,
         )

@@ -29,6 +29,12 @@
           <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+"
                  class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" name="show_offline_banner" id="show_offline_banner" value="1"
+                 {% if screen.show_offline_banner %}checked{% endif %}
+                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <label for="show_offline_banner" class="text-xs text-gray-600">Visa banner vid tappad anslutning</label>
+        </div>
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 w-full">Spara ändringar</button>
       </form>
       <hr class="my-4">
@@ -90,7 +96,7 @@
 
           <!-- Schema för vald tilldelning -->
           <div class="bg-gray-50 rounded p-3 text-xs mb-4 flex items-center justify-between group cursor-pointer hover:bg-gray-100 transition-colors"
-               onclick="openScheduleModal('layout', {{ selected_assignment.id }}, {{ (selected_assignment.schedule_json or {}) | tojson }}, {duration_seconds: {{ selected_assignment.duration_seconds or 0 }}, transition: '{{ selected_assignment.transition }}', transition_duration_ms: {{ selected_assignment.transition_duration_ms }}})">
+               onclick="openScheduleModal('layout', {{ selected_assignment.id }}, {{ (selected_assignment.schedule_json or {}) | tojson }}, {duration_seconds: {{ selected_assignment.duration_seconds or 0 }}, transition: '{{ selected_assignment.transition }}', transition_direction: '{{ selected_assignment.transition_direction }}', transition_duration_ms: {{ selected_assignment.transition_duration_ms }}})">
             <div>
               <h3 class="font-semibold text-[10px] uppercase text-gray-400 mb-1 tracking-wider">Schema & Transition</h3>
               <div class="flex items-center gap-2">

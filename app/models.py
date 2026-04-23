@@ -11,6 +11,7 @@ class Screen(SQLModel, table=True):
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0
+    show_offline_banner: bool = True
     alert_sent_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -23,6 +24,9 @@ class View(SQLModel, table=True):
     position: int
     name: str
     duration_seconds: int | None = None
+    transition: str | None = None           # None = ärv från zon
+    transition_direction: str | None = None
+    transition_duration_ms: int | None = None
     grid_cols: int = 12
     grid_rows: int = 9
     layout_json: Any = Field(default_factory=dict, sa_column=Column(JSON))
@@ -112,6 +116,7 @@ class LayoutZone(SQLModel, table=True):
     rotation_seconds: int = 30
     transition: str = "fade"
     transition_direction: str = "left"
+    transition_duration_ms: int = 700
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -152,5 +157,6 @@ class ScreenLayoutAssignment(SQLModel, table=True):
     schedule_json: Any = Field(default=None, sa_column=Column(JSON))
     duration_seconds: int | None = None
     transition: str = "fade"
+    transition_direction: str = "left"
     transition_duration_ms: int = 700
     created_at: datetime = Field(default_factory=datetime.utcnow)

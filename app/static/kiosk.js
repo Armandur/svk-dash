@@ -6,6 +6,7 @@
   let layoutState = { currentIdx: 0, timer: null };
   let zoneStates = {}; // zoneId -> { currentIdx, timer, paused, activeViews, lastActiveKey }
   let isPaused = false;
+  let isOffline = false;
 
   function _isViewActive(view, now) {
     const s = view.schedule_json;
@@ -99,6 +100,7 @@
 
     const transition = prevLayout.transition || 'fade';
     const transMs = prevLayout.transition_duration_ms || 700;
+    const direction = prevLayout.transition_direction || 'left';
 
     if (transition === 'fade') {
       nextPanel.style.opacity = '0';
@@ -113,7 +115,24 @@
       setTimeout(finish, transMs);
     } else if (transition === 'slide') {
       nextPanel.style.transition = 'none';
-      nextPanel.style.transform = 'translateX(100%)';
+      prevPanel.style.transition = 'none';
+
+      let startNext = '', endPrev = '';
+      if (direction === 'left') {
+        startNext = 'translateX(100%)';
+        endPrev = 'translateX(-100%)';
+      } else if (direction === 'right') {
+        startNext = 'translateX(-100%)';
+        endPrev = 'translateX(100%)';
+      } else if (direction === 'up') {
+        startNext = 'translateY(100%)';
+        endPrev = 'translateY(-100%)';
+      } else if (direction === 'down') {
+        startNext = 'translateY(-100%)';
+        endPrev = 'translateY(100%)';
+      }
+
+      nextPanel.style.transform = startNext;
       nextPanel.style.opacity = '1';
       nextPanel.style.zIndex = '10';
       nextPanel.classList.add('active');
@@ -122,8 +141,8 @@
       nextPanel.style.transition = 'transform ' + transMs + 'ms ease';
       prevPanel.style.transition = 'transform ' + transMs + 'ms ease';
       
-      nextPanel.style.transform = 'translateX(0)';
-      prevPanel.style.transform = 'translateX(-100%)';
+      nextPanel.style.transform = 'translate(0, 0)';
+      prevPanel.style.transform = endPrev;
 
       setTimeout(finish, transMs);
     } else { // none
@@ -178,8 +197,9 @@
     const nextEl = document.getElementById('z' + zoneId + '-v' + nextView.position);
     if (!nextEl) return;
 
-    const transition = zone.transition || 'fade';
-    const transitionDir = zone.transition_direction || 'left';
+    const transition = nextView.transition || zone.transition || 'fade';
+    const transitionDir = nextView.transition_direction || zone.transition_direction || 'left';
+    const transMs = nextView.transition_duration_ms || zone.transition_duration_ms || 700;
 
     if (transition === 'slide') {
       const leavingEl = document.getElementById('z' + zoneId + '-v' + views[prevIdx].position);
@@ -188,7 +208,10 @@
       // Reset classes
       zone.views.forEach(v => {
         const el = document.getElementById('z' + zoneId + '-v' + v.position);
-        if (el) el.classList.remove('active', 'view-entering', 'view-leaving');
+        if (el) {
+          el.classList.remove('active', 'view-entering', 'view-leaving');
+          el.style.transitionDuration = '';
+        }
       });
 
       if (zoneEl) {
@@ -196,7 +219,11 @@
         zoneEl.classList.add('zone-sliding');
       }
 
-      if (leavingEl && leavingEl !== nextEl) leavingEl.classList.add('view-leaving');
+      if (leavingEl && leavingEl !== nextEl) {
+        leavingEl.style.transitionDuration = transMs + 'ms';
+        leavingEl.classList.add('view-leaving');
+      }
+      nextEl.style.transitionDuration = transMs + 'ms';
       nextEl.classList.add('view-entering', 'active');
       nextEl.style.opacity = '1';
 
@@ -204,13 +231,15 @@
         if (leavingEl) {
           leavingEl.style.transition = 'none';
           leavingEl.style.opacity = '0';
+          leavingEl.style.transitionDuration = '';
           void leavingEl.offsetHeight;
           leavingEl.classList.remove('view-leaving');
           requestAnimationFrame(function() { leavingEl.style.removeProperty('transition'); });
         }
         nextEl.classList.remove('view-entering');
+        nextEl.style.transitionDuration = '';
         if (zoneEl) zoneEl.classList.remove('zone-sliding');
-      }, 700);
+      }, transMs);
     } else if (transition === 'none') {
       zone.views.forEach(v => {
         const el = document.getElementById('z' + zoneId + '-v' + v.position);
@@ -387,7 +416,6 @@
   // --- Klocka ---
 
   function tickClocks() {
-    if (isPaused) return;
     var now = new Date();
     document.querySelectorAll('[data-clock-format]').forEach(function (el) {
       var fmt      = el.dataset.clockFormat || 'time_date';
@@ -509,12 +537,13 @@
     eventSource.onopen = function () {
       lastEventAt = Date.now();
       backoffMs = 1000;
-      offlineBanner.classList.remove('visible');
+      isOffline = false;
+      if (offlineBanner) offlineBanner.classList.remove('visible');
       if (pendingReload) {
         pendingReload = false;
         location.reload();
       } else {
-        resumeAll();
+        // Vi behöver inte resumeAll() här längre om vi inte pausar vid offline
       }
     };
 
@@ -574,8 +603,10 @@
 
   setInterval(function () {
     if (Date.now() - lastEventAt > 90000) {
-      offlineBanner.classList.add('visible');
-      pauseAll();
+      isOffline = true;
+      if (offlineBanner && typeof SHOW_OFFLINE_BANNER !== 'undefined' && SHOW_OFFLINE_BANNER) {
+        offlineBanner.classList.add('visible');
+      }
     }
   }, 10000);
 

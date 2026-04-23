@@ -179,6 +179,7 @@ async def screen_edit(
     screen_id: int,
     name: str = Form(...),
     slug: str = Form(...),
+    show_offline_banner: str | None = Form(None),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
@@ -196,6 +197,7 @@ async def screen_edit(
             )
         screen.name = name
         screen.slug = slug
+        screen.show_offline_banner = show_offline_banner is not None
         screen.updated_at = datetime.utcnow()
         db.add(screen)
         db.commit()
@@ -268,6 +270,7 @@ async def screen_layout_assignment_schedule(
     schedule_json: str = Form(None),
     duration_seconds: int | None = Form(None),
     transition: str = Form("fade"),
+    transition_direction: str = Form("left"),
     transition_duration_ms: int = Form(700),
 ):
     with get_session() as db:
@@ -286,6 +289,7 @@ async def screen_layout_assignment_schedule(
             
         a.duration_seconds = duration_seconds
         a.transition = transition
+        a.transition_direction = transition_direction
         a.transition_duration_ms = transition_duration_ms
         db.add(a)
         db.commit()
@@ -403,6 +407,7 @@ async def zone_settings(
     rotation_seconds: int = Form(30),
     transition: str = Form("fade"),
     transition_direction: str = Form("left"),
+    transition_duration_ms: int = Form(700),
 ):
     with get_session() as db:
         zone = db.get(LayoutZone, zone_id)
@@ -410,6 +415,7 @@ async def zone_settings(
             zone.rotation_seconds = rotation_seconds
             zone.transition = transition
             zone.transition_direction = transition_direction
+            zone.transition_duration_ms = transition_duration_ms
             db.add(zone)
             db.commit()
     return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
@@ -432,6 +438,9 @@ async def zone_view_schedule(
     zone_id: int,
     view_id: int,
     schedule_json: str = Form(None),
+    transition: str | None = Form(None),
+    transition_direction: str | None = Form(None),
+    transition_duration_ms: int | None = Form(None),
 ):
     with get_session() as db:
         view = db.get(View, view_id)
@@ -446,7 +455,11 @@ async def zone_view_schedule(
                 pass
         else:
             view.schedule_json = None
-            
+
+        view.transition = transition if transition else None
+        view.transition_direction = transition_direction if transition_direction else None
+        view.transition_duration_ms = transition_duration_ms
+
         db.add(view)
         db.commit()
     return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)

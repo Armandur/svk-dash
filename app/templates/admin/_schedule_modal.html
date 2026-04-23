@@ -74,16 +74,20 @@
                     </div>
                 </div>
 
-                <!-- Transition (Only for Layout Assignment) -->
+                <!-- Transition (layout eller vy) -->
                 <div id="layout-fields" class="hidden pt-4 border-t border-gray-100 space-y-4">
-                    <div class="grid grid-cols-3 gap-4">
+                    <div id="duration-row">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visningstid (s)</label>
+                        <input type="number" name="duration_seconds" id="layout-duration" min="0" placeholder="0 = schema"
+                               class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visningstid (s)</label>
-                            <input type="number" name="duration_seconds" id="layout-duration" min="0" placeholder="0 = schema" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Transition</label>
-                            <select name="transition" id="transition-select" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <label id="transition-label" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Transition</label>
+                            <select name="transition" id="transition-select"
+                                    onchange="document.getElementById('layout-direction-row').style.display = this.value === 'slide' ? '' : 'none'"
+                                    class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">Ärv från zon</option>
                                 <option value="fade">Fade</option>
                                 <option value="slide">Slide</option>
                                 <option value="none">Ingen</option>
@@ -91,8 +95,20 @@
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Längd (ms)</label>
-                            <input type="number" name="transition_duration_ms" id="transition-duration" step="50" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input type="number" name="transition_duration_ms" id="transition-duration" step="50" placeholder="Ärv"
+                                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         </div>
+                    </div>
+                    <div id="layout-direction-row" style="display:none">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Riktning</label>
+                        <select name="transition_direction" id="transition-direction"
+                                class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Ärv från zon</option>
+                            <option value="left">Vänster</option>
+                            <option value="right">Höger</option>
+                            <option value="up">Upp</option>
+                            <option value="down">Ner</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -116,10 +132,27 @@
         if (targetType === 'layout') {
             form.action = actionUrl || `/admin/screens/{{ screen.id }}/layout/${targetId}/schedule`;
             document.getElementById('layout-fields').classList.remove('hidden');
+            document.getElementById('duration-row').style.display = '';
+            document.getElementById('transition-label').textContent = 'Transition';
             if (layoutData) {
                 document.getElementById('layout-duration').value = layoutData.duration_seconds || '';
-                document.getElementById('transition-select').value = layoutData.transition || 'fade';
+                const t = layoutData.transition || 'fade';
+                document.getElementById('transition-select').value = t;
                 document.getElementById('transition-duration').value = layoutData.transition_duration_ms || 700;
+                document.getElementById('transition-direction').value = layoutData.transition_direction || 'left';
+                document.getElementById('layout-direction-row').style.display = t === 'slide' ? '' : 'none';
+            }
+        } else if (targetType === 'view') {
+            form.action = actionUrl;
+            document.getElementById('layout-fields').classList.remove('hidden');
+            document.getElementById('duration-row').style.display = 'none';
+            document.getElementById('transition-label').textContent = 'Transition (override, lämna tomt = ärv från zon)';
+            if (layoutData) {
+                const t = layoutData.transition || '';
+                document.getElementById('transition-select').value = t;
+                document.getElementById('transition-duration').value = layoutData.transition_duration_ms || '';
+                document.getElementById('transition-direction').value = layoutData.transition_direction || '';
+                document.getElementById('layout-direction-row').style.display = t === 'slide' ? '' : 'none';
             }
         } else {
             form.action = actionUrl;
