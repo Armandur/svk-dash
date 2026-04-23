@@ -7,3 +7,4 @@ data/
 .DS_Store
 dev.log
 tmp/
+tmp/gemini/

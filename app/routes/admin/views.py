@@ -32,12 +32,16 @@ _INLINE_DEFAULTS: dict[str, dict] = {
     },
     "text": {"text": "Text", "size": "large", "align": "center", "bold": False, "color": "#ffffff"},
     "color_block": {"color": "#1e3a5f", "border_radius": 0},
+    "image": {"url": "", "fit": "cover"},
+    "slideshow": {"images": [], "interval": 5, "fit": "cover", "transition": "fade"},
 }
 
 _INLINE_LABELS: dict[str, str] = {
     "clock": "Klocka",
     "text": "Text",
     "color_block": "Färgblock",
+    "image": "Bild",
+    "slideshow": "Bildspel",
 }
 
 router = APIRouter(dependencies=[Depends(require_admin)])

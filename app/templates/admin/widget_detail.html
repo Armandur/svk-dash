@@ -710,7 +710,7 @@ function removeIcsUrl(btn) {
             + Ladda upp bild
             <input type="file" accept="image/*" id="ss-file-input" class="hidden" multiple>
           </label>
-          <input type="hidden" data-field="images" id="ss-images-hidden">
+          <input type="hidden" data-field="images" data-field-type="json" id="ss-images-hidden">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -731,9 +731,22 @@ function removeIcsUrl(btn) {
 
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Övergång</label>
-          <select data-field="transition" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <select data-field="transition" id="ss-transition-select" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
             <option value="fade" {% if cfg.get('transition', 'fade') == 'fade' %}selected{% endif %}>Tona (fade)</option>
+            <option value="slide" {% if cfg.get('transition') == 'slide' %}selected{% endif %}>Glid (slide)</option>
+            <option value="wipe" {% if cfg.get('transition') == 'wipe' %}selected{% endif %}>Wipe (torka)</option>
+            <option value="zoom" {% if cfg.get('transition') == 'zoom' %}selected{% endif %}>Zooma in</option>
             <option value="none" {% if cfg.get('transition') == 'none' %}selected{% endif %}>Ingen</option>
+          </select>
+        </div>
+
+        <div id="ss-direction-wrap" {% if cfg.get('transition', 'fade') not in ('slide', 'wipe') %}style="display:none"{% endif %}>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Riktning</label>
+          <select data-field="direction" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="left"  {% if cfg.get('direction', 'left') == 'left'  %}selected{% endif %}>Vänster → höger</option>
+            <option value="right" {% if cfg.get('direction') == 'right' %}selected{% endif %}>Höger → vänster</option>
+            <option value="up"    {% if cfg.get('direction') == 'up'    %}selected{% endif %}>Nedåt → uppåt</option>
+            <option value="down"  {% if cfg.get('direction') == 'down'  %}selected{% endif %}>Uppåt → nedåt</option>
           </select>
         </div>
 
@@ -784,6 +797,17 @@ function removeIcsUrl(btn) {
               });
             });
             this.value = '';
+          });
+        })();
+        </script>
+
+        <script>
+        (function() {
+          var sel = document.getElementById('ss-transition-select');
+          var wrap = document.getElementById('ss-direction-wrap');
+          if (!sel || !wrap) return;
+          sel.addEventListener('change', function() {
+            wrap.style.display = (this.value === 'slide' || this.value === 'wipe') ? '' : 'none';
           });
         })();
         </script>
@@ -951,6 +975,8 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
         if (el.value !== '') {
           if (key === 'filter_prefixes' || key === 'filter_keywords') {
             cfg[key] = el.value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+          } else if (el.dataset.fieldType === 'json') {
+            try { cfg[key] = JSON.parse(el.value); } catch(e) {}
           } else {
             cfg[key] = el.value;
           }

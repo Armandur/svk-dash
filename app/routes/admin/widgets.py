@@ -9,8 +9,6 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import select
 
-from sqlmodel import select
-
 from app.config import UPLOADS_DIR
 from app.database import get_session
 from app.deps import require_admin

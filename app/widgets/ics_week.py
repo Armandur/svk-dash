@@ -10,7 +10,13 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import apply_private, get_event_kind, online_badge_html, should_filter, source_color
+from app.widgets.ics_common import (
+    apply_private,
+    get_event_kind,
+    online_badge_html,
+    should_filter,
+    source_color,
+)
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
