@@ -393,7 +393,7 @@ async def zone_view_detach(screen_id: int, zone_id: int, view_id: int):
             db.add(view)
             db.commit()
             _reorder_views(db, screen_id, zone_id)
-    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
+    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
 
 
 @router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/move")
