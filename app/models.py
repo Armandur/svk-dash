@@ -23,6 +23,7 @@ class View(SQLModel, table=True):
     zone_id: int | None = Field(default=None, foreign_key="layoutzone.id")
     position: int
     name: str
+    enabled: bool = True
     duration_seconds: int | None = None
     transition: str | None = None           # None = ärv från zon
     transition_direction: str | None = None
@@ -154,6 +155,7 @@ class ScreenLayoutAssignment(SQLModel, table=True):
     screen_id: int = Field(foreign_key="screen.id")
     layout_id: int = Field(foreign_key="layout.id")
     priority: int = 0
+    enabled: bool = True
     schedule_json: Any = Field(default=None, sa_column=Column(JSON))
     duration_seconds: int | None = None
     transition: str = "fade"

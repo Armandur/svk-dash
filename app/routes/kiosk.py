@@ -61,7 +61,7 @@ def _is_active(schedule, now: datetime):
 
 def _get_active_assignments(assignments, now: datetime):
     import logging as _log
-    active = [a for a in assignments if _is_active(a.schedule_json, now)]
+    active = [a for a in assignments if a.enabled and _is_active(a.schedule_json, now)]
 
     if not active:
         _log.getLogger(__name__).info("layout-val: inga aktiva tilldelningar")
@@ -96,7 +96,7 @@ def _render_layout(assignment, screen, context, db):
             .where(View.screen_id == screen.id, View.zone_id == zone.id)
             .order_by(View.position)
         ).all()
-        views_data = [_render_view(v, context, db) for v in zone_views]
+        views_data = [_render_view(v, context, db) for v in zone_views if v.enabled]
         zones_rendered.append(
             {
                 "id": zone.id,

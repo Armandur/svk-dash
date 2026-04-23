@@ -268,6 +268,7 @@ async def screen_layout_assignment_schedule(
     screen_id: int,
     assignment_id: int,
     schedule_json: str = Form(None),
+    enabled: str | None = Form(None),
     duration_seconds: int | None = Form(None),
     transition: str = Form("fade"),
     transition_direction: str = Form("left"),
@@ -277,7 +278,7 @@ async def screen_layout_assignment_schedule(
         a = db.get(ScreenLayoutAssignment, assignment_id)
         if not a or a.screen_id != screen_id:
             return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-        
+
         if schedule_json:
             import json
             try:
@@ -286,7 +287,8 @@ async def screen_layout_assignment_schedule(
                 pass
         else:
             a.schedule_json = None
-            
+
+        a.enabled = enabled is not None
         a.duration_seconds = duration_seconds
         a.transition = transition
         a.transition_direction = transition_direction
@@ -438,6 +440,7 @@ async def zone_view_schedule(
     zone_id: int,
     view_id: int,
     schedule_json: str = Form(None),
+    enabled: str | None = Form(None),
     duration_seconds: int | None = Form(None),
     transition: str | None = Form(None),
     transition_direction: str | None = Form(None),
@@ -457,6 +460,7 @@ async def zone_view_schedule(
         else:
             view.schedule_json = None
 
+        view.enabled = enabled is not None
         view.duration_seconds = duration_seconds
         view.transition = transition if transition else None
         view.transition_direction = transition_direction if transition_direction else None

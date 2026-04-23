@@ -67,7 +67,7 @@
                class="flex items-start gap-2 px-3 py-2.5 text-sm transition-colors border-l-2
                       {% if selected_assignment and a.id == selected_assignment.id %}border-blue-500 bg-blue-50 text-blue-700 font-semibold{% else %}border-transparent text-gray-700 hover:bg-gray-50{% endif %}">
               <span class="mt-1 w-2 h-2 rounded-full flex-shrink-0
-                           {% if not a.schedule_json %}bg-green-400{% else %}bg-amber-400{% endif %}"></span>
+                           {% if not a.enabled %}bg-red-400{% elif not a.schedule_json %}bg-green-400{% else %}bg-amber-400{% endif %}"></span>
               <span class="truncate leading-tight">{{ al.name if al else 'Layout #' ~ a.layout_id }}</span>
             </a>
             {% endfor %}
@@ -96,7 +96,7 @@
 
           <!-- Schema för vald tilldelning -->
           <div class="bg-gray-50 rounded p-3 text-xs mb-4 flex items-center justify-between group cursor-pointer hover:bg-gray-100 transition-colors"
-               onclick="openScheduleModal('layout', {{ selected_assignment.id }}, {{ (selected_assignment.schedule_json or {}) | tojson }}, {duration_seconds: {{ selected_assignment.duration_seconds or 0 }}, transition: '{{ selected_assignment.transition }}', transition_direction: '{{ selected_assignment.transition_direction }}', transition_duration_ms: {{ selected_assignment.transition_duration_ms }}})">
+               onclick="openScheduleModal('layout', {{ selected_assignment.id }}, {{ (selected_assignment.schedule_json or {}) | tojson }}, {enabled: {{ selected_assignment.enabled | tojson }}, duration_seconds: {{ selected_assignment.duration_seconds or 0 }}, transition: '{{ selected_assignment.transition }}', transition_direction: '{{ selected_assignment.transition_direction }}', transition_duration_ms: {{ selected_assignment.transition_duration_ms }}})">
             <div>
               <h3 class="font-semibold text-[10px] uppercase text-gray-400 mb-1 tracking-wider">Schema & Transition</h3>
               <div class="flex items-center gap-2">
