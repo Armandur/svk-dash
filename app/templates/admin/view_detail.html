@@ -473,8 +473,10 @@
               </div>
               <div>
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Ladda upp bild</div>
-                <input type="file" accept="image/*" class="icfg-img-upload" style="font-size:0.65rem;color:#94a3b8;width:100%">
-                <button type="button" class="icfg-img-library mt-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Välj från bibliotek…</button>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">
+                  <label class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors cursor-pointer">Ladda upp…<input type="file" accept="image/*" class="icfg-img-upload" style="display:none"></label>
+                  <button type="button" class="icfg-img-library text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Välj från bibliotek…</button>
+                </div>
               </div>
               {% elif entry.kind == 'slideshow' %}
               <div style="margin-bottom:6px">
@@ -1254,9 +1256,10 @@ if (lyrAddBtn) {
         if (data.media_id) cfg.media_id = data.media_id;
         if (data.original_name) cfg.name = data.original_name;
         card.dataset.inlineConfig = JSON.stringify(cfg);
-        const urlField = card.querySelector('.icfg-field[data-cfg-key="url"]');
+        const _upContainer = _upDrop || card;
+        const urlField = _upContainer.querySelector('.icfg-field[data-cfg-key="url"]');
         if (urlField) urlField.value = data.url;
-        const nameLabel = card.querySelector('.icfg-img-name');
+        const nameLabel = _upContainer.querySelector('.icfg-img-name');
         if (nameLabel && data.original_name) { nameLabel.textContent = data.original_name; nameLabel.title = data.original_name; }
         applyInlinePreview(card, cfg);
         setDirty();
@@ -1351,9 +1354,10 @@ if (lyrAddBtn) {
         if (mediaId) cfg.media_id = mediaId;
         if (origName) cfg.name = origName;
         card.dataset.inlineConfig = JSON.stringify(cfg);
-        const urlField = card.querySelector('.icfg-field[data-cfg-key="url"]');
+        const _imgContainer = _imgDrop || card;
+        const urlField = _imgContainer.querySelector('.icfg-field[data-cfg-key="url"]');
         if (urlField) urlField.value = url;
-        const nameLabel = card.querySelector('.icfg-img-name');
+        const nameLabel = _imgContainer.querySelector('.icfg-img-name');
         if (nameLabel && origName) { nameLabel.textContent = origName; nameLabel.title = origName; }
         applyInlinePreview(card, cfg);
         setDirty();
