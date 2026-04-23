@@ -2,7 +2,7 @@
 
 ## Vad projektet är
 
-Intern informationsskärm-tjänst för Svenska kyrkan. Ersätter dakboard. En skärm = en URL som körs i kiosk-läge på Raspberry Pi. Skärmar roterar mellan vyer med widgets (ICS-kalender, markdown, klocka m.m.). Admin redigerar allt via webbgränssnitt; delegerade redaktörer via hemliga token-URL:er.
+Intern informationsskärm-tjänst för Svenska kyrkan. Ersätter Dakboard. En skärm = en URL som körs i kiosk-läge på Raspberry Pi. Skärmar roterar mellan layouter och vyer med widgets (ICS-kalender, markdown, klocka m.m.). Admin redigerar allt via webbgränssnitt; delegerade redaktörer via hemliga token-URL:er.
 
 ## Stack
 
@@ -11,7 +11,7 @@ Intern informationsskärm-tjänst för Svenska kyrkan. Ersätter dakboard. En sk
 - **Alembic** för migrationer
 - **Jinja2** för templating (server-side rendering)
 - **HTMX + Tailwind CDN** i admin-UI
-- **Vanilla JS** i kioskvyn (inga tunga bibliotek)
+- **Vanilla JS** i kioskvyn (inga tunga bibliotek, ~650 rader)
 - **SSE (sse-starlette)** för realtids-push till skärmar
 - **Caddy** som reverse proxy
 - **uv** för dependency-hantering
@@ -20,80 +20,223 @@ Intern informationsskärm-tjänst för Svenska kyrkan. Ersätter dakboard. En sk
 
 ```
 app/
-  main.py          # FastAPI-app, lifespan, mounts, exception handlers
-  config.py        # Miljövariabler och konstanter
-  database.py      # SQLModel engine, WAL-pragma, get_session() contextmanager
-  models.py        # Screen, View, Widget, IcsCache, WidgetRevision, ViewSchedule
-  auth.py          # Session-cookies (itsdangerous), verify_password (bcrypt)
-  deps.py          # require_admin() FastAPI-beroende, NotAuthenticatedError
-  templating.py    # Jinja2-instans
+  main.py              # FastAPI-app, lifespan, mounts, middleware
+  config.py            # Miljövariabler och konstanter
+  database.py          # SQLModel engine, WAL-pragma, get_session()
+  models.py            # Alla SQLModel-modeller
+  auth.py              # Session-cookies (itsdangerous), verify_password (bcrypt)
+  deps.py              # require_admin() FastAPI-beroende
+  templating.py        # Jinja2-instans + filter (tojson, schedule_summary, now_local)
+  sse.py               # SSE-registry: register/unregister/broadcast per screen_id
   routes/
     admin/
-      __init__.py  # Kombinerar submodulernas routers under /admin
-      auth.py      # GET/POST /admin/login, POST /admin/logout
-      screens.py   # CRUD Screen + View (skapa/redigera/ta bort)
-      views.py     # GET/POST /admin/views/<id> — widget-layout i vy
-      widgets.py   # CRUD Widget, revisionshistorik, token-rotering
-  widgets/         # Widget-renderers (byggs ut i Fas 2+)
+      __init__.py      # Kombinerar submodulernas routers under /admin
+      auth.py          # GET/POST /admin/login, POST /admin/logout
+      screens.py       # Screen CRUD, LayoutZone-inställningar, schema för
+                       # tilldelningar och vyer, zon-vyer CRUD
+      views.py         # GET/POST /admin/views/<id> — widget-layout i vy
+      widgets.py       # Widget CRUD, revisionshistorik, token-rotering
+      layouts.py       # Layout CRUD, zon-editor (drag/resize)
+      media.py         # Mediebibliotek: uppladdning, mappar, radering
+      sse_control.py   # Admin-triggered SSE-events (reload m.m.)
+    edit.py            # GET/POST /edit/<token> — delegerad redigering
+    kiosk.py           # Kiosk-endpoint, SSE, widget-API, broadcast-funktioner
+  widgets/             # En fil per widget-typ
+    base.py            # render_widget() dispatcher
+    clock.py
+    color_block.py
+    debug.py
+    ics_common.py      # Delad ICS-parsning och filtrering
+    ics_list.py
+    ics_month.py
+    ics_schedule.py
+    ics_week.py
+    image.py
+    markdown.py
+    raw_html.py
+    slideshow.py
+    text.py
+  services/
+    ics_fetcher.py     # Bakgrundsjobb: hämtar ICS var 10:e min, deduplicerat
+    layout_scheduler.py
+    screen_monitor.py
   templates/
     admin/
-      base.html    # Nav, Tailwind CDN, HTMX CDN
-      login.html   # Fristående login-sida
-      index.html   # Dashboard (skärmlista)
+      base.html        # Nav, Tailwind CDN, HTMX CDN
+      login.html
+      index.html       # Dashboard (skärmlista)
       screens.html
       screen_form.html
-      screen_detail.html  # Skärm + vylista + vy-skapare
-      view_detail.html    # Vy + widget-layout
-      widgets.html
+      screen_detail.html  # Skärm: layout-tilldelningar, zon-preview, inställningar
+      zone_detail.html    # Zon: vylista med schema/transition per vy
+      view_detail.html    # Vy: widget-layout editor
+      widget_detail.html  # Widget: konfig, revisionshistorik, edit-token
       widget_form.html
-      widget_detail.html  # Konfig-editor + revisionshistorik
+      widgets.html
+      layout_detail.html  # Layout: zon-editor (drag/resize)
+      layout_form.html
+      layouts.html
+      media.html          # Mediebibliotek: grid/list, mappar, batch-operationer
+      _schedule_modal.html  # Delad modal för schema + transition + enabled
+    kiosk/
+      screen.html      # Kiosk-vy: alla layouter pre-renderade, JS-konstanter
   static/
-data/              # SQLite-DB och uploads (gitignorerat)
-alembic/           # Migrationer
+    kiosk.js           # Kiosk-klient (~650 rader, vanilla JS)
+data/                  # SQLite-DB och uploads (gitignorerat)
+alembic/               # Migrationer
 deploy/
-  kiosk-setup/     # Bootstrap-script för RPi (byggs i Fas 1 slutet)
+  kiosk-setup/         # Bootstrap-script för RPi
 ```
+
+## Datamodell
+
+### Hierarki
+```
+Screen
+  └── ScreenLayoutAssignment (enabled, schedule_json, duration_seconds,
+  │                           transition, transition_direction,
+  │                           transition_duration_ms, priority)
+  │     └── Layout
+  │           └── LayoutZone (role, x/y/w/h_pct, rotation_seconds,
+  │                           transition, transition_direction,
+  │                           transition_duration_ms)
+  │                 └── View (enabled, schedule_json, duration_seconds,
+  │                           transition, transition_direction,
+  │                           transition_duration_ms, layout_json)
+  │                       └── Widget (via layout_json, eller inline)
+  └── ZoneWidgetPlacement (för persistenta zoner)
+```
+
+### Modeller (models.py)
+- **Screen** – slug, name, show_offline_banner, last_seen_at, last_connection_count, alert_sent_at
+- **ScreenLayoutAssignment** – kopplar skärm till layout; enabled, schedule_json, duration_seconds, transition, transition_direction, transition_duration_ms, priority
+- **Layout** – återanvändbar mall; name, description, aspect_ratio
+- **LayoutZone** – yta i procent; role (persistent/schedulable), rotation_seconds, transition, transition_direction, transition_duration_ms
+- **View** – screen_id, zone_id, position, enabled, schedule_json, duration_seconds, transition, transition_direction, transition_duration_ms, layout_json (widget-placeringar)
+- **Widget** – kind, name, config_json, edit_token
+- **ZoneWidgetPlacement** – widget i persistent zon; widget_id eller inline_kind, config_json, x/y/w/h, z_index, opacity
+- **IcsCache** – widget_id + source_url → raw_ics, etag, fetched_at
+- **WidgetRevision** – historik per widget (max 20), config_json, saved_via
+- **MediaFolder** / **MediaFile** – mediebibliotek; filename (UUID på disk), original_name
+- **LayoutRevision** – historik per layout
+
+### Arvslogik för transition
+Vyer ärver transition-inställningar från sin zon om egna fält är `None`. Kiosk.js: `nextView.transition || zone.transition || 'fade'`. Samma mönster för transition_direction och transition_duration_ms.
+
+### enabled + schedule_json
+Båda finns på `ScreenLayoutAssignment` och `View`.
+- `enabled=False` → filtreras bort helt vid kiosk-rendering (server-side)
+- `schedule_json` → utvärderas client-side i kiosk.js för vy-rotation, server-side i `_is_active()` för layout-val och admin-preview
 
 ## URL-struktur
 
 ### Admin (lösenordsskyddat)
-- `GET /admin/` — dashboard
-- `GET /admin/screens` — skärmlista
-- `GET /admin/screens/new` — skapa skärm
-- `GET /admin/screens/<id>` — skärmdetalj + vyer
-- `POST /admin/screens/<id>/edit` — uppdatera skärm
-- `POST /admin/screens/<id>/delete` — ta bort skärm
-- `POST /admin/screens/<id>/views/new` — skapa vy
-- `POST /admin/screens/<id>/views/<id>/delete` — ta bort vy
-- `GET /admin/views/<id>` — redigera vy + widgets
-- `POST /admin/views/<id>/edit` — uppdatera vy
-- `POST /admin/views/<id>/widgets/add` — lägg till widget i vy
-- `POST /admin/views/<id>/widgets/<id>/remove` — ta bort widget ur vy
-- `GET /admin/widgets` — widget-bibliotek
-- `GET /admin/widgets/new` — skapa widget
-- `GET /admin/widgets/<id>` — redigera widget + historik
-- `POST /admin/widgets/<id>/edit` — spara (skapar revision automatiskt)
-- `POST /admin/widgets/<id>/rotate-token` — rotera edit-token
-- `POST /admin/widgets/<id>/revert/<rev_id>` — återställ revision
-- `POST /admin/widgets/<id>/delete` — ta bort (409 om widget används i vy, `?force=1` rensar)
+```
+GET  /admin/                                        # Dashboard
+GET  /admin/screens                                 # Skärmlista
+GET  /admin/screens/new
+POST /admin/screens/<id>/edit                       # Inkl. show_offline_banner
+POST /admin/screens/<id>/delete
+GET  /admin/screens/<id>?sel=<assignment_id>        # Skärm + vald layout-tilldelning
+POST /admin/screens/<id>/layout/assign              # Koppla layout till skärm
+POST /admin/screens/<id>/layout/<aid>/schedule      # Schema + transition + enabled
+POST /admin/screens/<id>/layout/<aid>/remove
+GET  /admin/screens/<id>/zones/<zid>                # Zon-detalj: vyer i zonen
+POST /admin/screens/<id>/zones/<zid>/settings       # rotation_seconds, transition...
+POST /admin/screens/<id>/zones/<zid>/views/new
+POST /admin/screens/<id>/zones/<zid>/views/<vid>/schedule  # Schema + transition + enabled
+POST /admin/screens/<id>/zones/<zid>/views/<vid>/detach
+POST /admin/screens/<id>/zones/<zid>/views/<vid>/delete
+GET  /admin/views/<id>                              # Widget-layout editor
+POST /admin/views/<id>/edit
+GET  /admin/widgets
+GET  /admin/widgets/new
+GET  /admin/widgets/<id>
+POST /admin/widgets/<id>/edit
+POST /admin/widgets/<id>/rotate-token
+POST /admin/widgets/<id>/revert/<rev_id>
+POST /admin/widgets/<id>/delete
+GET  /admin/layouts
+GET  /admin/layouts/new
+GET  /admin/layouts/<id>
+POST /admin/layouts/<id>/edit
+POST /admin/layouts/<id>/delete
+GET  /admin/media
+POST /admin/media/upload
+POST /admin/media/folders/new
+POST /admin/media/move
+POST /admin/media/delete
+```
 
-### Edit-token (delegerad redigering, byggs i Fas 1)
-- `GET /edit/<token>` — redigeringsvy utan inloggning
-- `POST /edit/<token>` — spara
+### Edit-token (delegerad redigering)
+```
+GET  /edit/<token>
+POST /edit/<token>
+```
 
-### Kioskvyn (byggs i Fas 1)
-- `GET /s/<slug>` — kioskvyn
-- `GET /s/<slug>/events` — SSE-endpoint
+### Kiosk
+```
+GET  /s/<slug>                   # Kiosk-vy (alla aktiva layouter pre-renderade)
+GET  /s/<slug>/events            # SSE-endpoint
+GET  /api/widget/<id>/data       # Widget-HTML för live-uppdatering
+```
+
+## Kiosk-klientens arkitektur (kiosk.js)
+
+All HTML renderas server-side vid sidladdning. Klienten hanterar sedan:
+
+**JS-konstanter (injiceras i screen.html):**
+```javascript
+const SCREEN_SLUG         = "vaktmasteriet";
+const KIOSK_LAYOUTS       = [...];  // Metadata utan widget-HTML
+const LAYOUT_ROTATION     = { duration_seconds, transition, transition_direction, transition_duration_ms };
+const SHOW_OFFLINE_BANNER = true;
+```
+
+**Rotation:**
+- `rotateLayout()` – växlar mellan `div.layout-panel`-element i DOM; fade/slide/none med riktning
+- `scheduleZone(zoneId)` – roterar vyer inom en zon baserat på duration och schedule_json
+- `showZoneView(zoneId, idx)` – animerar vy-övergång (slide med CSS-animationer scoped till zonen, fade med opacity)
+
+**SSE:**
+- `connectSSE()` – ansluter till `/s/<slug>/events`, reconnect med exponential backoff
+- `reload`-event → `location.reload()`
+- `widget_updated`-event → hämtar `/api/widget/<id>/data`, ersätter DOM-nod
+
+**Offline-resiliens:**
+- Separat `isOffline`-flagga (inte `isPaused`) — rotation och klockor fortsätter vid tappad SSE
+- Offline-banner visas bara om `SHOW_OFFLINE_BANNER === true`
+- Timeout: 90 sekunder utan event → markeras offline
 
 ## Viktiga designbeslut
 
+- **Alla layouter pre-renderas** i DOM vid sidladdning — layout-rotation sker client-side utan `location.reload()`. Layouter visas/döljs med CSS.
 - **Widget-referensintegritet**: `layout_json` på `View` innehåller widget-IDs utan formell FK. Vid DELETE-försök returnerar servern 409 om widgeten används; `?force=1` städar referenserna. Vid render: saknad widget → placeholder, inte krasch.
 - **Revisioner**: varje widget-save skapar `WidgetRevision`. Auto-rensning: max 20 per widget.
 - **raw_html-widget**: ingen edit-token (XSS-risk vid delegering). Admin-only.
 - **SSE-backpressure**: `asyncio.Queue(maxsize=10)` per klient. `QueueFull` → koppla ned.
 - **Session**: itsdangerous `URLSafeTimedSerializer`, HttpOnly cookie, SameSite=Lax.
-- **Lösenord**: `ADMIN_PASSWORD_HASH` i env (bcrypt). Ingen DB-tabell i v1.
-- `Referrer-Policy: no-referrer` krävs på `/edit/*`-svar (capability URL — token läcker via Referer annars).
+- **Lösenord**: `ADMIN_PASSWORD_HASH` i env (bcrypt). Ingen DB-tabell.
+- **Referrer-Policy: no-referrer** på `/edit/*`-svar (capability URL — token läcker via Referer annars).
+- **ICS-deduplicering**: `ics_fetcher.py` gör en HTTP-request per unik URL oavsett hur många widgets som delar källan.
+
+## Fallgropar
+
+### tojson i onclick-attribut
+`templating.py`-filtret `tojson` gör `Markup(json.dumps(...))` — HTML-escapar INTE `"`. Tomma strängar renderas som `""` och bryter `onclick="..."`. **Lösning:** använd single-quoted JS-strängar i onclick för strängvärden: `transition: '{{ view.transition or '' }}'` — inte `tojson`.
+
+### Tomma heltalsfält i formulär
+Webbläsare skickar tomma fält som `""`, inte som frånvaro. FastAPI kan inte parsa `""` som `int | None`. **Lösning:** deklarera som `str | None = Form(None)` och konvertera manuellt: `int(v) if v else None`.
+
+### Alembic + SQLite NOT NULL
+SQLite tillåter inte `ALTER TABLE ADD COLUMN ... NOT NULL` utan `server_default`. Lägg alltid till `server_default='...'` i migrationer för icke-nullbara kolumner på befintliga tabeller.
+
+## Statusindikatorer (admin-UI)
+
+Konsekvent prickdesign på layouter och vyer:
+- **Fylld grön** (`bg-green-400`) – aktiverad och aktiv nu (ingen schema eller schemat matchar)
+- **Kontur grön** (`border-2 border-green-400`) – aktiverad men visas ej pga schema
+- **Röd** (`bg-red-400`) – inaktiverad (`enabled=False`)
 
 ## Miljövariabler
 
@@ -109,22 +252,18 @@ deploy/
 ## Köra lokalt
 
 ```bash
-# Installera uv om det saknas
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Installera beroenden och kör migrationer
 uv sync
 uv run alembic upgrade head
 
 # Generera adminlösenord
 python3 -c "import bcrypt; print(bcrypt.hashpw(b'ditt-lösenord', bcrypt.gensalt()).decode())"
 
-# Starta dev-server (loggar till dev.log i projektmappen)
+# Starta dev-server
 ADMIN_PASSWORD_HASH='$2b$12$...' uv run uvicorn app.main:app --reload >> dev.log 2>&1 &
 tail -f dev.log
 ```
 
-Loggen skrivs till `dev.log` i projektmappen. Kontrollera alltid den filen vid startproblem.
+Loggen skrivs till `dev.log`. Kontrollera alltid den filen vid startproblem.
 
 ## Vanliga uppgifter
 
@@ -137,64 +276,24 @@ Loggen skrivs till `dev.log` i projektmappen. Kontrollera alltid den filen vid s
 **Lägga till en ny widget-typ:**
 1. Lägg till kind-strängen i `WIDGET_KINDS` i `app/routes/admin/widgets.py`
 2. Skapa renderer i `app/widgets/<kind>.py` med `render(widget, context) -> str`
-3. Importera i kiosk-router (byggs i Fas 1)
+3. Registrera i `app/widgets/base.py`
 
 **Ny Alembic-migration:**
 ```bash
 uv run alembic revision --autogenerate -m "beskrivning"
+# Kontrollera den genererade filen — lägg till server_default vid behov
 uv run alembic upgrade head
 ```
 
-**Ruff (kör alltid innan commit):**
+**Verifiera efter ändring:**
+```bash
+uv run python -c "from app.main import app; print('OK')"
+```
+
+**Ruff:**
 ```bash
 uv run ruff check app/ --fix && uv run ruff format app/
 ```
-
-## Planerad arkitektur: Layout-system
-
-> **Status:** ej påbörjat — designbeslut dokumenterade, implementation i tre steg.
-
-### Koncept
-
-Ett nytt lager ovanför nuvarande Vy-modell. En *Layout* är ett återanvändbart template som delar upp skärmen i namngivna *Zoner*. Varje skärm kopplas till en layout och kan schemalägga byte mellan layouter.
-
-```
-Layout  (återanvändbart template)
-  └── LayoutZone
-        x_pct, y_pct, w_pct, h_pct  ← procent av skärmytan
-        role: "persistent" | "schedulable"
-        grid_cols, grid_rows          ← zonen har eget grid
-        └── ZoneWidgetPlacement       ← templatens default-innehåll (persistent zones)
-
-Screen
-  └── ScreenLayoutAssignment          ← vilken layout skärmen kör
-        layout_id
-        schedule: alltid | veckodagar + tidsintervall
-        └── ScreenZoneOverride        ← valfri override av template-default per zon
-              zone_id
-              └── ZoneWidgetPlacement ← skärmens egna version (ersätter template-default)
-
-View  (nuvarande modell, omdöpt konceptuellt till "ZoneContent")
-  zone_binding_id                     ← ersätter screen_id
-  └── ViewSchedule                    ← när innehållet visas i zonen
-```
-
-### Arvslogik för persistenta zoner
-
-- Ingen `ScreenZoneOverride` → template-defaulten visas
-- `ScreenZoneOverride` satt → skärmens version vinner (allt-eller-inget per zon)
-
-Användaren ser det som: *"Använd layout-standard / Anpassa för den här skärmen"*
-
-### Migrationsväg
-
-Befintliga skärmar och vyer migreras automatiskt till en autogenererad default-layout med en enda zon som täcker hela skärmen (`x=0, y=0, w=100, h=100, role=schedulable`). Inget data går förlorat.
-
-### Implementationssteg
-
-1. **Layouts + zon-editor** — DB-modeller, `/admin/layouts`, visuell zon-editor (drag/resize)
-2. **Koppla skärmar** — `ScreenLayoutAssignment`, `ScreenZoneOverride`, migration
-3. **Schemaläggning** — vy-rotation inom zoner, layout-växling per schema
 
 ---
 
@@ -229,7 +328,7 @@ Befintliga skärmar och vyer migreras automatiskt till en autogenererad default-
 ### Modaler
 - **Overlay**: `fixed inset-0 z-50 flex items-center justify-center` med `background:rgba(0,0,0,0.45)`
 - **Struktur**: `bg-white rounded-xl shadow-2xl flex flex-col` (bredd ofta `max-width:440px` eller `560px`)
-- **Stängning**: Stäng vid klick på overlay, Escape-tangent eller `&times;` ( `text-gray-400 hover:text-gray-700 text-2xl` )
+- **Stängning**: Stäng vid klick på overlay, Escape-tangent eller `&times;`
 
 ### Navigering och Layout
 - **Navbar**: `bg-white border-b border-gray-200 px-6 py-3`, länkar `text-sm text-gray-600 hover:text-gray-900`
@@ -237,6 +336,6 @@ Befintliga skärmar och vyer migreras automatiskt till en autogenererad default-
 - **Sidopanel (Sidoflikar)**: `w-44 border-r border-gray-100 py-3`. Aktiv: `bg-blue-50 text-blue-700 font-semibold`.
 
 ### Färgpalett & Feedback
-- **Status-dots**: `bg-green-500` (online), `bg-yellow-400` (recent), `bg-red-500` (offline)
+- **Status-prickar**: fylld grön = aktiv nu, kontur grön = schemalagd men ej aktiv, röd = inaktiverad
 - **Feedback (Fel)**: `text-sm text-red-600 bg-red-50 rounded px-3 py-2`
 - **Editor-vy**: Mörkt tema med `bg-slate-900` (#0f172a), ramar `#334155` och accent `#60a5fa`.
