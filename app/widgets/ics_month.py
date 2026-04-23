@@ -16,8 +16,19 @@ _WEEKDAYS_MON = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
 _WEEKDAYS_SUN = ["Sön", "Mån", "Tis", "Ons", "Tor", "Fre", "Lör"]
 
 _MONTHS = [
-    "", "Januari", "Februari", "Mars", "April", "Maj", "Juni",
-    "Juli", "Augusti", "September", "Oktober", "November", "December",
+    "",
+    "Januari",
+    "Februari",
+    "Mars",
+    "April",
+    "Maj",
+    "Juni",
+    "Juli",
+    "Augusti",
+    "September",
+    "Oktober",
+    "November",
+    "December",
 ]
 
 
@@ -119,16 +130,18 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 parts.append(f'<div class="icm-ev">{label}</div>')
             if len(evs) > 3:
                 parts.append(f'<div class="icm-more">+{len(evs) - 3}</div>')
-            parts.append('</div>')
+            parts.append("</div>")
 
-    parts.append('</div>')  # icm-grid
+    parts.append("</div>")  # icm-grid
 
     fetched_local = cache.fetched_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
     fetched_str = fetched_local.strftime("%H:%M")
     if cache.last_error:
-        parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+        parts.append(
+            f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>'
+        )
     else:
         parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
-    parts.append('</div>')  # widget-ics-month
+    parts.append("</div>")  # widget-ics-month
     return "".join(parts)

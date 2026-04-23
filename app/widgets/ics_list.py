@@ -13,8 +13,19 @@ _TZ = ZoneInfo("Europe/Stockholm")
 
 _WEEKDAYS = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
 _MONTHS = [
-    "", "januari", "februari", "mars", "april", "maj", "juni",
-    "juli", "augusti", "september", "oktober", "november", "december",
+    "",
+    "januari",
+    "februari",
+    "mars",
+    "april",
+    "maj",
+    "juni",
+    "juli",
+    "augusti",
+    "september",
+    "oktober",
+    "november",
+    "december",
 ]
 
 
@@ -107,14 +118,16 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             f'<div class="ics-ev">'
             f'<span class="ics-t">{time_str}</span>'
             f'<span class="ics-s">{summary}{loc_html}</span>'
-            f'</div>'
+            f"</div>"
         )
 
     fetched_local = cache.fetched_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
     fetched_str = fetched_local.strftime("%H:%M")
 
     if cache.last_error:
-        parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+        parts.append(
+            f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>'
+        )
     else:
         parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
