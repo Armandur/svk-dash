@@ -1462,12 +1462,9 @@ if (lyrAddBtn) {
 
   // ── Mediepicker ─────────────────────────────────────
   (function() {
-    var mpm        = document.getElementById('media-picker-modal');
-    var mpmGrid    = document.getElementById('mpm-grid');
-    var mpmFolders = document.getElementById('mpm-folders');
-    var mpmClose   = document.getElementById('mpm-close');
     var _mpmCb     = null;
     var _mpmData   = null;
+    var mpm, mpmGrid, mpmFolders, mpmClose;
 
     function renderFolder(folderId) {
       var files = _mpmData.files.filter(function(f) {
@@ -1535,12 +1532,25 @@ if (lyrAddBtn) {
         });
     }
 
-    function openMpm(cb) { _mpmCb = cb; loadMedia(); mpm.classList.remove('hidden'); }
-    function closeMpm() { mpm.classList.add('hidden'); }
+    function openMpm(cb) {
+      if (!mpm) {
+        mpm        = document.getElementById('media-picker-modal');
+        mpmGrid    = document.getElementById('mpm-grid');
+        mpmFolders = document.getElementById('mpm-folders');
+        mpmClose   = document.getElementById('mpm-close');
 
-    mpmClose.addEventListener('click', closeMpm);
-    mpm.addEventListener('click', function(e) { if (e.target === mpm) closeMpm(); });
-    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !mpm.classList.contains('hidden')) closeMpm(); });
+        mpmClose.addEventListener('click', closeMpm);
+        mpm.addEventListener('click', function(e) { if (e.target === mpm) closeMpm(); });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && mpm && !mpm.classList.contains('hidden')) closeMpm();
+        });
+      }
+      _mpmCb = cb;
+      loadMedia();
+      mpm.classList.remove('hidden');
+    }
+
+    function closeMpm() { if (mpm) mpm.classList.add('hidden'); }
 
     window.openMediaPicker = openMpm;
   })();
