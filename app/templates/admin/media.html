@@ -122,8 +122,8 @@
 
       <!-- 1: bockruta -->
       <div class="col-check">
-        <input type="checkbox" class="file-checkbox" data-id="{{ f.id }}">
-        <span class="check-indicator">&#10003;</span>
+        <input type="checkbox" class="file-checkbox" id="fcb-{{ f.id }}" data-id="{{ f.id }}">
+        <label for="fcb-{{ f.id }}" class="check-indicator">&#10003;</label>
       </div>
 
       <!-- 2: miniatyr -->
@@ -136,7 +136,10 @@
       <div class="col-name">
         <p class="media-name" title="{{ f.original_name }}">{{ f.original_name }}</p>
         <p class="grid-only media-meta">{{ (f.size_bytes / 1024) | round(1) }} KB
-          {% if usages %}<span class="usage-badge" title="{{ usages | map(attribute='name') | join(', ') }}">{{ usages | length }} användning{% if usages | length != 1 %}ar{% endif %}</span>{% endif %}
+          {% if usages %}
+          <button type="button" class="usage-badge usage-grid-toggle"
+                  data-usages="{{ usages | tojson | forceescape }}">{{ usages | length }} användning{% if usages | length != 1 %}ar{% endif %} ▾</button>
+          {% endif %}
         </p>
         <div class="grid-only grid-actions">
           <button type="button" class="copy-url-btn" data-url="/uploads/{{ f.filename }}">URL</button>
@@ -179,6 +182,8 @@
   </div>
   {% endif %}
 </div>
+
+<ul id="usage-popup" style="display:none;position:fixed;z-index:10000;background:white;border:1px solid #e5e7eb;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:160px;padding:4px 0;list-style:none;margin:0;"></ul>
 
 <!-- Förhandsgranskningsmodal -->
 <div id="preview-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:10000;background:rgba(0,0,0,0.8)">
@@ -330,8 +335,15 @@
   display: inline-block; margin-left: 4px;
   font-size: 0.65rem; background: #dbeafe; color: #1d4ed8;
   border-radius: 3px; padding: 0 4px; font-weight: 500;
-  white-space: nowrap;
+  white-space: nowrap; border: none; cursor: pointer;
 }
+.usage-badge:hover { background: #bfdbfe; }
+#usage-popup li a {
+  display: block; padding: 4px 10px; font-size: 0.72rem;
+  color: #374151; text-decoration: none; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+}
+#usage-popup li a:hover { background: #eff6ff; color: #1d4ed8; }
 .grid-actions { display: flex; gap: 3px; margin-top: auto; padding-top: 6px; flex-wrap: wrap; }
 
 /* Col 4–6 dolda i gridvy */
@@ -446,11 +458,28 @@
     if (selected.has(id)) selected.delete(id); else selected.add(id);
     updateBatch();
   }
-  if (container) container.addEventListener('click', function(e) {
-    if (e.target.closest('button,a,form,select') || e.target.matches('input[type="checkbox"]')) return;
-    var card = e.target.closest('.media-card');
-    if (card) toggleCard(card);
+  var usagePopup = document.getElementById('usage-popup');
+  var usagePopupSource = null;
+  function closeUsagePopup() { usagePopup.style.display = 'none'; usagePopupSource = null; }
+  document.addEventListener('click', function(e) {
+    var tog = e.target.closest('.usage-grid-toggle');
+    if (tog) {
+      if (usagePopupSource === tog) { closeUsagePopup(); return; }
+      var usages = JSON.parse(tog.dataset.usages || '[]');
+      usagePopup.innerHTML = usages.map(function(u) {
+        var label = u.kind === 'widget' ? 'W: ' + u.name : 'V: ' + u.name + ' (' + u.screen_name + ')';
+        return '<li><a href="' + u.url + '">' + label + '</a></li>';
+      }).join('');
+      var r = tog.getBoundingClientRect();
+      usagePopup.style.top = (r.bottom + 4) + 'px';
+      usagePopup.style.left = r.left + 'px';
+      usagePopup.style.display = 'block';
+      usagePopupSource = tog;
+      return;
+    }
+    if (!usagePopup.contains(e.target)) closeUsagePopup();
   });
+
   document.addEventListener('change', function(e) {
     var cb = e.target.closest('.file-checkbox');
     if (!cb) return;
@@ -581,7 +610,7 @@
     if (!btn) return;
     var count = parseInt(btn.dataset.usageCount || '0', 10);
     deleteBody.innerHTML = count > 0
-      ? '<strong>' + btn.dataset.name + '</strong> används på ' + count + ' ställe' + (count !== 1 ? 'n' : '') + '. Widgets som refererar filen slutar fungera.'
+      ? 'Ta bort <strong>' + btn.dataset.name + '</strong>? Bilden används på ' + count + ' ställe' + (count !== 1 ? 'n' : '') + ' och kommer automatiskt tas bort därifrån. Detta kan inte ångras.'
       : 'Ta bort <strong>' + btn.dataset.name + '</strong>? Detta kan inte ångras.';
     deleteForm.action = '/admin/media/' + btn.dataset.id + '/delete';
     deleteModal.classList.remove('hidden');

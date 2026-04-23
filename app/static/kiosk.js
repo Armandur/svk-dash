@@ -24,7 +24,6 @@
         scheduleLegacy();
       }
     }
-    if (window.__KIOSK_DEBUG) updateDebugView();
   }
 
   // --- Zon-logik ---
@@ -61,7 +60,8 @@
       // Set direction on body or zone? The CSS expects it on body vt-dir
       // We'll temporarily set it on body or just use the default
       document.body.setAttribute('data-vt-dir', transitionDir);
-      document.body.className = 'vt-slide';
+      document.body.classList.remove('vt-fade', 'vt-none');
+      document.body.classList.add('vt-slide');
 
       if (leavingEl && leavingEl !== nextEl) leavingEl.classList.add('view-leaving');
       nextEl.classList.add('view-entering', 'active');
@@ -69,8 +69,10 @@
 
       setTimeout(function() {
         if (leavingEl) {
+          leavingEl.style.transition = 'none';
           leavingEl.classList.remove('view-leaving');
           leavingEl.style.opacity = '0';
+          requestAnimationFrame(function() { leavingEl.style.removeProperty('transition'); });
         }
         nextEl.classList.remove('view-entering');
       }, 700);
@@ -101,7 +103,6 @@
       });
     }
 
-    if (window.__KIOSK_DEBUG) updateDebugView();
   }
 
   function scheduleZone(zoneId) {
@@ -114,6 +115,7 @@
 
     const currentView = zone.views[state.currentIdx];
     const duration = currentView.duration_seconds || zone.rotation_seconds || 30;
+    state.nextAt = Date.now() + duration * 1000;
 
     state.timer = setTimeout(function() {
       const nextIdx = (state.currentIdx + 1) % zone.views.length;
@@ -165,13 +167,13 @@
     }
 
     legacyState.currentPosition = position;
-    if (window.__KIOSK_DEBUG) updateDebugView();
   }
 
   function scheduleLegacy() {
     clearTimeout(legacyState.timer);
     if (!LEGACY_VIEWS || LEGACY_VIEWS.length <= 1 || legacyState.paused) return;
     var duration = (LEGACY_VIEWS[legacyState.currentPosition] && LEGACY_VIEWS[legacyState.currentPosition].duration_seconds) || 30;
+    legacyState.nextAt = Date.now() + duration * 1000;
     legacyState.timer = setTimeout(function () {
       var nextPos = (legacyState.currentPosition + 1) % LEGACY_VIEWS.length;
       showLegacyView(nextPos);
@@ -523,20 +525,6 @@
 
   // --- Debug ---
 
-  function updateDebugView() {
-    var el = document.getElementById('debug-view');
-    if (!el) return;
-    if (isLegacy) {
-      el.textContent = 'Vy ' + (legacyState.currentPosition + 1) + '/' + (LEGACY_VIEWS ? LEGACY_VIEWS.length : 0);
-    } else {
-      let status = Object.keys(zoneStates).map(id => {
-        const z = KIOSK_ZONES.find(zone => zone.id == id);
-        return 'Z' + id + ':' + (zoneStates[id].currentIdx + 1) + '/' + z.views.length;
-      }).join(' ');
-      el.textContent = status || 'Zon-läge';
-    }
-  }
-
   function updateDebugReconnects() {
     var el = document.getElementById('debug-reconnects');
     if (el) el.textContent = 'Reconnects: ' + reconnectCount;
@@ -544,10 +532,12 @@
 
   if (window.__KIOSK_DEBUG) {
     setInterval(function () {
-      var el = document.getElementById('debug-sse-age');
-      if (el) {
+      var sseEl = document.getElementById('debug-sse');
+      if (sseEl) {
         var s = Math.round((Date.now() - lastEventAt) / 1000);
-        el.textContent = 'SSE: ' + s + 's sedan';
+        var color = s < 15 ? '#4ade80' : s < 60 ? '#facc15' : '#f87171';
+        sseEl.textContent = 'SSE ' + s + 's sedan';
+        sseEl.style.color = color;
       }
     }, 1000);
   }

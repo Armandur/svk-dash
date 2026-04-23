@@ -1,3 +1,4 @@
+import copy
 import json
 import uuid
 from datetime import datetime
@@ -5,6 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import select
 
 from app.config import UPLOADS_DIR
@@ -36,6 +38,74 @@ def _breadcrumbs(folder_id: int | None, folders_by_id: dict) -> list[dict]:
         crumbs.insert(0, {"id": f.id, "name": f.name})
         fid = f.parent_id
     return crumbs
+
+
+def _purge_media_id(obj, media_id: int):
+    """Ta bort list-items och nollställ strängar kopplade till media_id."""
+    if isinstance(obj, dict):
+        for k, v in list(obj.items()):
+            if k == "media_id" and v == media_id:
+                obj[k] = None
+            else:
+                _purge_media_id(v, media_id)
+        # Om dict har media_id=None och url="", ta bort url-fältet
+        if obj.get("media_id") is None and obj.get("url") == "":
+            obj.pop("url", None)
+    elif isinstance(obj, list):
+        to_remove = [i for i, v in enumerate(obj) if isinstance(v, dict) and v.get("media_id") == media_id]
+        for i in reversed(to_remove):
+            obj.pop(i)
+        for v in obj:
+            _purge_media_id(v, media_id)
+
+
+def _purge_refs(obj, filename: str):
+    """Rekursivt rensa filename ur dict/lista.
+    List-items (dict) som innehåller filnamnet tas bort helt (t.ex. bildspels-items).
+    Strängar som innehåller filnamnet sätts till tom sträng."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(v, str) and filename in v:
+                obj[k] = ""
+            else:
+                _purge_refs(v, filename)
+    elif isinstance(obj, list):
+        to_remove = [i for i, v in enumerate(obj) if isinstance(v, dict) and filename in json.dumps(v)]
+        for i in reversed(to_remove):
+            obj.pop(i)
+        for v in obj:
+            if not isinstance(v, (dict, list)):
+                pass  # strängar i platta listor är ovanliga, skippa
+            else:
+                _purge_refs(v, filename)
+
+
+def _purge_file_from_db(db, filename: str, media_id: int | None = None) -> None:
+    """Ta bort alla referenser till filen ur widgets och vyer.
+    Söker på media_id (nyare data) och filnamn (äldre data)."""
+    mid_str = str(media_id) if media_id else None
+    for w in db.exec(select(Widget)).all():
+        raw = json.dumps(w.config_json or {})
+        if filename not in raw and (not mid_str or mid_str not in raw):
+            continue
+        cfg = copy.deepcopy(w.config_json or {})
+        _purge_refs(cfg, filename)
+        if mid_str:
+            _purge_media_id(cfg, media_id)
+        w.config_json = cfg
+        flag_modified(w, "config_json")
+        db.add(w)
+    for v in db.exec(select(View)).all():
+        raw = json.dumps(v.layout_json or {})
+        if filename not in raw and (not mid_str or mid_str not in raw):
+            continue
+        layout = copy.deepcopy(v.layout_json or {})
+        _purge_refs(layout, filename)
+        if mid_str:
+            _purge_media_id(layout, media_id)
+        v.layout_json = layout
+        flag_modified(v, "layout_json")
+        db.add(v)
 
 
 def _find_usages(filename: str, widgets: list, views: list, screens: dict) -> list[dict]:
@@ -140,9 +210,12 @@ async def media_delete(request: Request, file_id: int):
         if not mf:
             return HTMLResponse("Filen hittades inte.", status_code=404)
         folder_id = mf.folder_id
-        path = Path(UPLOADS_DIR) / mf.filename
+        filename = mf.filename
+        file_id = mf.id
+        path = Path(UPLOADS_DIR) / filename
         if path.exists():
             path.unlink()
+        _purge_file_from_db(db, filename, file_id)
         db.delete(mf)
         db.commit()
     redirect = "/admin/media" + (f"?folder_id={folder_id}" if folder_id else "")
@@ -177,6 +250,7 @@ async def media_batch(request: Request, action: str = Form(...), file_ids: str =
                 path = Path(UPLOADS_DIR) / mf.filename
                 if path.exists():
                     path.unlink()
+                _purge_file_from_db(db, mf.filename, mf.id)
                 db.delete(mf)
             elif action == "move":
                 mf.folder_id = target_folder

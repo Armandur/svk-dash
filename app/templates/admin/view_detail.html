@@ -461,6 +461,7 @@
               <div style="margin-bottom:6px">
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Bild-URL</div>
                 <input type="text" class="icfg-field" data-cfg-key="url" value="{{ entry.config.get('url', '') }}" placeholder="https://..." style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px;font-family:monospace">
+                {% if entry.config.get('name') %}<div class="icfg-img-name" style="font-size:0.65rem;color:#60a5fa;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ entry.config.get('name', '') }}">{{ entry.config.get('name', '') }}</div>{% else %}<div class="icfg-img-name" style="font-size:0.65rem;color:#60a5fa;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>{% endif %}
               </div>
               <div style="margin-bottom:6px">
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Bildpassning</div>
@@ -502,6 +503,7 @@
                 </div>
               </div>
               {% endif %}
+              <button class='wc-reset-pos' style='width:100%;text-align:left;font-size:0.72rem;padding:4px 12px;background:none;border:none;cursor:pointer;color:#94a3b8;' onmouseover='this.style.color="#e2e8f0";this.style.background="rgba(255,255,255,0.05)"' onmouseout='this.style.color="#94a3b8";this.style.background="none"'>Återställ position</button>
               <div style="margin-top:8px;padding-top:6px;border-top:1px solid #1e293b">
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:3px">Opacitet</div>
                 <div style="display:flex;align-items:center;gap:6px">
@@ -549,6 +551,7 @@
             <a href="/admin/widgets/{{ entry.widget.id }}">Redigera widget</a>
             <div class="wc-sep"></div>
             {% endif %}
+            <button class='wc-reset-pos' style='width:100%;text-align:left;font-size:0.72rem;padding:4px 12px;background:none;border:none;cursor:pointer;color:#94a3b8;' onmouseover='this.style.color="#e2e8f0";this.style.background="rgba(255,255,255,0.05)"' onmouseout='this.style.color="#94a3b8";this.style.background="none"'>Återställ position</button>
             <div style="padding:8px 12px;border-bottom:1px solid #334155">
               <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:3px">Opacitet</div>
               <div style="display:flex;align-items:center;gap:6px">
@@ -597,8 +600,8 @@
 <script>
 (function () {
   const VIEW_ID   = {{ view.id }};
-  const COLS      = {{ view.grid_cols }};
-  const ROWS      = {{ view.grid_rows }};
+  let COLS        = {{ view.grid_cols }};
+  let ROWS        = {{ view.grid_rows }};
   const INIT_LAYERS = {{ layers | tojson }};
   let activeLyr = INIT_LAYERS.length > 0 ? INIT_LAYERS[INIT_LAYERS.length - 1].id : 'l-default';
   const gridEl    = document.getElementById('grid-editor');
@@ -762,18 +765,76 @@
   function rowH()  { return gridEl.offsetHeight / ROWS; }
 
   function applyCard(card) {
+    const cols = +getComputedStyle(gridEl).getPropertyValue('--cols') || COLS;
+    const rows = +getComputedStyle(gridEl).getPropertyValue('--rows') || ROWS;
     const x=+card.dataset.x, y=+card.dataset.y, w=+card.dataset.w, h=+card.dataset.h;
-    card.style.left    = (x/COLS*100)+'%';
-    card.style.top     = (y/ROWS*100)+'%';
-    card.style.width   = (w/COLS*100)+'%';
-    card.style.height  = (h/ROWS*100)+'%';
+    card.style.left    = (x/cols*100)+'%';
+    card.style.top     = (y/rows*100)+'%';
+    card.style.width   = (w/cols*100)+'%';
+    card.style.height  = (h/rows*100)+'%';
     card.style.zIndex  = +card.dataset.z;
     card.style.opacity = +card.dataset.opacity/100;
   }
 
+  function resetCardPosition(card) {
+    const cols = +getComputedStyle(gridEl).getPropertyValue('--cols') || COLS;
+    const rows = +getComputedStyle(gridEl).getPropertyValue('--rows') || ROWS;
+    card.dataset.x = 0; card.dataset.y = 0;
+    card.dataset.w = Math.min(4, cols); card.dataset.h = Math.min(3, rows);
+    applyCard(card);
+    setDirty();
+  }
+
   gridEl.querySelectorAll('.widget-card').forEach(applyCard);
   new ResizeObserver(() => gridEl.querySelectorAll('.widget-card').forEach(applyCard)).observe(gridEl);
+  var _gcInput = document.querySelector('input[name="grid_cols"]');
+  var _grInput = document.querySelector('input[name="grid_rows"]');
+  if (_gcInput) _gcInput.addEventListener('input', function() {
+    var v = Math.max(1, Math.min(24, +this.value || COLS));
+    gridEl.style.setProperty('--cols', v);
+    gridEl.querySelectorAll('.widget-card').forEach(applyCard);
+  });
+  if (_grInput) _grInput.addEventListener('input', function() {
+    var v = Math.max(1, Math.min(24, +this.value || ROWS));
+    gridEl.style.setProperty('--rows', v);
+    gridEl.querySelectorAll('.widget-card').forEach(applyCard);
+  });
   renderLayerPanel();
+
+  var gridColInput = document.querySelector('input[name="grid_cols"]');
+  var gridRowInput = document.querySelector('input[name="grid_rows"]');
+  if (gridColInput) gridColInput.addEventListener('input', function() {
+    var v = Math.max(1, Math.min(24, +this.value || COLS));
+    COLS = v;
+    gridEl.style.setProperty('--cols', v);
+    gridEl.querySelectorAll('.widget-card').forEach(applyCard);
+  });
+  if (gridRowInput) gridRowInput.addEventListener('input', function() {
+    var v = Math.max(1, Math.min(24, +this.value || ROWS));
+    ROWS = v;
+    gridEl.style.setProperty('--rows', v);
+    gridEl.querySelectorAll('.widget-card').forEach(applyCard);
+  });
+
+  function reapplyZIndices() {
+    if (!layerList || !gridEl) return;
+    // layerList visar top-to-bottom (index 0 = översta lager, högst z)
+    var items = [...layerList.querySelectorAll('.lyr-item')];
+    var totalLayers = items.length;
+    items.forEach(function(item, topIdx) {
+      // topIdx 0 = top layer = highest z-index
+      // server assigns z = (layer_pos+1)*100 where layer_pos 0 = bottom
+      // so bottom layer index = totalLayers - 1 - topIdx
+      var layerPos = totalLayers - 1 - topIdx;
+      var base = (layerPos + 1) * 100;
+      var lid = item.dataset.layerId;
+      gridEl.querySelectorAll('[data-layer-id="' + lid + '"]').forEach(function(card, intra) {
+        var z = base + intra;
+        card.dataset.z = z;
+        card.style.zIndex = z;
+      });
+    });
+  }
 
 // ── Lagerpanel ───────────────────────────────────────
 var lyrDrag = null, lyrWidgetDrag = null;
@@ -871,7 +932,12 @@ layerList.addEventListener('dragstart', function(e) {
 });
 
 layerList.addEventListener('dragend', function() {
-  if (lyrDrag) { lyrDrag.classList.remove('layer-dragging'); lyrDrag = null; setDirty(); }
+  if (lyrDrag) {
+    lyrDrag.classList.remove('layer-dragging');
+    lyrDrag = null;
+    setDirty();
+    reapplyZIndices();
+  }
   if (lyrWidgetDrag) {
     lyrWidgetDrag.classList.remove('layer-dragging');
     // Uppdatera data-layer-id på grid-card baserat på var widget-item nu befinner sig
@@ -1066,6 +1132,7 @@ if (lyrAddBtn) {
     }
     // Portala till body
     drop._portalParent = drop.parentElement;
+    drop._portalCard = card;
     document.body.appendChild(drop);
     drop.classList.add('open');
     if (wcOverlay) wcOverlay.classList.add('open');
@@ -1087,6 +1154,16 @@ if (lyrAddBtn) {
       openWidgetModal(drop, card);
       return;
     }
+
+    const resetBtn = e.target.closest('.wc-reset-pos');
+    if (resetBtn) {
+      const drop = resetBtn.closest('.wc-dropdown');
+      const card = (drop && drop._portalCard) || drop.closest('.widget-card');
+      if (card) resetCardPosition(card);
+      closeAllDropdowns();
+      return;
+    }
+
     if (e.target.closest('.wc-dropdown')) return;
     closeAllDropdowns();
     if (!e.target.closest('.lyr-menu-wrap')) {
@@ -1122,7 +1199,8 @@ if (lyrAddBtn) {
   }
 
   function updateInlineCfgField(field) {
-    const card = field.closest('.widget-card');
+    const drop = field.closest('.wc-dropdown');
+    const card = (drop && drop._portalCard) || field.closest('.widget-card');
     if (!card || !card.dataset.inlineId) return;
     const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
     const key = field.dataset.cfgKey;
@@ -1134,11 +1212,11 @@ if (lyrAddBtn) {
     setDirty();
   }
 
-  gridEl.addEventListener('change', e => {
+  document.addEventListener('change', e => {
     const field = e.target.closest('.icfg-field');
     if (field) updateInlineCfgField(field);
   });
-  gridEl.addEventListener('input', e => {
+  document.addEventListener('input', e => {
     const field = e.target.closest('.icfg-field');
     if (field && (field.type === 'color' || field.tagName === 'TEXTAREA')) {
       updateInlineCfgField(field);
@@ -1146,7 +1224,8 @@ if (lyrAddBtn) {
     }
     const opInput = e.target.closest('.wc-opacity');
     if (opInput) {
-      const card = opInput.closest('.widget-card');
+      const drop = opInput.closest('.wc-dropdown');
+      const card = (drop && drop._portalCard) || opInput.closest('.widget-card');
       if (!card) return;
       card.dataset.opacity = opInput.value;
       applyCard(card);
@@ -1156,7 +1235,7 @@ if (lyrAddBtn) {
     }
   });
 
-  gridEl.addEventListener('change', e => {
+  document.addEventListener('change', e => {
     const uploadInput = e.target.closest('.icfg-img-upload');
     if (!uploadInput) return;
     const file = uploadInput.files[0];
@@ -1167,14 +1246,18 @@ if (lyrAddBtn) {
       .then(r => r.json())
       .then(data => {
         if (data.error) { alert('Uppladdningsfel: ' + data.error); return; }
-        const card = uploadInput.closest('.widget-card');
+        const _upDrop = uploadInput.closest('.wc-dropdown');
+        const card = (_upDrop && _upDrop._portalCard) || uploadInput.closest('.widget-card');
         if (!card) return;
         const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
         cfg.url = data.url;
+        if (data.media_id) cfg.media_id = data.media_id;
+        if (data.original_name) cfg.name = data.original_name;
         card.dataset.inlineConfig = JSON.stringify(cfg);
-        // Uppdatera URL-fältet om det finns synligt
         const urlField = card.querySelector('.icfg-field[data-cfg-key="url"]');
         if (urlField) urlField.value = data.url;
+        const nameLabel = card.querySelector('.icfg-img-name');
+        if (nameLabel && data.original_name) { nameLabel.textContent = data.original_name; nameLabel.title = data.original_name; }
         applyInlinePreview(card, cfg);
         setDirty();
       })
@@ -1194,7 +1277,7 @@ if (lyrAddBtn) {
     }
     images.forEach(function(img, idx) {
       const src = img.url || (img.upload_path ? '/uploads/' + img.upload_path : '');
-      const label = img.url || img.upload_path || '';
+      const label = img.name || img.original_name || img.url || img.upload_path || '';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:2px;background:#1e293b;border-radius:3px;padding:2px 4px';
       row.innerHTML = (src
@@ -1220,12 +1303,14 @@ if (lyrAddBtn) {
     renderSsInlineList(card);
   });
 
-  gridEl.addEventListener('click', function(e) {
+  document.addEventListener('click', function(e) {
     const btn = e.target.closest('.ss-inline-add-url');
     if (btn) {
       const url = prompt('Klistra in bild-URL:');
       if (url && url.trim()) {
-        const card = btn.closest('.widget-card');
+        const _btnDrop = btn.closest('.wc-dropdown');
+        const card = (_btnDrop && _btnDrop._portalCard) || btn.closest('.widget-card');
+        if (!card) return;
         const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
         if (!Array.isArray(cfg.images)) cfg.images = [];
         cfg.images.push({url: url.trim()});
@@ -1238,12 +1323,16 @@ if (lyrAddBtn) {
 
     const ssLibBtn = e.target.closest('.ss-inline-library');
     if (ssLibBtn) {
-      const card = ssLibBtn.closest('.widget-card');
-      openMediaPicker(function(url) {
+      const _ssDrop = ssLibBtn.closest('.wc-dropdown');
+      const card = (_ssDrop && _ssDrop._portalCard) || ssLibBtn.closest('.widget-card');
+      openMediaPicker(function(url, _fname, mediaId, origName) {
         if (!card) return;
         const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
         if (!Array.isArray(cfg.images)) cfg.images = [];
-        cfg.images.push({url: url});
+        const entry = {url: url};
+        if (mediaId) entry.media_id = mediaId;
+        if (origName) entry.name = origName;
+        cfg.images.push(entry);
         card.dataset.inlineConfig = JSON.stringify(cfg);
         renderSsInlineList(card);
         setDirty();
@@ -1253,14 +1342,19 @@ if (lyrAddBtn) {
 
     const imgLibBtn = e.target.closest('.icfg-img-library');
     if (imgLibBtn) {
-      const card = imgLibBtn.closest('.widget-card');
-      openMediaPicker(function(url) {
+      const _imgDrop = imgLibBtn.closest('.wc-dropdown');
+      const card = (_imgDrop && _imgDrop._portalCard) || imgLibBtn.closest('.widget-card');
+      openMediaPicker(function(url, _fname, mediaId, origName) {
         if (!card) return;
         const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
         cfg.url = url;
+        if (mediaId) cfg.media_id = mediaId;
+        if (origName) cfg.name = origName;
         card.dataset.inlineConfig = JSON.stringify(cfg);
         const urlField = card.querySelector('.icfg-field[data-cfg-key="url"]');
         if (urlField) urlField.value = url;
+        const nameLabel = card.querySelector('.icfg-img-name');
+        if (nameLabel && origName) { nameLabel.textContent = origName; nameLabel.title = origName; }
         applyInlinePreview(card, cfg);
         setDirty();
       });
@@ -1268,12 +1362,13 @@ if (lyrAddBtn) {
     }
   });
 
-  gridEl.addEventListener('change', function(e) {
+  document.addEventListener('change', function(e) {
     const fileInput = e.target.closest('.ss-inline-upload');
     if (!fileInput) return;
     const files = Array.from(fileInput.files);
     if (!files.length) return;
-    const card = fileInput.closest('.widget-card');
+    const _ssuDrop = fileInput.closest('.wc-dropdown');
+    const card = (_ssuDrop && _ssuDrop._portalCard) || fileInput.closest('.widget-card');
     let pending = files.length;
     files.forEach(function(file) {
       const fd = new FormData();
@@ -1284,7 +1379,10 @@ if (lyrAddBtn) {
           if (data.error) { alert('Uppladdningsfel: ' + data.error); return; }
           const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
           if (!Array.isArray(cfg.images)) cfg.images = [];
-          cfg.images.push({upload_path: data.path});
+          const ssEntry = {upload_path: data.path, url: data.url};
+          if (data.media_id) ssEntry.media_id = data.media_id;
+          if (data.original_name) ssEntry.name = data.original_name;
+          cfg.images.push(ssEntry);
           card.dataset.inlineConfig = JSON.stringify(cfg);
           pending--;
           renderSsInlineList(card);
@@ -1389,7 +1487,7 @@ if (lyrAddBtn) {
         btn.innerHTML = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">' +
           '<span class="text-xs text-gray-500 truncate w-full text-center px-1">' + f.original_name + '</span>';
         btn.addEventListener('click', function() {
-          if (_mpmCb) _mpmCb(f.url, f.filename);
+          if (_mpmCb) _mpmCb(f.url, f.filename, f.id, f.original_name);
           closeMpm();
         });
         mpmGrid.appendChild(btn);

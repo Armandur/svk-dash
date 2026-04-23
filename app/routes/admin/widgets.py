@@ -328,7 +328,8 @@ async def upload_image(file: UploadFile = File(...)):
         )
         db.add(mf)
         db.commit()
-    return JSONResponse({"path": filename, "url": f"/uploads/{filename}"})
+        db.refresh(mf)
+    return JSONResponse({"path": filename, "url": f"/uploads/{filename}", "media_id": mf.id, "original_name": mf.original_name})
 
 
 def _prune_revisions(db, widget_id: int) -> None:

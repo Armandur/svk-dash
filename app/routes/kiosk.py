@@ -50,6 +50,7 @@ def _render_view(view: View, context: dict, db) -> dict:
         })
     return {
         "id": view.id,
+        "name": view.name,
         "position": view.position,
         "duration_seconds": view.duration_seconds,
         "widgets": rendered_widgets,
@@ -99,6 +100,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                     views_data = [_render_view(v, context, db) for v in zone_views]
                     zones_rendered.append({
                         "id": zone.id,
+                        "name": zone.name,
                         "role": zone.role,
                         "x_pct": zone.x_pct,
                         "y_pct": zone.y_pct,
@@ -131,7 +133,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
         result = []
         for z in zones:
             views_meta = [
-                {"position": v["position"], "duration_seconds": v["duration_seconds"]}
+                {"position": v["position"], "name": v["name"], "duration_seconds": v["duration_seconds"]}
                 for v in z["views"]
             ]
             result.append({k: v for k, v in z.items() if k != "views"} | {"views": views_meta})
@@ -140,7 +142,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
     def _legacy_meta(views):
         if views is None:
             return None
-        return [{"position": v["position"], "duration_seconds": v["duration_seconds"]} for v in views]
+        return [{"position": v["position"], "name": v["name"], "duration_seconds": v["duration_seconds"]} for v in views]
 
     show_debug = debug == "1"
     return HTMLResponse(

@@ -319,23 +319,26 @@
 <body class="vt-fade" data-vt-dir="left">
   <div id="offline-banner">Ingen anslutning till server</div>
 
+  {% if zones is none %}
   <div id="kiosk-nav">
     <button class="kiosk-nav-btn" id="nav-prev" title="Föregående vy">&#8249;</button>
     <button class="kiosk-nav-btn" id="nav-pause" title="Pausa/spela">&#9646;&#9646;</button>
     <button class="kiosk-nav-btn" id="nav-next" title="Nästa vy">&#8250;</button>
   </div>
+  {% endif %}
 
+  <div id="kiosk-stage" style="position:relative; width:100vw; height:100vh; overflow:hidden;">
   {% if zones is not none %}
     {% for zone in zones %}
     <div class="zone" data-zone-id="{{ zone.id }}" data-zone-role="{{ zone.role }}"
-         style="position:absolute; left:{{ zone.x_pct }}%; top:{{ zone.y_pct }}%; width:{{ zone.w_pct }}%; height:{{ zone.h_pct }}%; z-index:{{ zone.z_index }}; overflow:hidden;">
+         style="position:absolute; left:{{ zone.x_pct }}%; top:{{ zone.y_pct }}%; right:{{ (100 - zone.x_pct - zone.w_pct) | round(4) }}%; bottom:{{ (100 - zone.y_pct - zone.h_pct) | round(4) }}%; z-index:{{ zone.z_index }}; overflow:hidden;">
       {% for view in zone.views %}
       <div
         class="view{% if loop.first %} active{% endif %}"
         data-position="{{ view.position }}"
         data-duration="{{ view.duration_seconds }}"
         id="z{{ zone.id }}-v{{ view.position }}"
-        style="position:absolute; inset:0; display:grid; grid-template-columns:repeat({{ view.grid_cols }}, 1fr); grid-template-rows:repeat({{ view.grid_rows }}, 1fr); padding:0.5rem; gap:0.5rem; {% if not loop.first %}opacity:0;{% endif %} transition:opacity 0.5s ease;"
+        style="display:grid; grid-template-columns:repeat({{ view.grid_cols }}, 1fr); grid-template-rows:repeat({{ view.grid_rows }}, 1fr); padding:0; gap:0.25rem;"
       >
         {% for widget in view.widgets %}
         <div data-widget-id="{{ widget.widget_id }}"
@@ -372,6 +375,7 @@
     </div>
     {% endfor %}
   {% endif %}
+  </div>
 
   <script>
     const SCREEN_SLUG       = {{ screen.slug | tojson }};
@@ -387,13 +391,28 @@
   <script src="/static/kiosk.js"></script>
 
   {% if show_debug %}
-  <div id="debug-overlay" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,0.75);color:#fff;font-family:monospace;font-size:11px;padding:6px 10px;border-radius:4px;line-height:1.6;z-index:999">
-    <div>{{ screen.name }} / {{ screen.slug }}</div>
-    <div id="debug-view">Vy –/–</div>
-    <div id="debug-sse-age">SSE: –</div>
-    <div id="debug-reconnects">Reconnects: 0</div>
-    <div>v{{ version }}</div>
+  <style>
+    #debug-overlay { opacity:0; transition:opacity 0.2s ease; cursor:default; }
+    #debug-overlay:hover { opacity:1; }
+    #debug-overlay hr { border:none; border-top:1px solid rgba(255,255,255,0.15); margin:4px 0; }
+  </style>
+  <div id="debug-overlay" style="position:fixed;bottom:8px;right:8px;background:rgba(0,0,0,0.82);color:#fff;font-family:monospace;font-size:11px;padding:8px 12px;border-radius:6px;line-height:1.6;z-index:9999;min-width:200px;backdrop-filter:blur(4px)">
+    <div style="font-weight:bold">{{ screen.name }}</div>
+    <div style="color:rgba(255,255,255,0.45)">{{ screen.slug }} &nbsp;·&nbsp; v{{ version }}</div>
+    <hr>
+    <div id="debug-host" style="color:rgba(255,255,255,0.55)">–</div>
+    <hr>
+    <div style="display:flex;justify-content:space-between;gap:12px">
+      <span id="debug-sse">SSE –</span>
+      <span id="debug-reconnects" style="color:rgba(255,255,255,0.45)">Reconnects: 0</span>
+    </div>
   </div>
+  <script>
+    (function() {
+      var h = document.getElementById('debug-host');
+      if (h) h.textContent = window.location.host;
+    })();
+  </script>
   <script>window.__KIOSK_DEBUG = true; document.body.classList.add('kiosk-debug');</script>
   {% endif %}
 </body>

@@ -34,6 +34,16 @@
 - `image`-widget: enstaka bild, extern URL eller filuppladdning, konfigurerbar passning (cover/contain/fill)
 - `slideshow`-widget: roterande bilder med fade/slide-övergång, konfigurerbart intervall
 - Båda tillgängliga som bibliotekswidgets och som inline-widgets i layouteditorn
+- Originalfilnamn visas i editorn när bild väljs från bibliotek eller laddas upp
+
+### Layout-system med zoner *(steg 1 och 2)*
+- DB-modeller: `Layout`, `LayoutZone`, `ScreenLayoutAssignment`
+- Admin-UI: `/admin/layouts` — skapa/redigera layouts med visuell zon-editor (drag/resize)
+- Koppla skärmar till layouts via `ScreenLayoutAssignment`
+- Persistenta zoner med direktwidgets (logga, klocka) och schemalagda zoner som roterar vyer
+- Kiosk-läge hanterar multi-zon-rendering med oberoende vy-rotation per zon
+- Hover-navigering (föregående/nästa/paus) per zon i kiosk-läge
+- Debug-overlay (hover-aktiverad) med skärmnamn, lokal IP, SSE-ålder och reconnect-räknare
 
 ### Mediebibliotek
 - Administrationssida `/admin/media` med grid- och listvy, mappstruktur
@@ -47,24 +57,9 @@
 
 ## Planerat
 
-### Layout-system med zoner  *(stor feature, tre steg)*
-
-En skärm delas upp i namngivna zoner via ett återanvändbart layout-template. Möjliggör t.ex. en stående 9:16-skärm med en stor toppzon, två A-format-zoner i mitten och en persistent remsa längst ned med logga och klocka.
-
-**Zoner har två roller:**
-- `persistent` — alltid synlig, innehåller widgets direkt (logga, klocka)
-- `schedulable` — roterar mellan vyer enligt schema (kalender, info)
-
-**Arv:** layout-template definierar default-innehåll för persistenta zoner. Varje skärm kan välja att använda template-default eller sätta en egen override (allt-eller-inget per zon).
-
-**Layout-växling:** en skärm kan schemalägga byte mellan layouter (t.ex. 3-zon dagtid → helskärm kvällstid) baserat på veckodagar och tidsintervall.
-
-Steg:
-1. **Layouts + zon-editor** — DB-modeller, `/admin/layouts`, visuell drag/resize-editor
-2. **Koppla skärmar** — `ScreenLayoutAssignment`, `ScreenZoneOverride`, automatisk migration av befintliga vyer
-3. **Schemaläggning** — vy-rotation inom zoner, layout-växling per schema
-
-Se CLAUDE.md → *Planerad arkitektur: Layout-system* för fullständig datamodell.
+### Schemaläggning *(layout-system steg 3)*
+- Vy-rotation inom zoner baserat på veckodagar och tidsintervall
+- Layout-växling per schema (t.ex. 3-zon dagtid → helskärm kvällstid)
 
 ### Kiosk-bootstrap för Raspberry Pi
 Setup-skript som konfigurerar RPi i kiosk-läge: Chromium helskärm, autostart, roterande skärm, nätverkskonfiguration.

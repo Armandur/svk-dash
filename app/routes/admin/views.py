@@ -264,14 +264,21 @@ async def view_add_widget(request: Request, view_id: int, widget_id: int = Form(
         layout = _migrate_layout(copy.deepcopy(view.layout_json or {"widgets": []}))
         widgets_list = layout.get("widgets", [])
         if not any(w.get("widget_id") == widget_id for w in widgets_list):
-            next_y = max((w.get("y", 0) + w.get("h", 6) for w in widgets_list), default=0)
+            cols = view.grid_cols or 12
+            rows = view.grid_rows or 9
+            w_default = min(cols, 12)
+            h_default = min(rows, 6)
+            next_y = max((w.get("y", 0) + w.get("h", h_default) for w in widgets_list), default=0)
+            # Om ny y hamnar utanför gridet, placera i övre vänstra hörnet
+            if next_y + h_default > rows:
+                next_y = 0
             widgets_list.append(
                 {
                     "widget_id": widget_id,
                     "x": 0,
                     "y": next_y,
-                    "w": 12,
-                    "h": 6,
+                    "w": w_default,
+                    "h": h_default,
                     "opacity": 100,
                     "layer_id": _top_layer_id(layout),
                 }
@@ -297,6 +304,8 @@ async def view_add_inline(request: Request, view_id: int, kind: str = Form(...))
         layout = _migrate_layout(copy.deepcopy(view.layout_json or {"widgets": []}))
         inline_id = "inline-" + uuid.uuid4().hex[:8]
         existing = layout.setdefault("widgets", [])
+        cols = view.grid_cols or 12
+        rows = view.grid_rows or 9
         existing.append(
             {
                 "inline_id": inline_id,
@@ -304,8 +313,8 @@ async def view_add_inline(request: Request, view_id: int, kind: str = Form(...))
                 "config": copy.deepcopy(_INLINE_DEFAULTS[kind]),
                 "x": 0,
                 "y": 0,
-                "w": 4,
-                "h": 3,
+                "w": min(4, cols),
+                "h": min(3, rows),
                 "opacity": 100,
                 "layer_id": _top_layer_id(layout),
             }
