@@ -38,7 +38,15 @@ def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) ->
     renderer = renderers.get(kind)
     if renderer is None:
         return f'<div class="widget-placeholder">Widget-typ "{kind}" saknar renderer.</div>'
-    html = renderer.render(config, context)
+    try:
+        html = renderer.render(config, context)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "Widget-rendering misslyckades: kind=%s context=%s", kind, context
+        )
+        return f'<div class="widget-placeholder" style="color:#f87171">Widget-fel ({kind}): {exc}</div>'
     custom_css = (config.get("custom_css") or "").strip()
     if custom_css:
         html = f"<style>{custom_css}</style>" + html

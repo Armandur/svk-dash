@@ -6,6 +6,7 @@
   let zoneStates = {}; // zoneId -> { currentIdx, timer, paused }
   let legacyState = { currentPosition: 0, timer: null, paused: false };
   let isLegacy = (typeof KIOSK_ZONES === 'undefined' || KIOSK_ZONES === null);
+  let isPaused = false;
 
   function initRotation() {
     if (!isLegacy) {
@@ -184,6 +185,7 @@
   // --- Gemensamma kontroller ---
 
   function pauseAll() {
+    isPaused = true;
     if (!isLegacy) {
       Object.keys(zoneStates).forEach(id => {
         zoneStates[id].paused = true;
@@ -196,6 +198,7 @@
   }
 
   function resumeAll() {
+    isPaused = false;
     if (!isLegacy) {
       Object.keys(zoneStates).forEach(id => {
         zoneStates[id].paused = false;
@@ -310,12 +313,14 @@
         clearTimeout(state.timer);
         btn.innerHTML = '&#9654;';
       }
+      isPaused = state.paused;
     });
   });
 
   // --- Klocka ---
 
   function tickClocks() {
+    if (isPaused) return;
     var now = new Date();
     document.querySelectorAll('[data-clock-format]').forEach(function (el) {
       var fmt      = el.dataset.clockFormat || 'time_date';
@@ -370,7 +375,7 @@
 
       function step(ts) {
         requestAnimationFrame(step);
-        if (userPaused || el.scrollHeight <= el.clientHeight) return;
+        if (isPaused || userPaused || el.scrollHeight <= el.clientHeight) return;
         if (lastTs === null) lastTs = ts;
         var dt = (ts - lastTs) / 1000;
         lastTs = ts;
@@ -399,6 +404,7 @@
   // --- Tidslinje (ics_schedule) ---
 
   function updateNowLines() {
+    if (isPaused) return;
     var now = new Date();
     var nowMin = now.getHours() * 60 + now.getMinutes();
     document.querySelectorAll('[data-now-start]').forEach(function (col) {

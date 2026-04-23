@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from sqlalchemy import Text, cast, or_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import select
 
@@ -52,7 +53,9 @@ def _purge_media_id(obj, media_id: int):
         if obj.get("media_id") is None and obj.get("url") == "":
             obj.pop("url", None)
     elif isinstance(obj, list):
-        to_remove = [i for i, v in enumerate(obj) if isinstance(v, dict) and v.get("media_id") == media_id]
+        to_remove = [
+            i for i, v in enumerate(obj) if isinstance(v, dict) and v.get("media_id") == media_id
+        ]
         for i in reversed(to_remove):
             obj.pop(i)
         for v in obj:
@@ -70,7 +73,9 @@ def _purge_refs(obj, filename: str):
             else:
                 _purge_refs(v, filename)
     elif isinstance(obj, list):
-        to_remove = [i for i, v in enumerate(obj) if isinstance(v, dict) and filename in json.dumps(v)]
+        to_remove = [
+            i for i, v in enumerate(obj) if isinstance(v, dict) and filename in json.dumps(v)
+        ]
         for i in reversed(to_remove):
             obj.pop(i)
         for v in obj:
@@ -84,10 +89,14 @@ def _purge_file_from_db(db, filename: str, media_id: int | None = None) -> None:
     """Ta bort alla referenser till filen ur widgets och vyer.
     Söker på media_id (nyare data) och filnamn (äldre data)."""
     mid_str = str(media_id) if media_id else None
-    for w in db.exec(select(Widget)).all():
-        raw = json.dumps(w.config_json or {})
-        if filename not in raw and (not mid_str or mid_str not in raw):
-            continue
+
+    # Widgets
+    w_conds = [cast(Widget.config_json, Text).like(f"%{filename}%")]
+    if mid_str:
+        w_conds.append(cast(Widget.config_json, Text).like(f"%{mid_str}%"))
+    widgets = db.exec(select(Widget).where(or_(*w_conds))).all()
+
+    for w in widgets:
         cfg = copy.deepcopy(w.config_json or {})
         _purge_refs(cfg, filename)
         if mid_str:
@@ -95,10 +104,14 @@ def _purge_file_from_db(db, filename: str, media_id: int | None = None) -> None:
         w.config_json = cfg
         flag_modified(w, "config_json")
         db.add(w)
-    for v in db.exec(select(View)).all():
-        raw = json.dumps(v.layout_json or {})
-        if filename not in raw and (not mid_str or mid_str not in raw):
-            continue
+
+    # Views
+    v_conds = [cast(View.layout_json, Text).like(f"%{filename}%")]
+    if mid_str:
+        v_conds.append(cast(View.layout_json, Text).like(f"%{mid_str}%"))
+    views = db.exec(select(View).where(or_(*v_conds))).all()
+
+    for v in views:
         layout = copy.deepcopy(v.layout_json or {})
         _purge_refs(layout, filename)
         if mid_str:
@@ -113,12 +126,22 @@ def _find_usages(filename: str, widgets: list, views: list, screens: dict) -> li
     usages = []
     for w in widgets:
         if needle in json.dumps(w.config_json or {}):
-            usages.append({"kind": "widget", "id": w.id, "name": w.name, "url": f"/admin/widgets/{w.id}"})
+            usages.append(
+                {"kind": "widget", "id": w.id, "name": w.name, "url": f"/admin/widgets/{w.id}"}
+            )
     for v in views:
         if needle in json.dumps(v.layout_json or {}):
             screen = screens.get(v.screen_id)
             screen_name = screen.name if screen else "Okänd skärm"
-            usages.append({"kind": "view", "id": v.id, "name": v.name, "screen_name": screen_name, "url": f"/admin/views/{v.id}"})
+            usages.append(
+                {
+                    "kind": "view",
+                    "id": v.id,
+                    "name": v.name,
+                    "screen_name": screen_name,
+                    "url": f"/admin/views/{v.id}",
+                }
+            )
     return usages
 
 
@@ -133,14 +156,22 @@ async def media_list(request: Request, folder_id: int | None = None):
             .where(MediaFile.folder_id == folder_id)
             .order_by(MediaFile.created_at.desc())
         ).all()
-        widgets = db.exec(select(Widget)).all()
-        views = db.exec(select(View)).all()
+
+        # Optimering: Hämta bara widgets och vyer som faktiskt innehåller någon av filerna i mappen
+        filenames = [f.filename for f in files]
+        widgets = []
+        views = []
+        if filenames:
+            w_conds = [cast(Widget.config_json, Text).like(f"%{fn}%") for fn in filenames]
+            widgets = db.exec(select(Widget).where(or_(*w_conds))).all()
+            v_conds = [cast(View.layout_json, Text).like(f"%{fn}%") for fn in filenames]
+            views = db.exec(select(View).where(or_(*v_conds))).all()
+
         screens = {s.id: s for s in db.exec(select(Screen)).all()}
 
     crumbs = _breadcrumbs(folder_id, folders_by_id)
     files_with_usage = [
-        {"file": f, "usages": _find_usages(f.filename, widgets, views, screens)}
-        for f in files
+        {"file": f, "usages": _find_usages(f.filename, widgets, views, screens)} for f in files
     ]
     current_folder = folders_by_id.get(folder_id) if folder_id else None
     return HTMLResponse(
@@ -161,7 +192,9 @@ async def media_upload(file: UploadFile = File(...), folder_id: str = Form("")):
     content_type = (file.content_type or "").split(";")[0].strip()
     ext = _ALLOWED_TYPES.get(content_type)
     if not ext:
-        return JSONResponse({"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400)
+        return JSONResponse(
+            {"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400
+        )
     fid = int(folder_id) if folder_id.strip().isdigit() else None
     data = await file.read()
     filename = uuid.uuid4().hex + ext
@@ -178,7 +211,14 @@ async def media_upload(file: UploadFile = File(...), folder_id: str = Form("")):
         db.add(mf)
         db.commit()
         db.refresh(mf)
-    return JSONResponse({"id": mf.id, "filename": filename, "url": f"/uploads/{filename}", "original_name": mf.original_name})
+    return JSONResponse(
+        {
+            "id": mf.id,
+            "filename": filename,
+            "url": f"/uploads/{filename}",
+            "original_name": mf.original_name,
+        }
+    )
 
 
 @router.post("/media/{file_id}/replace", response_class=JSONResponse)
@@ -237,7 +277,13 @@ async def media_move(request: Request, file_id: int, folder_id: str = Form("")):
 
 
 @router.post("/media/batch")
-async def media_batch(request: Request, action: str = Form(...), file_ids: str = Form(""), folder_id: str = Form(""), current_folder_id: str = Form("")):
+async def media_batch(
+    request: Request,
+    action: str = Form(...),
+    file_ids: str = Form(""),
+    folder_id: str = Form(""),
+    current_folder_id: str = Form(""),
+):
     ids = [int(i) for i in file_ids.split(",") if i.strip().isdigit()]
     target_folder = int(folder_id) if folder_id.strip().isdigit() else None
     cur_folder = int(current_folder_id) if current_folder_id.strip().isdigit() else None
@@ -278,7 +324,9 @@ async def folder_delete(request: Request, folder_id: int):
         if not folder:
             return HTMLResponse("Mappen hittades inte.", status_code=404)
         has_files = db.exec(select(MediaFile).where(MediaFile.folder_id == folder_id)).first()
-        has_subfolders = db.exec(select(MediaFolder).where(MediaFolder.parent_id == folder_id)).first()
+        has_subfolders = db.exec(
+            select(MediaFolder).where(MediaFolder.parent_id == folder_id)
+        ).first()
         if has_files or has_subfolders:
             return HTMLResponse("Mappen är inte tom.", status_code=409)
         parent_id = folder.parent_id
@@ -293,7 +341,18 @@ async def media_picker(request: Request):
     with get_session() as db:
         files = db.exec(select(MediaFile).order_by(MediaFile.created_at.desc())).all()
         folders = db.exec(select(MediaFolder).order_by(MediaFolder.name)).all()
-    return JSONResponse({
-        "files": [{"id": f.id, "filename": f.filename, "url": f"/uploads/{f.filename}", "original_name": f.original_name, "folder_id": f.folder_id} for f in files],
-        "folders": [{"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in folders],
-    })
+    return JSONResponse(
+        {
+            "files": [
+                {
+                    "id": f.id,
+                    "filename": f.filename,
+                    "url": f"/uploads/{f.filename}",
+                    "original_name": f.original_name,
+                    "folder_id": f.folder_id,
+                }
+                for f in files
+            ],
+            "folders": [{"id": f.id, "name": f.name, "parent_id": f.parent_id} for f in folders],
+        }
+    )

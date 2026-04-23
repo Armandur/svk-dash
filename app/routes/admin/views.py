@@ -24,8 +24,13 @@ _ASPECT_CSS = {
 }
 
 _LAYOUT_ASPECT_FLOAT = {
-    "16:9": 16/9, "9:16": 9/16, "4:3": 4/3, "3:4": 3/4,
-    "1:1": 1.0, "A-L": 1.414, "A-P": 1/1.414,
+    "16:9": 16 / 9,
+    "9:16": 9 / 16,
+    "4:3": 4 / 3,
+    "3:4": 3 / 4,
+    "1:1": 1.0,
+    "A-L": 1.414,
+    "A-P": 1 / 1.414,
 }
 
 
@@ -40,15 +45,14 @@ def _zone_aspect_css(db, view: View) -> str:
     if not zone or not zone.w_pct or not zone.h_pct:
         return "16 / 9"
     assignment = db.exec(
-        select(ScreenLayoutAssignment)
-        .where(ScreenLayoutAssignment.screen_id == view.screen_id)
+        select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == view.screen_id)
     ).first()
     if not assignment:
         return "16 / 9"
     layout = db.get(Layout, assignment.layout_id)
     if not layout:
         return "16 / 9"
-    screen_ratio = _LAYOUT_ASPECT_FLOAT.get(layout.aspect_ratio, 16/9)
+    screen_ratio = _LAYOUT_ASPECT_FLOAT.get(layout.aspect_ratio, 16 / 9)
     zone_ratio = screen_ratio * (zone.w_pct / zone.h_pct)
     return f"{zone_ratio:.6f} / 1"
 
@@ -195,7 +199,11 @@ async def view_detail(request: Request, view_id: int):
     cur_idx = sib_ids.index(view_id) if view_id in sib_ids else 0
     is_persistent = zone is not None and zone.role == "persistent"
     prev_view = sibling_views[cur_idx - 1] if not is_persistent and cur_idx > 0 else None
-    next_view = sibling_views[cur_idx + 1] if not is_persistent and cur_idx < len(sibling_views) - 1 else None
+    next_view = (
+        sibling_views[cur_idx + 1]
+        if not is_persistent and cur_idx < len(sibling_views) - 1
+        else None
+    )
     return HTMLResponse(
         templates.get_template("admin/view_detail.html").render(
             request=request,
@@ -348,20 +356,34 @@ async def view_remove_inline(request: Request, view_id: int, inline_id: str):
 
 @router.post("/views/{view_id}/layout")
 async def view_save_layout(request: Request, view_id: int):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Ogiltig JSON-data."}, status_code=400)
+
     widgets = body.get("widgets", [])
     layers = body.get("layers", [])
+
+    if not isinstance(widgets, list):
+        return JSONResponse({"error": "'widgets' måste vara en lista."}, status_code=400)
+    if not isinstance(layers, list):
+        return JSONResponse({"error": "'layers' måste vara en lista."}, status_code=400)
+
     with get_session() as db:
         view = db.get(View, view_id)
         if not view:
             return JSONResponse({"error": "Vyn hittades inte."}, status_code=404)
 
         # Validera och normalisera lager
-        valid_layer_ids = {layer["id"] for layer in layers if "id" in layer}
+        valid_layer_ids = {
+            layer["id"] for layer in layers if isinstance(layer, dict) and "id" in layer
+        }
         if not layers:
             # Fallback om inga lager skickades — behåll befintliga
             existing = view.layout_json or {}
-            layers = existing.get("layers", [{"id": "l-default", "name": "Standard", "visible": True}])
+            layers = existing.get(
+                "layers", [{"id": "l-default", "name": "Standard", "visible": True}]
+            )
             valid_layer_ids = {layer["id"] for layer in layers}
 
         clean_layers = [
@@ -371,37 +393,70 @@ async def view_save_layout(request: Request, view_id: int):
                 "visible": bool(layer.get("visible", True)),
             }
             for layer in layers
-            if "id" in layer
+            if isinstance(layer, dict) and "id" in layer
         ]
 
         result: list[dict] = []
         for w in widgets:
-            layer_id = str(w.get("layer_id", "")) if w.get("layer_id") in valid_layer_ids else (clean_layers[-1]["id"] if clean_layers else "l-default")
-            if "inline_id" in w:
-                result.append(
-                    {
-                        "inline_id": str(w["inline_id"]),
-                        "kind": str(w["kind"]),
-                        "config": w.get("config") or {},
-                        "x": int(w["x"]),
-                        "y": int(w["y"]),
-                        "w": int(w["w"]),
-                        "h": int(w["h"]),
-                        "opacity": max(0, min(100, int(w.get("opacity", 100)))),
-                        "layer_id": layer_id,
-                    }
-                )
-            else:
-                result.append(
-                    {
-                        "widget_id": int(w["widget_id"]),
-                        "x": int(w["x"]),
-                        "y": int(w["y"]),
-                        "w": int(w["w"]),
-                        "h": int(w["h"]),
-                        "opacity": max(0, min(100, int(w.get("opacity", 100)))),
-                        "layer_id": layer_id,
-                    }
+            if not isinstance(w, dict):
+                continue
+            layer_id = (
+                str(w.get("layer_id", ""))
+                if w.get("layer_id") in valid_layer_ids
+                else (clean_layers[-1]["id"] if clean_layers else "l-default")
+            )
+
+            try:
+                # Validera att x, y, w, h finns och är heltal
+                for key in ["x", "y", "w", "h"]:
+                    if key not in w:
+                        return JSONResponse(
+                            {"error": f"Widget saknar nyckeln '{key}'."}, status_code=400
+                        )
+                    int(w[key])
+
+                if "inline_id" in w:
+                    result.append(
+                        {
+                            "inline_id": str(w["inline_id"]),
+                            "kind": str(w["kind"]),
+                            "config": w.get("config") or {},
+                            "x": int(w["x"]),
+                            "y": int(w["y"]),
+                            "w": int(w["w"]),
+                            "h": int(w["h"]),
+                            "opacity": max(0, min(100, int(w.get("opacity", 100)))),
+                            "layer_id": layer_id,
+                        }
+                    )
+                else:
+                    if "widget_id" not in w:
+                        return JSONResponse(
+                            {"error": "Widget saknar 'widget_id' eller 'inline_id'."},
+                            status_code=400,
+                        )
+
+                    wid = int(w["widget_id"])
+                    if wid <= 0:
+                        return JSONResponse(
+                            {"error": "widget_id måste vara ett positivt heltal."}, status_code=400
+                        )
+
+                    result.append(
+                        {
+                            "widget_id": wid,
+                            "x": int(w["x"]),
+                            "y": int(w["y"]),
+                            "w": int(w["w"]),
+                            "h": int(w["h"]),
+                            "opacity": max(0, min(100, int(w.get("opacity", 100)))),
+                            "layer_id": layer_id,
+                        }
+                    )
+            except (ValueError, TypeError):
+                return JSONResponse(
+                    {"error": "Koordinater, dimensioner och ID:n måste vara heltal."},
+                    status_code=400,
                 )
 
         layout = {"layers": clean_layers, "widgets": result}
@@ -421,7 +476,9 @@ async def view_remove_widget(request: Request, view_id: int, widget_id: int):
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
         layout = copy.deepcopy(view.layout_json or {"widgets": []})
-        layout["widgets"] = [w for w in layout.get("widgets", []) if w.get("widget_id") != widget_id]
+        layout["widgets"] = [
+            w for w in layout.get("widgets", []) if w.get("widget_id") != widget_id
+        ]
         view.layout_json = layout
         flag_modified(view, "layout_json")
         view.updated_at = datetime.utcnow()

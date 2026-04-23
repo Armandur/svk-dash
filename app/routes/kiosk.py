@@ -38,16 +38,18 @@ def _render_view(view: View, context: dict, db) -> dict:
                 ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
                 inner = render_widget(widget.kind, widget.config_json or {}, ctx)
             eid = entry["widget_id"]
-        rendered_widgets.append({
-            "html": inner,
-            "widget_id": eid,
-            "col_start": x + 1,
-            "col_end": x + w + 1,
-            "row_start": y + 1,
-            "row_end": y + h + 1,
-            "z_index": entry.get("z_index", 1),
-            "opacity": entry.get("opacity", 100),
-        })
+        rendered_widgets.append(
+            {
+                "html": inner,
+                "widget_id": eid,
+                "col_start": x + 1,
+                "col_end": x + w + 1,
+                "row_start": y + 1,
+                "row_end": y + h + 1,
+                "z_index": entry.get("z_index", 1),
+                "opacity": entry.get("opacity", 100),
+            }
+        )
     return {
         "id": view.id,
         "name": view.name,
@@ -74,8 +76,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
 
         # Kolla om skärmen har en layout
         assignment = db.exec(
-            select(ScreenLayoutAssignment)
-            .where(ScreenLayoutAssignment.screen_id == screen.id)
+            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen.id)
         ).first()
 
         zones_rendered = None
@@ -98,20 +99,22 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                         .order_by(View.position)
                     ).all()
                     views_data = [_render_view(v, context, db) for v in zone_views]
-                    zones_rendered.append({
-                        "id": zone.id,
-                        "name": zone.name,
-                        "role": zone.role,
-                        "x_pct": zone.x_pct,
-                        "y_pct": zone.y_pct,
-                        "w_pct": zone.w_pct,
-                        "h_pct": zone.h_pct,
-                        "z_index": zone.z_index,
-                        "rotation_seconds": zone.rotation_seconds,
-                        "transition": zone.transition,
-                        "transition_direction": zone.transition_direction,
-                        "views": views_data,
-                    })
+                    zones_rendered.append(
+                        {
+                            "id": zone.id,
+                            "name": zone.name,
+                            "role": zone.role,
+                            "x_pct": zone.x_pct,
+                            "y_pct": zone.y_pct,
+                            "w_pct": zone.w_pct,
+                            "h_pct": zone.h_pct,
+                            "z_index": zone.z_index,
+                            "rotation_seconds": zone.rotation_seconds,
+                            "transition": zone.transition,
+                            "transition_direction": zone.transition_direction,
+                            "views": views_data,
+                        }
+                    )
 
         if zones_rendered is None:
             # Legacy: ingen layout, visa vyer direkt
@@ -133,7 +136,11 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
         result = []
         for z in zones:
             views_meta = [
-                {"position": v["position"], "name": v["name"], "duration_seconds": v["duration_seconds"]}
+                {
+                    "position": v["position"],
+                    "name": v["name"],
+                    "duration_seconds": v["duration_seconds"],
+                }
                 for v in z["views"]
             ]
             result.append({k: v for k, v in z.items() if k != "views"} | {"views": views_meta})
@@ -142,7 +149,14 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
     def _legacy_meta(views):
         if views is None:
             return None
-        return [{"position": v["position"], "name": v["name"], "duration_seconds": v["duration_seconds"]} for v in views]
+        return [
+            {
+                "position": v["position"],
+                "name": v["name"],
+                "duration_seconds": v["duration_seconds"],
+            }
+            for v in views
+        ]
 
     show_debug = debug == "1"
     return HTMLResponse(
@@ -219,8 +233,11 @@ async def widget_data(request: Request, widget_id: int):
 
 def broadcast_widget_updated(widget_id: int) -> None:
     """Hitta alla skärmar som visar widgeten och pusha widget_updated-event."""
+    from sqlalchemy import String, cast
+
     with get_session() as db:
-        views = db.exec(select(View)).all()
+        pattern = f'%"widget_id": {widget_id}%'
+        views = db.exec(select(View).where(cast(View.layout_json, String).like(pattern))).all()
         screen_ids: set[int] = set()
         for view in views:
             layout = view.layout_json or {}
