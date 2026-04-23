@@ -40,8 +40,25 @@
             <span class="ml-2 text-xs text-gray-400">standard</span>
             {% endif %}
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <a href="/admin/views/{{ view.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
+            <form method="post"
+                  action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/detach"
+                  class="inline" title="Koppla loss från zon — vyn hamnar i 'Vyer utan zon'">
+              <button type="submit" class="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">Koppla loss</button>
+            </form>
+            {% if other_zones %}
+            <form method="post"
+                  action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/move"
+                  class="inline flex items-center gap-1">
+              <select name="target_zone_id" class="text-xs border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400">
+                {% for z in other_zones %}
+                <option value="{{ z.id }}">{{ z.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">Flytta</button>
+            </form>
+            {% endif %}
             <form method="post"
                   action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/delete"
                   onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">

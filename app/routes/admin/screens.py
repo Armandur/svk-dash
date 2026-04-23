@@ -259,9 +259,20 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
             .where(View.screen_id == screen_id, View.zone_id == zone_id)
             .order_by(View.position)
         ).all()
+        assignment = db.exec(
+            select(ScreenLayoutAssignment)
+            .where(ScreenLayoutAssignment.screen_id == screen_id)
+        ).first()
+        other_zones = []
+        if assignment:
+            other_zones = db.exec(
+                select(LayoutZone)
+                .where(LayoutZone.layout_id == assignment.layout_id, LayoutZone.id != zone_id)
+                .order_by(LayoutZone.z_index)
+            ).all()
     return HTMLResponse(
         templates.get_template("admin/zone_detail.html").render(
-            request=request, screen=screen, zone=zone, views=views
+            request=request, screen=screen, zone=zone, views=views, other_zones=other_zones
         )
     )
 
@@ -344,6 +355,61 @@ async def view_delete(screen_id: int, view_id: int):
         db.commit()
         _reorder_views(db, screen_id, None)
     return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+
+
+# ── Flytta vy till zon (drag-and-drop + formulär) ────────────────────────────
+
+@router.post("/screens/{screen_id}/views/{view_id}/assign-zone")
+async def view_assign_zone(request: Request, screen_id: int, view_id: int):
+    body = await request.json()
+    zone_id = body.get("zone_id")  # int eller null
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if not view or view.screen_id != screen_id:
+            return {"error": "Vy saknas"}
+        old_zone = view.zone_id
+        view.zone_id = int(zone_id) if zone_id is not None else None
+        # Lägg sist i målzonen
+        existing = db.exec(
+            select(View).where(View.screen_id == screen_id, View.zone_id == view.zone_id)
+        ).all()
+        view.position = len([v for v in existing if v.id != view_id])
+        db.add(view)
+        db.commit()
+        _reorder_views(db, screen_id, old_zone)
+    return {"ok": True}
+
+
+@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/detach")
+async def zone_view_detach(screen_id: int, zone_id: int, view_id: int):
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if view and view.screen_id == screen_id and view.zone_id == zone_id:
+            view.zone_id = None
+            existing = db.exec(
+                select(View).where(View.screen_id == screen_id, View.zone_id == None)  # noqa: E711
+            ).all()
+            view.position = len([v for v in existing if v.id != view_id])
+            db.add(view)
+            db.commit()
+            _reorder_views(db, screen_id, zone_id)
+    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
+
+
+@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/move")
+async def zone_view_move(screen_id: int, zone_id: int, view_id: int, target_zone_id: int = Form(...)):
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if view and view.screen_id == screen_id and view.zone_id == zone_id:
+            view.zone_id = target_zone_id
+            existing = db.exec(
+                select(View).where(View.screen_id == screen_id, View.zone_id == target_zone_id)
+            ).all()
+            view.position = len([v for v in existing if v.id != view_id])
+            db.add(view)
+            db.commit()
+            _reorder_views(db, screen_id, zone_id)
+    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
 
 
 def _reorder_views(db, screen_id: int, zone_id: int | None) -> None:
