@@ -43,6 +43,7 @@ class Widget(SQLModel, table=True):
 
 class IcsCache(SQLModel, table=True):
     widget_id: int = Field(foreign_key="widget.id", primary_key=True)
+    source_url: str = Field(primary_key=True)
     raw_ics: str
     fetched_at: datetime = Field(default_factory=datetime.utcnow)
     etag: str | None = None

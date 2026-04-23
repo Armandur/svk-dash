@@ -7,11 +7,13 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import select
 
+from sqlmodel import select
+
 from app.database import get_session
 from app.deps import require_admin
 from app.models import IcsCache, View, Widget, WidgetRevision
 from app.routes.kiosk import broadcast_widget_updated
-from app.services.ics_fetcher import fetch_and_cache
+from app.services.ics_fetcher import fetch_and_cache, get_ics_urls
 from app.templating import templates
 
 _ICS_KINDS = frozenset({"ics_list", "ics_month"})
@@ -80,9 +82,8 @@ async def widget_create(
         db.commit()
         db.refresh(widget)
     if kind in _ICS_KINDS:
-        ics_url = config.get("ics_url")
-        if isinstance(ics_url, str) and ics_url:
-            asyncio.create_task(fetch_and_cache(widget.id, ics_url))
+        for url in get_ics_urls(config):
+            asyncio.create_task(fetch_and_cache(widget.id, url))
     return RedirectResponse(f"/admin/widgets/{widget.id}", status_code=302)
 
 
@@ -98,7 +99,11 @@ async def widget_detail(request: Request, widget_id: int):
             .order_by(WidgetRevision.saved_at.desc())
             .limit(20)
         ).all()
-        ics_cache = db.get(IcsCache, widget_id) if widget.kind in _ICS_KINDS else None
+        ics_caches = (
+            db.exec(select(IcsCache).where(IcsCache.widget_id == widget_id)).all()
+            if widget.kind in _ICS_KINDS
+            else []
+        )
     return HTMLResponse(
         templates.get_template("admin/widget_detail.html").render(
             request=request,
@@ -106,7 +111,7 @@ async def widget_detail(request: Request, widget_id: int):
             revisions=revisions,
             kinds=WIDGET_KINDS,
             config_json=json.dumps(widget.config_json, indent=2, ensure_ascii=False),
-            ics_cache=ics_cache,
+            ics_caches=ics_caches,
         )
     )
 
@@ -117,9 +122,9 @@ async def widget_ics_refresh(request: Request, widget_id: int):
         widget = db.get(Widget, widget_id)
         if not widget or widget.kind not in _ICS_KINDS:
             return HTMLResponse("Widgeten hittades inte.", status_code=404)
-        ics_url = (widget.config_json or {}).get("ics_url")
-    if isinstance(ics_url, str) and ics_url:
-        asyncio.create_task(fetch_and_cache(widget_id, ics_url))
+        urls = get_ics_urls(widget.config_json or {})
+    for url in urls:
+        asyncio.create_task(fetch_and_cache(widget_id, url))
     return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
 
 
@@ -181,9 +186,8 @@ async def widget_edit(
 
     broadcast_widget_updated(widget_id)
     if widget.kind in _ICS_KINDS:
-        ics_url = config.get("ics_url")
-        if isinstance(ics_url, str) and ics_url:
-            asyncio.create_task(fetch_and_cache(widget_id, ics_url))
+        for url in get_ics_urls(config):
+            asyncio.create_task(fetch_and_cache(widget_id, url))
     return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
 
 

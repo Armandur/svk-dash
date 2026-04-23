@@ -30,9 +30,19 @@
 
         {% if widget.kind == 'ics_list' %}
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-URL</label>
-          <input type="text" data-field="ics_url" value="{{ cfg.get('ics_url', '') }}"
-                 placeholder="https://..." class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-källa(or)</label>
+          <div id="ics-url-list" class="flex flex-col gap-1 mb-1"></div>
+          <button type="button" onclick="addIcsUrl()"
+                  class="text-xs text-blue-600 hover:text-blue-800">+ Lägg till källa</button>
+          <script>
+            (function(){
+              var raw = {{ cfg.get('ics_url', '') | tojson }};
+              var urls = typeof raw==='string' ? (raw?[raw]:[]) : (Array.isArray(raw)?raw:[]);
+              urls = urls.map(function(u){return typeof u==='string'?u:(u&&u.url)||'';}).filter(Boolean);
+              if(urls.length===0) urls=[''];
+              urls.forEach(function(u){addIcsUrl(u);});
+            })();
+          </script>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -69,9 +79,19 @@
 
         {% elif widget.kind == 'ics_month' %}
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-URL</label>
-          <input type="text" data-field="ics_url" value="{{ cfg.get('ics_url', '') }}"
-                 placeholder="https://..." class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-källa(or)</label>
+          <div id="ics-url-list" class="flex flex-col gap-1 mb-1"></div>
+          <button type="button" onclick="addIcsUrl()"
+                  class="text-xs text-blue-600 hover:text-blue-800">+ Lägg till källa</button>
+          <script>
+            (function(){
+              var raw = {{ cfg.get('ics_url', '') | tojson }};
+              var urls = typeof raw==='string' ? (raw?[raw]:[]) : (Array.isArray(raw)?raw:[]);
+              urls = urls.map(function(u){return typeof u==='string'?u:(u&&u.url)||'';}).filter(Boolean);
+              if(urls.length===0) urls=[''];
+              urls.forEach(function(u){addIcsUrl(u);});
+            })();
+          </script>
         </div>
         <div class="flex flex-col gap-2">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -275,32 +295,36 @@
     </div>
 
     <!-- ICS-cache-status -->
-    {% if ics_cache is not none %}
+    {% if ics_caches %}
     <div class="bg-white rounded-lg shadow p-5">
       <h2 class="font-semibold mb-3">ICS-cachestatus</h2>
-      {% if ics_cache.last_error %}
-      <div class="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5 mb-3 break-words">
-        <div class="font-medium mb-1">Senaste fel:</div>
-        {{ ics_cache.last_error }}
-      </div>
-      {% endif %}
-      <div class="text-xs text-gray-500 space-y-1 mb-3">
-        {% if ics_cache.raw_ics %}
-        <div>
-          {% if ics_cache.last_error %}
-          <span class="text-yellow-600 font-medium">⚠ Visar gammal data</span>
-          {% else %}
-          <span class="text-green-600 font-medium">OK</span>
+      <div class="space-y-3 mb-3">
+        {% for c in ics_caches %}
+        <div class="text-xs border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+          <div class="font-mono text-gray-400 truncate mb-1" title="{{ c.source_url }}">{{ c.source_url }}</div>
+          {% if c.last_error %}
+          <div class="text-red-600 bg-red-50 rounded px-2 py-1 mb-1 break-words">{{ c.last_error[:200] }}</div>
           {% endif %}
-          – senast hämtad {{ ics_cache.fetched_at.strftime('%Y-%m-%d %H:%M') }} UTC
+          <div class="text-gray-500 space-y-0.5">
+            {% if c.raw_ics %}
+            <div>
+              {% if c.last_error %}
+              <span class="text-yellow-600 font-medium">⚠ Gammal data</span>
+              {% else %}
+              <span class="text-green-600 font-medium">OK</span>
+              {% endif %}
+              – {{ c.fetched_at.strftime('%Y-%m-%d %H:%M') }} UTC
+            </div>
+            <div>{{ (c.raw_ics | length) }} bytes</div>
+            {% else %}
+            <div class="text-red-600 font-medium">Ingen data</div>
+            {% endif %}
+          </div>
         </div>
-        <div>{{ (ics_cache.raw_ics | length) }} bytes cachad</div>
-        {% else %}
-        <div class="text-red-600 font-medium">Ingen data i cache</div>
-        {% endif %}
+        {% endfor %}
       </div>
       <form method="post" action="/admin/widgets/{{ widget.id }}/ics-refresh">
-        <button type="submit" class="text-xs text-blue-600 hover:text-blue-800 underline">Uppdatera nu</button>
+        <button type="submit" class="text-xs text-blue-600 hover:text-blue-800 underline">Uppdatera alla nu</button>
       </form>
     </div>
     {% endif %}
@@ -317,12 +341,30 @@
 </div>
 
 <script>
+function addIcsUrl(val) {
+  var list = document.getElementById('ics-url-list');
+  if (!list) return;
+  var div = document.createElement('div');
+  div.className = 'flex gap-1';
+  div.innerHTML =
+    '<input type="text" data-ics-url placeholder="https://..." value="' + (val||'').replace(/"/g,'&quot;') + '" class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm font-mono">' +
+    '<button type="button" onclick="removeIcsUrl(this)" class="px-2 text-gray-300 hover:text-red-500 text-lg leading-none">&times;</button>';
+  list.appendChild(div);
+}
+
+function removeIcsUrl(btn) {
+  var list = btn.closest('#ics-url-list');
+  btn.closest('div').remove();
+  if (list && list.children.length === 0) addIcsUrl('');
+}
+
 document.getElementById('widget-form').addEventListener('submit', function(e) {
   var fields = this.querySelectorAll('[data-field]');
+  var urlInputs = this.querySelectorAll('[data-ics-url]');
   var rawEdit = document.getElementById('raw-json-edit');
   var hidden = this.querySelector('#config_json_hidden');
 
-  if (fields.length > 0) {
+  if (fields.length > 0 || urlInputs.length > 0) {
     var cfg = {};
     fields.forEach(function(el) {
       var key = el.dataset.field;
@@ -334,6 +376,10 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
         if (el.value !== '') cfg[key] = el.value;
       }
     });
+    if (urlInputs.length > 0) {
+      var urls = Array.from(urlInputs).map(function(el){ return el.value.trim(); }).filter(Boolean);
+      cfg['ics_url'] = urls.length === 1 ? urls[0] : urls;
+    }
     hidden.value = JSON.stringify(cfg);
   } else if (rawEdit) {
     hidden.value = rawEdit.value;

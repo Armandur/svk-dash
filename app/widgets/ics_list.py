@@ -5,9 +5,11 @@ from zoneinfo import ZoneInfo
 
 import icalendar
 import recurring_ical_events
+from sqlmodel import select
 
 from app.database import get_session
 from app.models import IcsCache
+from app.services.ics_fetcher import get_ics_urls
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -49,7 +51,7 @@ def _fmt_day(d: date, today: date) -> str:
 
 def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     widget_id = context.get("widget_id")
-    ics_url = config.get("ics_url", "")
+    urls = get_ics_urls(config)
     days_ahead = max(1, int(config.get("days_ahead", 14)))
     max_events = max(1, int(config.get("max_events", 20)))
     show_location = bool(config.get("show_location", True))
@@ -58,43 +60,50 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
 
     size_cls = {"small": "ics-sm", "large": "ics-lg"}.get(font_size, "")
 
-    if not widget_id or not ics_url:
+    if not widget_id or not urls:
         return '<div class="widget-ics-list ics-notice">Ingen ICS-URL konfigurerad.</div>'
 
     with get_session() as db:
-        cache = db.get(IcsCache, widget_id)
+        caches = db.exec(select(IcsCache).where(IcsCache.widget_id == widget_id)).all()
 
-    if cache is None:
+    if not caches:
         return '<div class="widget-ics-list ics-notice">Kalender hämtas…</div>'
 
-    if cache.last_error and not cache.raw_ics:
-        err = html_mod.escape(cache.last_error[:200])
-        return f'<div class="widget-ics-list ics-error">Kunde inte hämta kalender.<br><small>{err}</small></div>'
-
-    try:
-        cal = icalendar.Calendar.from_ical(cache.raw_ics)
-    except Exception:
-        return '<div class="widget-ics-list ics-error">Ogiltig ICS-data.</div>'
-
+    cache_by_url = {c.source_url: c for c in caches}
     today_local = datetime.now(_TZ).date()
     end_date = today_local + timedelta(days=days_ahead)
 
-    try:
-        raw_events = recurring_ical_events.of(cal).between(today_local, end_date)
-    except Exception:
-        return '<div class="widget-ics-list ics-error">Kunde inte läsa händelser.</div>'
-
     events: list[tuple[datetime, bool, str, str]] = []
-    for ev in raw_events:
-        dtstart = ev.get("DTSTART")
-        if not dtstart:
+    has_error = False
+    oldest_fetched: datetime | None = None
+
+    for url in urls:
+        cache = cache_by_url.get(url)
+        if cache is None:
             continue
-        dt = dtstart.dt
-        all_day = _is_all_day(dt)
-        start = _to_local(dt)
-        summary = html_mod.escape(str(ev.get("SUMMARY", "Ingen titel")))
-        location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
-        events.append((start, all_day, summary, location))
+        if cache.last_error:
+            has_error = True
+        if not cache.raw_ics:
+            continue
+        if oldest_fetched is None or cache.fetched_at < oldest_fetched:
+            oldest_fetched = cache.fetched_at
+        try:
+            cal = icalendar.Calendar.from_ical(cache.raw_ics)
+            raw_events = recurring_ical_events.of(cal).between(today_local, end_date)
+        except Exception:
+            has_error = True
+            continue
+
+        for ev in raw_events:
+            dtstart = ev.get("DTSTART")
+            if not dtstart:
+                continue
+            dt = dtstart.dt
+            all_day = _is_all_day(dt)
+            start = _to_local(dt)
+            summary = html_mod.escape(str(ev.get("SUMMARY", "Ingen titel")))
+            location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
+            events.append((start, all_day, summary, location))
 
     events.sort(key=lambda e: e[0])
     events = events[:max_events]
@@ -121,14 +130,12 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             f"</div>"
         )
 
-    fetched_local = cache.fetched_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
-    fetched_str = fetched_local.strftime("%H:%M")
-
-    if cache.last_error:
-        parts.append(
-            f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>'
-        )
-    else:
-        parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
+    if oldest_fetched:
+        fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
+        fetched_str = fetched_local.strftime("%H:%M")
+        if has_error:
+            parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+        else:
+            parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
     return f'<div class="widget-ics-list {size_cls}">{"".join(parts)}</div>'
