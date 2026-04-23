@@ -14,7 +14,6 @@ from app.widgets.ics_common import should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
-_WEEKDAYS = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
 _WEEKDAYS_SHORT = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
 _MONTHS_SHORT = [
     "", "jan", "feb", "mar", "apr", "maj", "jun",
@@ -34,6 +33,52 @@ def _is_all_day(dt) -> bool:
 
 def _pct(minutes: int, total: int) -> str:
     return f"{100 * minutes / total:.4f}%"
+
+
+def _assign_lanes(events: list[tuple]) -> list[tuple]:
+    """Tilldelar lane-index och total lanes till parallella händelser.
+    Input: [(offset, duration, total, time_str, summary, location, color), ...]
+    Output: [(offset, duration, total, time_str, summary, location, color, lane, n_lanes), ...]
+    """
+    if not events:
+        return []
+
+    # Bygg överlappningsgrupper med sweep-line
+    sorted_evs = sorted(events, key=lambda e: e[0])
+    groups: list[list[int]] = []  # Grupper av index i sorted_evs
+    active: list[int] = []  # Index i sorted_evs för aktiva händelser
+
+    for i, ev in enumerate(sorted_evs):
+        start, dur = ev[0], ev[1]
+        end = start + dur
+        # Ta bort händelser som slutat
+        active = [j for j in active if sorted_evs[j][0] + sorted_evs[j][1] > start]
+        if active:
+            # Lägg till i befintlig grupp om den täcker denna händelse
+            merged = False
+            for g in groups:
+                if i - 1 in g or any(j in active for j in g):
+                    g.append(i)
+                    merged = True
+                    break
+            if not merged:
+                groups.append([i])
+        else:
+            groups.append([i])
+        active.append(i)
+
+    # Tilldela lanes inom varje grupp
+    lane_map: dict[int, tuple[int, int]] = {}  # index → (lane, n_lanes)
+    for group in groups:
+        n = len(group)
+        for lane, idx in enumerate(group):
+            lane_map[idx] = (lane, n)
+
+    result = []
+    for i, ev in enumerate(sorted_evs):
+        lane, n_lanes = lane_map.get(i, (0, 1))
+        result.append((*ev, lane, n_lanes))
+    return result
 
 
 def render(config: dict[str, Any], context: dict[str, Any]) -> str:
@@ -64,8 +109,6 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     today = datetime.now(_TZ).date()
     days = [today + timedelta(days=day_offset + i) for i in range(day_count)]
 
-    # Per dag: {all_day: [...], before: [...], main: [...], after: [...]}
-    # main event: (start_min_offset, duration_min, summary, location, color)
     DayData = dict
     day_data: list[DayData] = [{
         "date": d, "all_day": [], "before": [], "main": [], "after": []
@@ -115,15 +158,11 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             ev_date = start_local.date()
 
             dtend = ev.get("DTEND")
-            if dtend:
-                end_local = _to_local(dtend.dt)
-            else:
-                end_local = start_local + timedelta(hours=1)
-
+            end_local = _to_local(dtend.dt) if dtend else start_local + timedelta(hours=1)
             ev_start_min = start_local.hour * 60 + start_local.minute
             ev_end_min = end_local.hour * 60 + end_local.minute
             if ev_end_min <= ev_start_min:
-                ev_end_min = ev_start_min + 60
+                ev_end_min = ev_start_min + 30
 
             for dd in day_data:
                 if dd["date"] != ev_date:
@@ -133,27 +172,27 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 elif ev_start_min >= end_hour * 60:
                     dd["after"].append((start_local.strftime("%H:%M"), summary, location, color))
                 else:
-                    # Klipp händelsen till synligt fönster
                     clipped_start = max(ev_start_min, start_minute)
                     clipped_end = min(ev_end_min, end_hour * 60)
                     offset = clipped_start - start_minute
-                    duration = max(clipped_end - clipped_start, 15)
-                    dd["main"].append((
-                        offset, duration, total_minutes,
-                        start_local.strftime("%H:%M"), summary, location, color,
-                    ))
+                    duration = max(clipped_end - clipped_start, 10)
+                    dd["main"].append((offset, duration, total_minutes,
+                                       start_local.strftime("%H:%M"), summary, location, color))
+
+    # Tilldela lanes för parallella händelser
+    for dd in day_data:
+        dd["main"] = _assign_lanes(dd["main"])
 
     parts: list[str] = [f'<div class="widget-ics-schedule {size_cls}">']
 
     # Tidsetiketter (vänster kolumn)
     hour_labels: list[str] = []
     for h in range(start_hour, end_hour + 1):
-        pct = _pct((h * 60 - start_minute), total_minutes)
+        pct = _pct(h * 60 - start_minute, total_minutes)
         hour_labels.append(
             f'<div class="isch-hour-label" style="top:{pct}">{h:02d}</div>'
         )
 
-    # Rutnät
     col_style = f"grid-template-columns: 1.8em repeat({day_count}, 1fr);"
     parts.append(f'<div class="isch-outer" style="{col_style}">')
 
@@ -180,7 +219,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append('<div class="isch-allday-empty"></div>')
         parts.append('</div>')
 
-    # "Tidigare"-rad
+    # "Tidigare"-sektion
     has_before = any(dd["before"] for dd in day_data)
     if has_before:
         parts.append('<div class="isch-section-label">↑</div>')
@@ -190,8 +229,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
                 parts.append(
                     f'<div class="isch-overflow-ev" style="{color_style}">'
-                    f'<span class="isch-t">{time_str}</span>{summary}'
-                    f'</div>'
+                    f'<span class="isch-t">{time_str}</span>{summary}</div>'
                 )
             parts.append('</div>')
 
@@ -204,26 +242,48 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     for dd in day_data:
         today_cls = " isch-today-col" if dd["date"] == today else ""
         parts.append(f'<div class="isch-main-col{today_cls}">')
-        # Rutnätslinjer
         for h in range(start_hour, end_hour):
-            pct = _pct((h * 60 - start_minute), total_minutes)
+            pct = _pct(h * 60 - start_minute, total_minutes)
             parts.append(f'<div class="isch-grid-line" style="top:{pct}"></div>')
-        # Händelseblock
-        for offset, duration, total, time_str, summary, location, color in dd["main"]:
+
+        for ev in dd["main"]:
+            offset, duration, total, time_str, summary, location, color, lane, n_lanes = ev
             top = _pct(offset, total)
             height = _pct(duration, total)
+            # Parallell-layout: dela bredden
+            lane_w = 100 / n_lanes
+            left = f"{lane * lane_w:.4f}%"
+            width = f"{lane_w - 1:.4f}%"
             border = f'border-left:3px solid {color};' if color else ""
-            loc_html = f'<span class="isch-loc">{location}</span>' if location else ""
+
+            # Anpassa innehåll efter block-höjd (duration i minuter)
+            if duration < 15:
+                # Mycket kort: bara titeln, ingen tid
+                inner = f'<span class="isch-ev-title isch-ev-compact">{summary}</span>'
+            elif duration < 25:
+                # Kort: tid och titel på samma rad
+                inner = (
+                    f'<span class="isch-ev-inline">'
+                    f'<span class="isch-ev-time">{time_str}</span>'
+                    f'<span class="isch-ev-title">{summary}</span>'
+                    f'</span>'
+                )
+            else:
+                loc_html = f'<span class="isch-loc">{location}</span>' if location else ""
+                inner = (
+                    f'<span class="isch-ev-time">{time_str}</span>'
+                    f'<span class="isch-ev-title">{summary}</span>'
+                    f'{loc_html}'
+                )
+
             parts.append(
-                f'<div class="isch-ev-block" style="top:{top};height:{height};{border}">'
-                f'<span class="isch-ev-time">{time_str}</span>'
-                f'<span class="isch-ev-title">{summary}</span>'
-                f'{loc_html}'
+                f'<div class="isch-ev-block" style="top:{top};height:{height};left:{left};width:{width};{border}">'
+                f'{inner}'
                 f'</div>'
             )
         parts.append('</div>')
 
-    # "Senare"-rad
+    # "Senare"-sektion
     has_after = any(dd["after"] for dd in day_data)
     if has_after:
         parts.append('<div class="isch-section-label">↓</div>')
@@ -233,8 +293,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
                 parts.append(
                     f'<div class="isch-overflow-ev" style="{color_style}">'
-                    f'<span class="isch-t">{time_str}</span>{summary}'
-                    f'</div>'
+                    f'<span class="isch-t">{time_str}</span>{summary}</div>'
                 )
             parts.append('</div>')
 

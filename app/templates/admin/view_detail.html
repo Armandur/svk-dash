@@ -132,6 +132,44 @@
   #grid-editor .icm-ev { font-size:0.6em; color:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
   #grid-editor .icm-more { font-size:0.55em; color:rgba(255,255,255,0.3); }
 
+  /* ics_week preview */
+  #grid-editor .widget-ics-week { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.2rem 0.3rem; font-size:clamp(6px,1.4cqh,10px); }
+  #grid-editor .icw-grid { display:grid; grid-template-rows:auto 1fr; gap:1px; flex:1; min-height:0; }
+  #grid-editor .icw-col-head { text-align:center; padding:0.15em 0; border-bottom:1px solid rgba(255,255,255,0.12); }
+  #grid-editor .icw-col-head.icw-today { border-bottom-color:rgba(59,130,246,0.8); }
+  #grid-editor .icw-dow { display:block; font-size:0.7em; font-weight:700; text-transform:uppercase; color:rgba(255,255,255,0.4); }
+  #grid-editor .icw-date { display:block; font-size:0.9em; font-weight:600; color:rgba(255,255,255,0.75); }
+  #grid-editor .icw-col-head.icw-today .icw-date { color:#93c5fd; }
+  #grid-editor .icw-col { background:rgba(255,255,255,0.03); border-radius:2px; padding:0.15em 0.2em; overflow:hidden; display:flex; flex-direction:column; gap:1px; }
+  #grid-editor .icw-col.icw-today-col { background:rgba(59,130,246,0.1); outline:1px solid rgba(59,130,246,0.35); }
+  #grid-editor .icw-ev { font-size:0.65em; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,0.8); }
+  #grid-editor .icw-t { color:rgba(255,255,255,0.4); font-size:0.85em; margin-right:0.15em; }
+  #grid-editor .icw-more { font-size:0.6em; color:rgba(255,255,255,0.3); text-align:right; }
+
+  /* ics_schedule preview */
+  #grid-editor .widget-ics-schedule { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.2rem 0.3rem; font-size:clamp(6px,1.3cqh,10px); }
+  #grid-editor .isch-outer { display:grid; flex:1; min-height:0; overflow:hidden; }
+  #grid-editor .isch-col-head { text-align:center; padding:0.1em 0 0.2em; border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.8em; }
+  #grid-editor .isch-col-head.isch-today { border-bottom-color:rgba(59,130,246,0.8); }
+  #grid-editor .isch-dow { font-weight:700; color:rgba(255,255,255,0.45); text-transform:uppercase; font-size:0.8em; }
+  #grid-editor .isch-date { color:rgba(255,255,255,0.8); }
+  #grid-editor .isch-col-head.isch-today .isch-date { color:#93c5fd; }
+  #grid-editor .isch-time-col { position:relative; border-right:1px solid rgba(255,255,255,0.12); }
+  #grid-editor .isch-hour-label { position:absolute; right:0.2em; font-size:0.6em; color:rgba(255,255,255,0.3); transform:translateY(-50%); line-height:1; }
+  #grid-editor .isch-main-col { position:relative; border-right:1px solid rgba(255,255,255,0.05); overflow:hidden; }
+  #grid-editor .isch-main-col.isch-today-col { background:rgba(59,130,246,0.07); }
+  #grid-editor .isch-grid-line { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
+  #grid-editor .isch-ev-block { position:absolute; left:1px; right:1px; background:rgba(255,255,255,0.1); border-radius:2px; padding:0.1em 0.2em; overflow:hidden; display:flex; flex-direction:column; }
+  #grid-editor .isch-ev-time { font-size:0.6em; color:rgba(255,255,255,0.4); line-height:1.1; flex-shrink:0; }
+  #grid-editor .isch-ev-title { font-size:0.65em; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #grid-editor .isch-allday-col { padding:0.1em 0.15em; border-right:1px solid rgba(255,255,255,0.05); }
+  #grid-editor .isch-allday-ev { font-size:0.65em; line-height:1.2; background:rgba(255,255,255,0.1); border-radius:2px; padding:0 0.2em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #grid-editor .isch-overflow-col { padding:0.1em 0.15em; border-right:1px solid rgba(255,255,255,0.05); }
+  #grid-editor .isch-overflow-ev { font-size:0.62em; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #grid-editor .isch-t { color:rgba(255,255,255,0.4); margin-right:0.15em; }
+  #grid-editor .isch-section-label, #grid-editor .isch-corner, #grid-editor .isch-corner-allday { color:rgba(255,255,255,0.3); font-size:0.7em; display:flex; align-items:center; justify-content:center; }
+
+
   /* Markdown-typografi i admin-editorn (Tailwind-preflight nollställer annars heading-storlekar) */
   /* Basstorlek skalas med cellbredd via cqw; rubriker använder em och följer med */
   #grid-editor .widget-markdown          { padding: 0.5rem; overflow: hidden; color: #f1f5f9; }
