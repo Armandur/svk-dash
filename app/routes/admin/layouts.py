@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
@@ -10,36 +12,41 @@ from app.templating import templates
 router = APIRouter(dependencies=[Depends(require_admin)])
 
 ASPECT_RATIOS = [
-    ("16:9",  "16:9 (landskap)"),
-    ("9:16",  "9:16 (porträtt)"),
-    ("4:3",   "4:3"),
-    ("1:1",   "1:1 (kvadrat)"),
+    ("16:9", "16:9 (landskap)"),
+    ("9:16", "9:16 (porträtt)"),
+    ("4:3",  "4:3"),
+    ("1:1",  "1:1 (kvadrat)"),
 ]
 
 
-# ── Lista ────────────────────────────────────────────────────────────────────
+def _render(template_name: str, ctx: dict) -> HTMLResponse:
+    return HTMLResponse(templates.get_template(template_name).render(**ctx))
+
+
+# ── Lista ─────────────────────────────────────────────────────────────────────
 
 @router.get("/layouts", response_class=HTMLResponse)
 async def layouts_list(request: Request):
     with get_session() as db:
         layouts = db.exec(select(Layout).order_by(Layout.name)).all()
-        zone_counts = {}
-        for layout in layouts:
-            zone_counts[layout.id] = db.exec(
+        zone_counts = {
+            layout.id: len(db.exec(
                 select(LayoutZone).where(LayoutZone.layout_id == layout.id)
-            ).all().__len__()
-    return templates.TemplateResponse("admin/layouts.html", {
+            ).all())
+            for layout in layouts
+        }
+    return _render("admin/layouts.html", {
         "request": request,
         "layouts": layouts,
         "zone_counts": zone_counts,
     })
 
 
-# ── Skapa ────────────────────────────────────────────────────────────────────
+# ── Skapa ─────────────────────────────────────────────────────────────────────
 
 @router.get("/layouts/new", response_class=HTMLResponse)
 async def layout_new_form(request: Request):
-    return templates.TemplateResponse("admin/layout_form.html", {
+    return _render("admin/layout_form.html", {
         "request": request,
         "layout": None,
         "aspect_ratios": ASPECT_RATIOS,
@@ -56,7 +63,7 @@ async def layout_new(
 ):
     name = name.strip()
     if not name:
-        return templates.TemplateResponse("admin/layout_form.html", {
+        return _render("admin/layout_form.html", {
             "request": request,
             "layout": None,
             "aspect_ratios": ASPECT_RATIOS,
@@ -71,7 +78,7 @@ async def layout_new(
     return RedirectResponse(f"/admin/layouts/{lid}", status_code=302)
 
 
-# ── Detalj / zon-editor ──────────────────────────────────────────────────────
+# ── Detalj / zon-editor ───────────────────────────────────────────────────────
 
 @router.get("/layouts/{layout_id}", response_class=HTMLResponse)
 async def layout_detail(request: Request, layout_id: int):
@@ -84,7 +91,7 @@ async def layout_detail(request: Request, layout_id: int):
             .where(LayoutZone.layout_id == layout_id)
             .order_by(LayoutZone.z_index)
         ).all()
-    return templates.TemplateResponse("admin/layout_detail.html", {
+    return _render("admin/layout_detail.html", {
         "request": request,
         "layout": layout,
         "zones": zones,
@@ -92,7 +99,7 @@ async def layout_detail(request: Request, layout_id: int):
     })
 
 
-# ── Spara metadata ───────────────────────────────────────────────────────────
+# ── Spara metadata ────────────────────────────────────────────────────────────
 
 @router.post("/layouts/{layout_id}/edit")
 async def layout_edit(
@@ -108,19 +115,16 @@ async def layout_edit(
         layout.name = name.strip()
         layout.description = description
         layout.aspect_ratio = aspect_ratio
+        layout.updated_at = datetime.utcnow()
         db.add(layout)
         db.commit()
     return RedirectResponse(f"/admin/layouts/{layout_id}", status_code=302)
 
 
-# ── Spara zoner (från zon-editorn) ───────────────────────────────────────────
+# ── Spara zoner (JSON API från zon-editorn) ───────────────────────────────────
 
 @router.post("/layouts/{layout_id}/zones/save")
 async def zones_save(request: Request, layout_id: int):
-    """Tar emot JSON-body med lista av zoner och sparar dem."""
-    import json
-    from datetime import datetime
-
     body = await request.json()
     zones_data = body.get("zones", [])
 
@@ -129,7 +133,6 @@ async def zones_save(request: Request, layout_id: int):
         if not layout:
             return {"error": "Layout saknas"}
 
-        # Ta bort zoner som inte längre finns
         incoming_ids = {z["id"] for z in zones_data if z.get("id")}
         existing = db.exec(
             select(LayoutZone).where(LayoutZone.layout_id == layout_id)
@@ -140,21 +143,20 @@ async def zones_save(request: Request, layout_id: int):
 
         for z in zones_data:
             if z.get("id"):
-                zone = db.get(LayoutZone, z["id"])
+                zone = db.get(LayoutZone, z["id"]) or LayoutZone(layout_id=layout_id)
             else:
                 zone = LayoutZone(layout_id=layout_id)
 
-            if zone:
-                zone.name     = z.get("name", "Zon")
-                zone.role     = z.get("role", "schedulable")
-                zone.x_pct    = float(z.get("x_pct", 0))
-                zone.y_pct    = float(z.get("y_pct", 0))
-                zone.w_pct    = float(z.get("w_pct", 100))
-                zone.h_pct    = float(z.get("h_pct", 100))
-                zone.grid_cols = int(z.get("grid_cols", 12))
-                zone.grid_rows = int(z.get("grid_rows", 9))
-                zone.z_index  = int(z.get("z_index", 0))
-                db.add(zone)
+            zone.name      = z.get("name", "Zon")
+            zone.role      = z.get("role", "schedulable")
+            zone.x_pct     = float(z.get("x_pct", 0))
+            zone.y_pct     = float(z.get("y_pct", 0))
+            zone.w_pct     = float(z.get("w_pct", 100))
+            zone.h_pct     = float(z.get("h_pct", 100))
+            zone.grid_cols = int(z.get("grid_cols", 12))
+            zone.grid_rows = int(z.get("grid_rows", 9))
+            zone.z_index   = int(z.get("z_index", 0))
+            db.add(zone)
 
         layout.updated_at = datetime.utcnow()
         db.add(layout)
@@ -163,20 +165,18 @@ async def zones_save(request: Request, layout_id: int):
     return {"ok": True}
 
 
-# ── Ta bort layout ───────────────────────────────────────────────────────────
+# ── Ta bort layout ────────────────────────────────────────────────────────────
 
 @router.post("/layouts/{layout_id}/delete")
 async def layout_delete(layout_id: int):
     with get_session() as db:
-        # Ta bort zoner och deras widget-placeringar
         zones = db.exec(
             select(LayoutZone).where(LayoutZone.layout_id == layout_id)
         ).all()
         for zone in zones:
-            placements = db.exec(
+            for p in db.exec(
                 select(ZoneWidgetPlacement).where(ZoneWidgetPlacement.zone_id == zone.id)
-            ).all()
-            for p in placements:
+            ).all():
                 db.delete(p)
             db.delete(zone)
         layout = db.get(Layout, layout_id)
