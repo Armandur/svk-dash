@@ -23,6 +23,7 @@ class Screen(SQLModel, table=True):
 class View(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     screen_id: int = Field(foreign_key="screen.id")
+    zone_id: int | None = Field(default=None, foreign_key="layoutzone.id")
     position: int
     name: str
     duration_seconds: int | None = None

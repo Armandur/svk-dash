@@ -1,0 +1,98 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ zone.name }} – {{ screen.name }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center gap-2 flex-wrap">
+  <a href="/admin/" class="text-sm text-gray-500 hover:text-gray-900">← Skärmar</a>
+  <span class="text-gray-300">/</span>
+  <a href="/admin/screens/{{ screen.id }}" class="text-sm text-gray-500 hover:text-gray-900">{{ screen.name }}</a>
+  <span class="text-gray-300">/</span>
+  <h1 class="text-2xl font-bold">{{ zone.name }}</h1>
+  <span class="text-xs px-2 py-0.5 rounded font-medium
+               {% if zone.role == 'persistent' %}bg-emerald-100 text-emerald-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+    {{ "Persistent" if zone.role == "persistent" else "Schemaläggbar" }}
+  </span>
+</div>
+
+{% if zone.role == 'persistent' %}
+<!-- Persistent zon: widget-hantering (steg 2) -->
+<div class="bg-white rounded-lg shadow p-12 text-center">
+  <p class="text-gray-400 mb-2">Widget-hantering för persistenta zoner</p>
+  <p class="text-sm text-gray-400">Kommer i nästa steg — här placerar du fasta widgets som logga och klocka.</p>
+</div>
+
+{% else %}
+<!-- Schemaläggbar zon: vyer -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-sm mb-4">Vyer i denna zon</h2>
+
+      {% if views %}
+      <div class="space-y-2 mb-4">
+        {% for view in views %}
+        <div class="flex items-center justify-between border border-gray-200 rounded px-3 py-2 hover:border-gray-300 transition-colors">
+          <div>
+            <span class="text-sm font-medium">{{ view.position + 1 }}. {{ view.name }}</span>
+            {% if view.duration_seconds %}
+            <span class="ml-2 text-xs text-gray-500">{{ view.duration_seconds }}s</span>
+            {% else %}
+            <span class="ml-2 text-xs text-gray-400">standard</span>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="/admin/views/{{ view.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
+            <form method="post"
+                  action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/delete"
+                  onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">
+              <button type="submit" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Ta bort</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="py-8 text-center border border-dashed border-gray-200 rounded-lg mb-4">
+        <p class="text-sm text-gray-400">Inga vyer i den här zonen ännu.</p>
+      </div>
+      {% endif %}
+
+      <form method="post" action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/new"
+            class="flex gap-2 items-end">
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Vy-namn</label>
+          <input type="text" name="name" required placeholder="t.ex. Kalender"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="w-24">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s)</label>
+          <input type="number" name="duration_seconds" min="5" placeholder="std"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 whitespace-nowrap">+ Lägg till vy</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Höger: zon-info -->
+  <div>
+    <div class="bg-white rounded-lg shadow p-5 space-y-2 text-sm">
+      <h2 class="font-semibold text-sm mb-3">Zon-info</h2>
+      <div class="flex justify-between text-xs">
+        <span class="text-gray-500">Position</span>
+        <span>{{ "%.0f"|format(zone.x_pct) }}, {{ "%.0f"|format(zone.y_pct) }} %</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-gray-500">Storlek</span>
+        <span>{{ "%.0f"|format(zone.w_pct) }} × {{ "%.0f"|format(zone.h_pct) }} %</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-gray-500">Grid</span>
+        <span>{{ zone.grid_cols }} × {{ zone.grid_rows }}</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+{% endblock %}

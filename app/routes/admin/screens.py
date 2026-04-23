@@ -7,7 +7,7 @@ from sqlmodel import select
 from app import sse as sse_registry
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Screen, View
+from app.models import Layout, LayoutZone, Screen, ScreenLayoutAssignment, View
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -100,18 +100,65 @@ async def screen_create(
     return RedirectResponse(f"/admin/screens/{screen.id}", status_code=302)
 
 
+def _get_screen_detail_ctx(db, screen_id: int, error: str | None = None) -> dict | None:
+    screen = db.get(Screen, screen_id)
+    if not screen:
+        return None
+
+    assignment = db.exec(
+        select(ScreenLayoutAssignment)
+        .where(ScreenLayoutAssignment.screen_id == screen_id)
+        .order_by(ScreenLayoutAssignment.priority.desc())
+    ).first()
+
+    layout = None
+    zones = []
+    if assignment:
+        layout = db.get(Layout, assignment.layout_id)
+        if layout:
+            zones = db.exec(
+                select(LayoutZone)
+                .where(LayoutZone.layout_id == layout.id)
+                .order_by(LayoutZone.z_index)
+            ).all()
+
+    # Vyer utan zon-tilldelning (äldre vyer eller skärm utan layout)
+    legacy_views = db.exec(
+        select(View)
+        .where(View.screen_id == screen_id, View.zone_id == None)  # noqa: E711
+        .order_by(View.position)
+    ).all()
+
+    # Antal vyer per zon
+    zone_view_counts = {}
+    for zone in zones:
+        zone_view_counts[zone.id] = len(db.exec(
+            select(View).where(View.screen_id == screen_id, View.zone_id == zone.id)
+        ).all())
+
+    all_layouts = db.exec(select(Layout).order_by(Layout.name)).all()
+
+    return {
+        "screen": screen,
+        "assignment": assignment,
+        "layout": layout,
+        "zones": zones,
+        "zone_view_counts": zone_view_counts,
+        "legacy_views": legacy_views,
+        "all_layouts": all_layouts,
+        "error": error,
+    }
+
+
 @router.get("/screens/{screen_id}", response_class=HTMLResponse)
 async def screen_detail(request: Request, screen_id: int):
     with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        if not screen:
-            return HTMLResponse("Skärmen hittades inte.", status_code=404)
-        views = db.exec(
-            select(View).where(View.screen_id == screen_id).order_by(View.position)
-        ).all()
+        ctx = _get_screen_detail_ctx(db, screen_id)
+    if not ctx:
+        return HTMLResponse("Skärmen hittades inte.", status_code=404)
     return HTMLResponse(
         templates.get_template("admin/screen_detail.html").render(
-            request=request, screen=screen, views=views
+            request=request, **ctx
         )
     )
 
@@ -136,15 +183,10 @@ async def screen_edit(
             select(Screen).where(Screen.slug == slug, Screen.id != screen_id)
         ).first()
         if conflict:
-            views = db.exec(
-                select(View).where(View.screen_id == screen_id).order_by(View.position)
-            ).all()
+            ctx = _get_screen_detail_ctx(db, screen_id, error=f"Slug '{slug}' används redan.")
             return HTMLResponse(
                 templates.get_template("admin/screen_detail.html").render(
-                    request=request,
-                    screen=screen,
-                    views=views,
-                    error=f"Slug '{slug}' används redan.",
+                    request=request, **ctx
                 ),
                 status_code=422,
             )
@@ -161,25 +203,111 @@ async def screen_edit(
 
 
 @router.post("/screens/{screen_id}/delete")
-async def screen_delete(request: Request, screen_id: int):
+async def screen_delete(screen_id: int):
     with get_session() as db:
         screen = db.get(Screen, screen_id)
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
-        views = db.exec(select(View).where(View.screen_id == screen_id)).all()
-        for view in views:
+        for view in db.exec(select(View).where(View.screen_id == screen_id)).all():
             db.delete(view)
+        for a in db.exec(
+            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
+        ).all():
+            db.delete(a)
         db.delete(screen)
         db.commit()
     return RedirectResponse("/admin/screens", status_code=302)
 
 
-# --- Views ---
+# ── Layout-tilldelning ────────────────────────────────────────────────────────
 
+@router.post("/screens/{screen_id}/layout/assign")
+async def screen_assign_layout(screen_id: int, layout_id: int = Form(...)):
+    with get_session() as db:
+        # Ta bort eventuell befintlig tilldelning
+        for a in db.exec(
+            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
+        ).all():
+            db.delete(a)
+        db.add(ScreenLayoutAssignment(screen_id=screen_id, layout_id=layout_id))
+        db.commit()
+    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+
+
+@router.post("/screens/{screen_id}/layout/remove")
+async def screen_remove_layout(screen_id: int):
+    with get_session() as db:
+        for a in db.exec(
+            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
+        ).all():
+            db.delete(a)
+        db.commit()
+    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+
+
+# ── Zon-hantering ─────────────────────────────────────────────────────────────
+
+@router.get("/screens/{screen_id}/zones/{zone_id}", response_class=HTMLResponse)
+async def zone_detail(request: Request, screen_id: int, zone_id: int):
+    with get_session() as db:
+        screen = db.get(Screen, screen_id)
+        zone = db.get(LayoutZone, zone_id)
+        if not screen or not zone:
+            return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+        views = db.exec(
+            select(View)
+            .where(View.screen_id == screen_id, View.zone_id == zone_id)
+            .order_by(View.position)
+        ).all()
+    return HTMLResponse(
+        templates.get_template("admin/zone_detail.html").render(
+            request=request, screen=screen, zone=zone, views=views
+        )
+    )
+
+
+@router.post("/screens/{screen_id}/zones/{zone_id}/views/new")
+async def zone_view_create(
+    screen_id: int,
+    zone_id: int,
+    name: str = Form(...),
+    duration_seconds: str = Form(""),
+):
+    with get_session() as db:
+        existing = db.exec(
+            select(View).where(View.screen_id == screen_id, View.zone_id == zone_id)
+        ).all()
+        position = len(existing)
+        dur = int(duration_seconds) if duration_seconds.strip().isdigit() else None
+        view = View(
+            screen_id=screen_id,
+            zone_id=zone_id,
+            name=name,
+            position=position,
+            duration_seconds=dur,
+            layout_json={"widgets": []},
+        )
+        db.add(view)
+        db.commit()
+        db.refresh(view)
+    return RedirectResponse(f"/admin/views/{view.id}", status_code=302)
+
+
+@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/delete")
+async def zone_view_delete(screen_id: int, zone_id: int, view_id: int):
+    with get_session() as db:
+        view = db.get(View, view_id)
+        if view and view.screen_id == screen_id:
+            db.delete(view)
+            db.commit()
+            _reorder_views(db, screen_id, zone_id)
+    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
+
+
+# ── Legacy: vyer direkt under skärm (utan zon) ───────────────────────────────
 
 @router.post("/screens/{screen_id}/views/new")
 async def view_create(
-    request: Request,
     screen_id: int,
     name: str = Form(...),
     duration_seconds: str = Form(""),
@@ -188,9 +316,11 @@ async def view_create(
         screen = db.get(Screen, screen_id)
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
-        existing = db.exec(select(View).where(View.screen_id == screen_id)).all()
+        existing = db.exec(
+            select(View).where(View.screen_id == screen_id, View.zone_id == None)  # noqa: E711
+        ).all()
         position = len(existing)
-        dur = int(duration_seconds) if duration_seconds.strip() else None
+        dur = int(duration_seconds) if duration_seconds.strip().isdigit() else None
         view = View(
             screen_id=screen_id,
             name=name,
@@ -205,19 +335,23 @@ async def view_create(
 
 
 @router.post("/screens/{screen_id}/views/{view_id}/delete")
-async def view_delete(request: Request, screen_id: int, view_id: int):
+async def view_delete(screen_id: int, view_id: int):
     with get_session() as db:
         view = db.get(View, view_id)
         if not view or view.screen_id != screen_id:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
         db.delete(view)
         db.commit()
-        _reorder_views(db, screen_id)
+        _reorder_views(db, screen_id, None)
     return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
 
 
-def _reorder_views(db, screen_id: int) -> None:
-    views = db.exec(select(View).where(View.screen_id == screen_id).order_by(View.position)).all()
+def _reorder_views(db, screen_id: int, zone_id: int | None) -> None:
+    views = db.exec(
+        select(View)
+        .where(View.screen_id == screen_id, View.zone_id == zone_id)
+        .order_by(View.position)
+    ).all()
     for i, v in enumerate(views):
         v.position = i
         db.add(v)
