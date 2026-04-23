@@ -266,35 +266,67 @@
     </div>
 
     <div class="bg-white rounded-lg shadow p-4">
-      <h2 class="font-semibold mb-3 text-sm">Lägg till widget</h2>
-      <form method="post" action="/admin/views/{{ view.id }}/widgets/add" class="space-y-3">
-        <select name="widget_id" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-          <option value="">Välj widget…</option>
-          {% for w in all_widgets %}
-          <option value="{{ w.id }}">{{ w.name }} ({{ w.kind }})</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="bg-gray-800 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-900 w-full">Lägg till</button>
-      </form>
-    </div>
-
-    <div class="bg-white rounded-lg shadow p-4">
-      <h2 class="font-semibold mb-3 text-sm">Lägg till inline-widget</h2>
-      <form method="post" action="/admin/views/{{ view.id }}/inline/add" class="space-y-3">
-        <select name="kind" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-          <option value="clock">Klocka</option>
-          <option value="text">Text</option>
-          <option value="color_block">Färgblock</option>
-          <option value="image">Bild</option>
-          <option value="slideshow">Bildspel</option>
-        </select>
-        <button type="submit" class="bg-indigo-700 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-800 w-full">Lägg till</button>
-      </form>
+      <button id="open-widget-picker" class="bg-gray-800 text-white px-3 py-2 rounded text-sm hover:bg-gray-900 w-full">+ Lägg till widget</button>
     </div>
 
     <div class="bg-white rounded-lg shadow p-4">
       <button id="save-layout" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 w-full font-medium transition-colors">Spara layout</button>
       <p id="layout-status" class="text-xs mt-2 text-center hidden"></p>
+    </div>
+  </div>
+
+  <!-- Widget-picker-modal -->
+  <div id="widget-picker-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.45)">
+    <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:640px;max-height:80vh;margin:1rem">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <h2 class="font-semibold text-base">Lägg till widget</h2>
+        <button id="wpm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+      </div>
+
+      <div class="flex border-b border-gray-200 px-5">
+        <button class="wpm-tab py-2 px-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600 -mb-px" data-tab="library">Bibliotek</button>
+        <button class="wpm-tab py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-800 -mb-px" data-tab="inline">Inline</button>
+      </div>
+
+      <div id="wpm-tab-library" class="flex-1 overflow-y-auto p-4 space-y-3">
+        {% for cat_name, cat_widgets in widget_categories %}
+        <div>
+          <button type="button" class="wpm-cat-toggle w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700">
+            <span>{{ cat_name }}</span>
+            <span class="wpm-cat-arrow text-gray-400 text-xs">&#9660;</span>
+          </button>
+          <div class="wpm-cat-body mt-2 grid grid-cols-2 gap-2">
+            {% if cat_widgets %}
+            {% for w in cat_widgets %}
+            <form method="post" action="/admin/views/{{ view.id }}/widgets/add" style="margin:0">
+              <input type="hidden" name="widget_id" value="{{ w.id }}">
+              <button type="submit" class="w-full text-left px-3 py-2 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                <div class="text-sm font-medium truncate">{{ w.name }}</div>
+                <div class="text-xs text-gray-400">{{ w.kind }}</div>
+              </button>
+            </form>
+            {% endfor %}
+            {% else %}
+            <p class="col-span-2 text-sm text-gray-400 px-3 py-1">Inga widgets av denna typ.</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div id="wpm-tab-inline" class="hidden flex-1 p-4">
+        <div class="grid grid-cols-3 gap-3">
+          {% for kind, label in inline_labels.items() %}
+          <form method="post" action="/admin/views/{{ view.id }}/inline/add" style="margin:0">
+            <input type="hidden" name="kind" value="{{ kind }}">
+            <button type="submit" class="w-full flex flex-col items-center justify-center gap-2 px-4 py-5 border border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors">
+              <span class="text-sm font-semibold">{{ label }}</span>
+              <span class="text-xs text-gray-400">{{ kind }}</span>
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </div>
 
@@ -617,6 +649,51 @@
     btn.classList.replace('bg-green-600','bg-amber-500');
     btn.classList.replace('hover:bg-green-700','hover:bg-amber-600');
   }
+
+  // ── Widget-picker modal ─────────────────────────────
+  (function() {
+    var modal = document.getElementById('widget-picker-modal');
+    var openBtn = document.getElementById('open-widget-picker');
+    var closeBtn = document.getElementById('wpm-close');
+    if (!modal || !openBtn) return;
+
+    function openModal() { modal.classList.remove('hidden'); }
+    function closeModal() { modal.classList.add('hidden'); }
+
+    openBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+    // Flikar
+    modal.querySelectorAll('.wpm-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var target = this.dataset.tab;
+        modal.querySelectorAll('.wpm-tab').forEach(function(t) {
+          t.classList.toggle('border-blue-600', false);
+          t.classList.toggle('text-blue-600', false);
+          t.classList.toggle('border-transparent', true);
+          t.classList.toggle('text-gray-500', true);
+        });
+        this.classList.toggle('border-blue-600', true);
+        this.classList.toggle('text-blue-600', true);
+        this.classList.toggle('border-transparent', false);
+        this.classList.toggle('text-gray-500', false);
+        document.getElementById('wpm-tab-library').classList.toggle('hidden', target !== 'library');
+        document.getElementById('wpm-tab-inline').classList.toggle('hidden', target !== 'inline');
+      });
+    });
+
+    // Kategori-toggle
+    modal.querySelectorAll('.wpm-cat-toggle').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var body = this.nextElementSibling;
+        var arrow = this.querySelector('.wpm-cat-arrow');
+        var collapsed = body.classList.toggle('hidden');
+        arrow.innerHTML = collapsed ? '&#9654;' : '&#9660;';
+      });
+    });
+  })();
   function clearDirty() {
     isDirty = false;
     btn.textContent = 'Spara layout';

@@ -23,6 +23,13 @@ _ASPECT_CSS = {
     "A-P": "1 / 1.414",
 }
 
+_WIDGET_CATEGORIES: list[tuple[str, set[str]]] = [
+    ("Kalender", {"ics_list", "ics_month", "ics_week", "ics_schedule"}),
+    ("Media", {"image", "slideshow"}),
+    ("Innehåll", {"markdown", "iframe", "raw_html"}),
+    ("Övrigt", {"clock", "color_block", "debug", "text"}),
+]
+
 _INLINE_DEFAULTS: dict[str, dict] = {
     "clock": {
         "format": "time_date",
@@ -142,6 +149,11 @@ async def view_detail(request: Request, view_id: int):
                     }
                 )
         all_widgets = db.exec(select(Widget).order_by(Widget.name)).all()
+        _kind_to_cat = {k: cat for cat, kinds in _WIDGET_CATEGORIES for k in kinds}
+        cat_buckets: dict[str, list] = {cat: [] for cat, _ in _WIDGET_CATEGORIES}
+        for w in all_widgets:
+            cat_buckets.setdefault(_kind_to_cat.get(w.kind, "Övrigt"), []).append(w)
+        widget_categories = [(cat, cat_buckets.get(cat, [])) for cat, _ in _WIDGET_CATEGORIES]
         sibling_views = db.exec(
             select(View).where(View.screen_id == view.screen_id).order_by(View.position)
         ).all()
@@ -160,6 +172,8 @@ async def view_detail(request: Request, view_id: int):
             layout_entries=layout_entries,
             layers=layers,
             all_widgets=all_widgets,
+            widget_categories=widget_categories,
+            inline_labels=_INLINE_LABELS,
             prev_view=prev_view,
             next_view=next_view,
             view_index=cur_idx,
