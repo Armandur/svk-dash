@@ -28,6 +28,13 @@
         {% endif %}
         <div class="text-xs text-gray-400 mt-0.5">
           {{ zone_counts.get(layout.id, 0) }} zon{% if zone_counts.get(layout.id, 0) != 1 %}er{% endif %}
+          {% set screens = screen_usages.get(layout.id, []) %}
+          {% if screens %}
+          · <span class="text-blue-600">{{ screens | length }} skärm{% if screens | length != 1 %}ar{% endif %}:</span>
+          {% for s in screens %}<a href="/admin/screens/{{ s.id }}" class="text-blue-500 hover:underline">{{ s.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+          {% else %}
+          · <span class="text-gray-300">Ingen skärm</span>
+          {% endif %}
         </div>
       </div>
     </div>

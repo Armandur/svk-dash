@@ -6,7 +6,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Layout, LayoutRevision, LayoutZone, ZoneWidgetPlacement
+from app.models import Layout, LayoutRevision, LayoutZone, Screen, ScreenLayoutAssignment, ZoneWidgetPlacement
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -35,10 +35,19 @@ async def layouts_list(request: Request):
             ).all())
             for layout in layouts
         }
+        assignments = db.exec(select(ScreenLayoutAssignment)).all()
+        screens_by_id = {s.id: s for s in db.exec(select(Screen)).all()}
+        screen_usages: dict[int, list[dict]] = {}
+        for a in assignments:
+            screen_usages.setdefault(a.layout_id, []).append({
+                "id": a.screen_id,
+                "name": screens_by_id[a.screen_id].name if a.screen_id in screens_by_id else "?",
+            })
     return _render("admin/layouts.html", {
         "request": request,
         "layouts": layouts,
         "zone_counts": zone_counts,
+        "screen_usages": screen_usages,
     })
 
 
