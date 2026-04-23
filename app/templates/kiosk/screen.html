@@ -281,6 +281,39 @@
     }
     .kiosk-nav-btn:hover { background: rgba(0,0,0,0.8); }
     #nav-pause { font-size: 1rem; width: 2.4rem; height: 2.4rem; }
+
+    /* Per-zon-navigation (debug=1) */
+    .zone-nav {
+      display: none;
+      position: absolute;
+      bottom: 0.4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 0.4rem;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .zone:hover .zone-nav { opacity: 1; pointer-events: auto; }
+    body.kiosk-debug .zone-nav { display: flex; }
+    .zone-nav-btn {
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      border-radius: 50%;
+      width: 1.8rem;
+      height: 1.8rem;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .zone-nav-btn:hover { background: rgba(0,0,0,0.9); }
+    .zone-nav-pause { font-size: 0.6rem; width: 1.5rem; height: 1.5rem; }
   </style>
 </head>
 <body class="vt-fade" data-vt-dir="left">
@@ -312,6 +345,13 @@
         {% endfor %}
       </div>
       {% endfor %}
+      {% if zone.role == 'schedulable' %}
+      <div class="zone-nav">
+        <button class="zone-nav-btn zone-nav-prev" data-zone-id="{{ zone.id }}">&#8249;</button>
+        <button class="zone-nav-btn zone-nav-pause" data-zone-id="{{ zone.id }}">&#9646;&#9646;</button>
+        <button class="zone-nav-btn zone-nav-next" data-zone-id="{{ zone.id }}">&#8250;</button>
+      </div>
+      {% endif %}
     </div>
     {% endfor %}
   {% else %}
@@ -337,11 +377,11 @@
     const SCREEN_SLUG       = {{ screen.slug | tojson }};
     const SCREEN_TRANSITION = 'fade';
     {% if zones is not none %}
-    const KIOSK_ZONES = {{ zones | tojson }};
+    const KIOSK_ZONES = {{ zones_js | tojson }};
     const LEGACY_VIEWS = null;
     {% else %}
     const KIOSK_ZONES = null;
-    const LEGACY_VIEWS = {{ legacy_views | tojson }};
+    const LEGACY_VIEWS = {{ legacy_views_js | tojson }};
     {% endif %}
   </script>
   <script src="/static/kiosk.js"></script>
@@ -354,7 +394,7 @@
     <div id="debug-reconnects">Reconnects: 0</div>
     <div>v{{ version }}</div>
   </div>
-  <script>window.__KIOSK_DEBUG = true;</script>
+  <script>window.__KIOSK_DEBUG = true; document.body.classList.add('kiosk-debug');</script>
   {% endif %}
 </body>
 </html>

@@ -124,13 +124,33 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
                 rv["duration_seconds"] = rv["duration_seconds"] or 30
                 legacy_views.append(rv)
 
+    def _strip_html(zones):
+        """Returnerar en kopia av zones utan widget-HTML (för JS-konstanten)."""
+        if zones is None:
+            return None
+        result = []
+        for z in zones:
+            views_meta = [
+                {"position": v["position"], "duration_seconds": v["duration_seconds"]}
+                for v in z["views"]
+            ]
+            result.append({k: v for k, v in z.items() if k != "views"} | {"views": views_meta})
+        return result
+
+    def _legacy_meta(views):
+        if views is None:
+            return None
+        return [{"position": v["position"], "duration_seconds": v["duration_seconds"]} for v in views]
+
     show_debug = debug == "1"
     return HTMLResponse(
         templates.get_template("kiosk/screen.html").render(
             request=request,
             screen=screen,
             zones=zones_rendered,
+            zones_js=_strip_html(zones_rendered),
             legacy_views=legacy_views,
+            legacy_views_js=_legacy_meta(legacy_views),
             show_debug=show_debug,
             version=_VERSION,
         )

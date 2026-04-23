@@ -273,6 +273,44 @@
     });
   }
 
+  // --- Per-zon-navigation (debug=1) ---
+
+  document.querySelectorAll('.zone-nav-prev').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const zoneId = parseInt(btn.dataset.zoneId);
+      prevZoneView(zoneId);
+      if (zoneStates[zoneId] && !zoneStates[zoneId].paused) scheduleZone(zoneId);
+    });
+  });
+
+  document.querySelectorAll('.zone-nav-next').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const zoneId = parseInt(btn.dataset.zoneId);
+      nextZoneView(zoneId);
+      if (zoneStates[zoneId] && !zoneStates[zoneId].paused) scheduleZone(zoneId);
+    });
+  });
+
+  document.querySelectorAll('.zone-nav-pause').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const zoneId = parseInt(btn.dataset.zoneId);
+      const state = zoneStates[zoneId];
+      if (!state) return;
+      if (state.paused) {
+        state.paused = false;
+        btn.innerHTML = '&#9646;&#9646;';
+        scheduleZone(zoneId);
+      } else {
+        state.paused = true;
+        clearTimeout(state.timer);
+        btn.innerHTML = '&#9654;';
+      }
+    });
+  });
+
   // --- Klocka ---
 
   function tickClocks() {
