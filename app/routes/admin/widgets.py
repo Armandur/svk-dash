@@ -182,10 +182,11 @@ async def widget_edit(
         db.add(widget)
         db.commit()
 
+        widget_kind = widget.kind
         _prune_revisions(db, widget_id)
 
     broadcast_widget_updated(widget_id)
-    if widget.kind in _ICS_KINDS:
+    if widget_kind in _ICS_KINDS:
         for url in get_ics_urls(config):
             asyncio.create_task(fetch_and_cache(widget_id, url))
     return RedirectResponse(f"/admin/widgets/{widget_id}", status_code=302)
