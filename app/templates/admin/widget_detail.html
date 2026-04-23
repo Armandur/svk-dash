@@ -138,6 +138,20 @@ function removeIcsUrl(btn) {
             })();
           </script>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Max händelser per dag (default 3)</label>
+            <input type="number" data-field="max_per_day" value="{{ cfg.get('max_per_day', 3) }}"
+                   min="1" max="20" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div class="flex flex-col justify-end gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="show_source_colors"
+                     {% if cfg.get('show_source_colors', false) %}checked{% endif %} class="rounded">
+              Färgkoda per källa
+            </label>
+          </div>
+        </div>
         <div class="flex flex-col gap-2">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" data-field="start_on_monday"
@@ -149,6 +163,18 @@ function removeIcsUrl(btn) {
                    {% if cfg.get('highlight_today', true) %}checked{% endif %} class="rounded">
             Markera dagens datum
           </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Filtrera bort prefix (ett per rad, t.ex. !A - )</label>
+          <textarea data-field="filter_prefixes" rows="2"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
+                    placeholder="!A - ">{{ cfg.get('filter_prefixes', []) | join('\n') if cfg.get('filter_prefixes') is iterable and cfg.get('filter_prefixes') is not string else cfg.get('filter_prefixes', '') }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Filtrera bort nyckelord (ett per rad)</label>
+          <textarea data-field="filter_keywords" rows="2"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
+                    placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
         </div>
 
         {% elif widget.kind == 'ics_week' %}

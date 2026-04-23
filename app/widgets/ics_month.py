@@ -11,6 +11,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
+from app.widgets.ics_common import should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -34,6 +35,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     urls = get_ics_urls(config)
     start_on_monday = bool(config.get("start_on_monday", True))
     highlight_today = bool(config.get("highlight_today", True))
+    show_colors = bool(config.get("show_source_colors", False))
+    max_per_day = max(1, int(config.get("max_per_day", 3)))
 
     if not widget_id or not urls:
         return '<div class="widget-ics-month ics-notice">Ingen ICS-URL konfigurerad.</div>'
@@ -51,11 +54,12 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     _, days_in_month = monthrange(year, month)
     last_day = date(year, month, days_in_month)
 
-    day_events: dict[date, list[tuple[str, str]]] = {}
+    # day -> [(time_str, summary, color)]
+    day_events: dict[date, list[tuple[str, str, str]]] = {}
     has_error = False
     oldest_fetched: datetime | None = None
 
-    for url in urls:
+    for url_idx, url in enumerate(urls):
         cache = cache_by_url.get(url)
         if cache is None:
             continue
@@ -72,11 +76,16 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             has_error = True
             continue
 
+        color = source_color(url_idx) if show_colors else ""
+
         for ev in raw_events:
             dtstart = ev.get("DTSTART")
             if not dtstart:
                 continue
             dt = dtstart.dt
+            raw_summary = str(ev.get("SUMMARY", ""))
+            if should_filter(raw_summary, config):
+                continue
             d = _to_date(dt)
             if not (first_day <= d <= last_day):
                 continue
@@ -84,8 +93,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 time_str = dt.astimezone(_TZ).strftime("%H:%M")
             else:
                 time_str = ""
-            summary = html_mod.escape(str(ev.get("SUMMARY", "")))
-            day_events.setdefault(d, []).append((time_str, summary))
+            summary = html_mod.escape(raw_summary)
+            day_events.setdefault(d, []).append((time_str, summary, color))
 
     # Kalender-grid
     if start_on_monday:
@@ -122,11 +131,12 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append(f'<div class="{cls}">')
             parts.append(f'<div class="icm-num">{d.day}</div>')
             evs = day_events.get(d, [])
-            for time_str, summary in evs[:3]:
+            for time_str, summary, color in evs[:max_per_day]:
+                color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
                 label = f"{time_str} {summary}".strip() if time_str else summary
-                parts.append(f'<div class="icm-ev">{label}</div>')
-            if len(evs) > 3:
-                parts.append(f'<div class="icm-more">+{len(evs) - 3}</div>')
+                parts.append(f'<div class="icm-ev" style="{color_style}">{label}</div>')
+            if len(evs) > max_per_day:
+                parts.append(f'<div class="icm-more">+{len(evs) - max_per_day}</div>')
             parts.append('</div>')
 
     parts.append('</div>')  # icm-grid
