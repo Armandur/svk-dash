@@ -1,4 +1,5 @@
 """Delade hjälpfunktioner för ICS-kalender-widgets."""
+from __future__ import annotations
 
 _SOURCE_COLORS = [
     "#60a5fa",  # blue-400
@@ -23,6 +24,34 @@ def _parse_str_list(value) -> list[str]:
     if isinstance(value, list):
         return [str(v).strip() for v in value if str(v).strip()]
     return []
+
+
+def get_event_kind(ev) -> str:
+    """Returnerar 'free', 'tentative' eller 'busy' baserat på Outlook-fält."""
+    busy = str(ev.get("X-MICROSOFT-CDO-BUSYSTATUS", "")).upper()
+    if busy == "FREE":
+        return "free"
+    if busy == "TENTATIVE":
+        return "tentative"
+    # Fallback på standard iCal-fält
+    transp = str(ev.get("TRANSP", "")).upper()
+    if transp == "TRANSPARENT":
+        return "free"
+    status = str(ev.get("STATUS", "")).upper()
+    if status == "TENTATIVE":
+        return "tentative"
+    return "busy"
+
+
+def is_private(ev) -> bool:
+    return str(ev.get("CLASS", "")).upper() == "PRIVATE"
+
+
+def apply_private(summary: str, ev, config: dict) -> str:
+    """Ersätter titeln med en platshållare om händelsen är privat och hide_private är aktivt."""
+    if config.get("hide_private", False) and is_private(ev):
+        return config.get("private_label", "Privat")
+    return summary
 
 
 def should_filter(summary: str, config: dict) -> bool:

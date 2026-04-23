@@ -122,6 +122,26 @@ function removeIcsUrl(btn) {
                     placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
         </div>
 
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
+            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
+                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+          <div class="flex flex-col justify-end gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_free_events"
+                     {% if cfg.get('hide_free_events', false) %}checked{% endif %} class="rounded">
+              Dölj frånvarobokningar
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_private"
+                     {% if cfg.get('hide_private', false) %}checked{% endif %} class="rounded">
+              Dölj privata (visa som 'Privat')
+            </label>
+          </div>
+        </div>
+
         {% elif widget.kind == 'ics_month' %}
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">ICS-källa(or)</label>
@@ -175,6 +195,26 @@ function removeIcsUrl(btn) {
           <textarea data-field="filter_keywords" rows="2"
                     class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
                     placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
+            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
+                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+          <div class="flex flex-col justify-end gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_free_events"
+                     {% if cfg.get('hide_free_events', false) %}checked{% endif %} class="rounded">
+              Dölj frånvarobokningar
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_private"
+                     {% if cfg.get('hide_private', false) %}checked{% endif %} class="rounded">
+              Dölj privata (visa som 'Privat')
+            </label>
+          </div>
         </div>
 
         {% elif widget.kind == 'ics_week' %}
@@ -241,6 +281,26 @@ function removeIcsUrl(btn) {
           <textarea data-field="filter_keywords" rows="2"
                     class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
                     placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
+            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
+                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+          <div class="flex flex-col justify-end gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_free_events"
+                     {% if cfg.get('hide_free_events', false) %}checked{% endif %} class="rounded">
+              Dölj frånvarobokningar
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_private"
+                     {% if cfg.get('hide_private', false) %}checked{% endif %} class="rounded">
+              Dölj privata (visa som 'Privat')
+            </label>
+          </div>
         </div>
 
         {% elif widget.kind == 'ics_schedule' %}
@@ -346,6 +406,26 @@ function removeIcsUrl(btn) {
           <textarea data-field="filter_keywords" rows="2"
                     class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
                     placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Frånvarofärg (FREE-bokningar)</label>
+            <input type="text" data-field="free_color" value="{{ cfg.get('free_color', '#f59e0b') }}"
+                   placeholder="#f59e0b" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+          <div class="flex flex-col justify-end gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_free_events"
+                     {% if cfg.get('hide_free_events', false) %}checked{% endif %} class="rounded">
+              Dölj frånvarobokningar
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="hide_private"
+                     {% if cfg.get('hide_private', false) %}checked{% endif %} class="rounded">
+              Dölj privata (visa som 'Privat')
+            </label>
+          </div>
         </div>
 
         {% elif widget.kind == 'markdown' %}

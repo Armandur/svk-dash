@@ -10,7 +10,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import should_filter, source_color
+from app.widgets.ics_common import apply_private, get_event_kind, should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -48,6 +48,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     start_on_monday = bool(config.get("start_on_monday", True))
     show_location = bool(config.get("show_location", False))
     show_colors = bool(config.get("show_source_colors", False))
+    free_color = config.get("free_color", "#f59e0b")
+    hide_free = bool(config.get("hide_free_events", False))
     max_per_day = config.get("max_per_day")
     if max_per_day is not None:
         max_per_day = max(1, int(max_per_day))
@@ -101,17 +103,22 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             raw_summary = str(ev.get("SUMMARY", "Ingen titel"))
             if should_filter(raw_summary, config):
                 continue
+            kind = get_event_kind(ev)
+            if hide_free and kind == "free":
+                continue
             all_day = _is_all_day(dt)
             start = _to_local(dt)
             day = start.date()
             if day not in day_events:
                 continue
-            summary = html_mod.escape(raw_summary)
+            display_summary = apply_private(raw_summary, ev, config)
+            summary = html_mod.escape(display_summary)
             location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
-            day_events[day].append((start, all_day, summary, location, color))
+            ev_color = free_color if kind == "free" and not show_colors else color
+            day_events[day].append((start, all_day, summary, location, ev_color, kind))
 
     for d in week_days:
-        day_events[d].sort(key=lambda e: (not e[1], e[0]))
+        day_events[d].sort(key=lambda e: (not e[1], e[0]))  # type: ignore[index]
 
     weekday_names = _WEEKDAYS_MON if start_on_monday else _WEEKDAYS_SUN
 
@@ -139,16 +146,16 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         total = len(evs)
         limit = max_per_day if max_per_day is not None else total
 
-        for start, all_day, summary, location, color in all_day_evs:
+        for start, all_day, summary, location, color, kind in all_day_evs:
             if shown >= limit:
                 break
-            parts.append(_render_event("", summary, location, color, all_day=True))
+            parts.append(_render_event("", summary, location, color, all_day=True, kind=kind))
             shown += 1
 
-        for start, all_day, summary, location, color in timed_evs:
+        for start, all_day, summary, location, color, kind in timed_evs:
             if shown >= limit:
                 break
-            parts.append(_render_event(start.strftime("%H:%M"), summary, location, color))
+            parts.append(_render_event(start.strftime("%H:%M"), summary, location, color, kind=kind))
             shown += 1
 
         if total > limit:
@@ -173,13 +180,14 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     return "".join(parts)
 
 
-def _render_event(time_str: str, summary: str, location: str, color: str, all_day: bool = False) -> str:
+def _render_event(time_str: str, summary: str, location: str, color: str, all_day: bool = False, kind: str = "busy") -> str:
     color_style = f'border-left:2px solid {color};padding-left:3px;' if color else ""
     heldag_cls = " icw-ev-allday" if all_day else ""
+    kind_cls = f" icw-ev-{kind}" if kind != "busy" else ""
     time_html = f'<span class="icw-t">{time_str}</span>' if time_str else ""
     loc_html = f'<span class="icw-loc">{location}</span>' if location else ""
     return (
-        f'<div class="icw-ev{heldag_cls}" style="{color_style}">'
+        f'<div class="icw-ev{heldag_cls}{kind_cls}" style="{color_style}">'
         f'{time_html}'
         f'<span class="icw-s">{summary}</span>'
         f'{loc_html}'

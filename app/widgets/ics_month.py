@@ -11,7 +11,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import should_filter, source_color
+from app.widgets.ics_common import apply_private, get_event_kind, should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -36,6 +36,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     start_on_monday = bool(config.get("start_on_monday", True))
     highlight_today = bool(config.get("highlight_today", True))
     show_colors = bool(config.get("show_source_colors", False))
+    free_color = config.get("free_color", "#f59e0b")
+    hide_free = bool(config.get("hide_free_events", False))
     max_per_day = max(1, int(config.get("max_per_day", 3)))
 
     if not widget_id or not urls:
@@ -54,8 +56,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     _, days_in_month = monthrange(year, month)
     last_day = date(year, month, days_in_month)
 
-    # day -> [(time_str, summary, color)]
-    day_events: dict[date, list[tuple[str, str, str]]] = {}
+    # day -> [(time_str, summary, color, kind)]
+    day_events: dict[date, list[tuple[str, str, str, str]]] = {}
     has_error = False
     oldest_fetched: datetime | None = None
 
@@ -86,6 +88,9 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             raw_summary = str(ev.get("SUMMARY", ""))
             if should_filter(raw_summary, config):
                 continue
+            kind = get_event_kind(ev)
+            if hide_free and kind == "free":
+                continue
             d = _to_date(dt)
             if not (first_day <= d <= last_day):
                 continue
@@ -93,8 +98,10 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 time_str = dt.astimezone(_TZ).strftime("%H:%M")
             else:
                 time_str = ""
-            summary = html_mod.escape(raw_summary)
-            day_events.setdefault(d, []).append((time_str, summary, color))
+            display_summary = apply_private(raw_summary, ev, config)
+            summary = html_mod.escape(display_summary)
+            ev_color = free_color if kind == "free" and not show_colors else color
+            day_events.setdefault(d, []).append((time_str, summary, ev_color, kind))
 
     # Kalender-grid
     if start_on_monday:
@@ -131,10 +138,11 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append(f'<div class="{cls}">')
             parts.append(f'<div class="icm-num">{d.day}</div>')
             evs = day_events.get(d, [])
-            for time_str, summary, color in evs[:max_per_day]:
+            for time_str, summary, color, kind in evs[:max_per_day]:
                 color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
                 time_html = f'<span class="icm-t">{time_str}</span>' if time_str else ""
-                parts.append(f'<div class="icm-ev" style="{color_style}">{time_html}{summary}</div>')
+                kind_cls = f" icm-ev-{kind}" if kind != "busy" else ""
+                parts.append(f'<div class="icm-ev{kind_cls}" style="{color_style}">{time_html}{summary}</div>')
             if len(evs) > max_per_day:
                 parts.append(f'<div class="icm-more">+{len(evs) - max_per_day}</div>')
             parts.append('</div>')

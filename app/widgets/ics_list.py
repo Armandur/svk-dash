@@ -10,7 +10,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import should_filter, source_color
+from app.widgets.ics_common import apply_private, get_event_kind, should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -60,6 +60,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         max_per_day = max(1, int(max_per_day))
     show_location = bool(config.get("show_location", True))
     show_colors = bool(config.get("show_source_colors", False))
+    free_color = config.get("free_color", "#f59e0b")
+    hide_free = bool(config.get("hide_free_events", False))
     group_by_day = bool(config.get("group_by_day", True))
     font_size = config.get("font_size", "normal")  # small | normal | large
 
@@ -78,8 +80,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     today_local = datetime.now(_TZ).date()
     end_date = today_local + timedelta(days=days_ahead)
 
-    # (start, all_day, summary, location, color)
-    events: list[tuple[datetime, bool, str, str, str]] = []
+    # (start, all_day, summary, location, color, kind)
+    events: list[tuple[datetime, bool, str, str, str, str]] = []
     has_error = False
     oldest_fetched: datetime | None = None
 
@@ -110,13 +112,18 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             raw_summary = str(ev.get("SUMMARY", "Ingen titel"))
             if should_filter(raw_summary, config):
                 continue
+            kind = get_event_kind(ev)
+            if hide_free and kind == "free":
+                continue
             all_day = _is_all_day(dt)
             start = _to_local(dt)
-            summary = html_mod.escape(raw_summary)
+            display_summary = apply_private(raw_summary, ev, config)
+            summary = html_mod.escape(display_summary)
             location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
-            events.append((start, all_day, summary, location, color))
+            ev_color = free_color if kind == "free" and not show_colors else color
+            events.append((start, all_day, summary, location, ev_color, kind))
 
-    events.sort(key=lambda e: (e[0].date(), not e[1], e[0]))
+    events.sort(key=lambda e: (e[0].date(), not e[1], e[0]))  # type: ignore[index]
     events = events[:max_events]
 
     if not events:
@@ -138,24 +145,24 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             total = len(day_events)
             limit = max_per_day if max_per_day is not None else total
 
-            for start, all_day, summary, location, color in all_day_evs:
+            for start, all_day, summary, location, color, kind in all_day_evs:
                 if shown >= limit:
                     break
-                parts.append(_render_event("Heldag", summary, location, color))
+                parts.append(_render_event("Heldag", summary, location, color, kind))
                 shown += 1
 
-            for start, all_day, summary, location, color in timed_evs:
+            for start, all_day, summary, location, color, kind in timed_evs:
                 if shown >= limit:
                     break
-                parts.append(_render_event(start.strftime("%H:%M"), summary, location, color))
+                parts.append(_render_event(start.strftime("%H:%M"), summary, location, color, kind))
                 shown += 1
 
             if total > limit:
                 parts.append(f'<div class="ics-more-day">+{total - limit} till</div>')
     else:
-        for start, all_day, summary, location, color in events:
+        for start, all_day, summary, location, color, kind in events:
             time_str = "Heldag" if all_day else start.strftime("%H:%M")
-            parts.append(_render_event(time_str, summary, location, color))
+            parts.append(_render_event(time_str, summary, location, color, kind))
 
     if oldest_fetched:
         fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
@@ -168,11 +175,12 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     return f'<div class="widget-ics-list {size_cls}">{"".join(parts)}</div>'
 
 
-def _render_event(time_str: str, summary: str, location: str, color: str) -> str:
+def _render_event(time_str: str, summary: str, location: str, color: str, kind: str = "busy") -> str:
     color_bar = f'<span class="ics-color-bar" style="background:{color}"></span>' if color else ""
     loc_html = f' <span class="ics-loc">{location}</span>' if location else ""
+    kind_cls = f" ics-ev-{kind}" if kind != "busy" else ""
     return (
-        f'<div class="ics-ev">'
+        f'<div class="ics-ev{kind_cls}">'
         f'{color_bar}'
         f'<span class="ics-t">{time_str}</span>'
         f'<span class="ics-s">{summary}{loc_html}</span>'

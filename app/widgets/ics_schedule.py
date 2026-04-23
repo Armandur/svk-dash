@@ -10,7 +10,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import should_filter, source_color
+from app.widgets.ics_common import apply_private, get_event_kind, should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -37,8 +37,8 @@ def _pct(minutes: int, total: int) -> str:
 
 def _assign_lanes(events: list[tuple]) -> list[tuple]:
     """Tilldelar lane-index och total lanes till parallella händelser.
-    Input: [(offset, duration, total, time_str, summary, location, color), ...]
-    Output: [(offset, duration, total, time_str, summary, location, color, lane, n_lanes), ...]
+    Input: [(offset, duration, total, time_str, summary, location, color, kind), ...]
+    Output: [(offset, duration, total, time_str, summary, location, color, kind, lane, n_lanes), ...]
     """
     if not events:
         return []
@@ -92,6 +92,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     end_hour = max(start_hour + 1, min(24, int(config.get("end_hour", 17))))
     show_location = bool(config.get("show_location", False))
     show_colors = bool(config.get("show_source_colors", False))
+    free_color = config.get("free_color", "#f59e0b")
+    hide_free = bool(config.get("hide_free_events", False))
     font_size = config.get("font_size", "normal")
     size_cls = {"small": "ics-sm", "large": "ics-lg"}.get(font_size, "")
 
@@ -150,14 +152,20 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             raw_summary = str(ev.get("SUMMARY", "Ingen titel"))
             if should_filter(raw_summary, config):
                 continue
-            summary = html_mod.escape(raw_summary)
+            kind = get_event_kind(ev)
+            if hide_free and kind == "free":
+                continue
+            display_summary = apply_private(raw_summary, ev, config)
+            summary = html_mod.escape(display_summary)
             location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
+
+            ev_color = free_color if kind == "free" and not show_colors else color
 
             if _is_all_day(dt):
                 ev_date = dt if isinstance(dt, date) else dt.date()
                 for dd in day_data:
                     if dd["date"] == ev_date:
-                        dd["all_day"].append((summary, location, color))
+                        dd["all_day"].append((summary, location, ev_color, kind))
                 continue
 
             start_local = _to_local(dt)
@@ -174,16 +182,16 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 if dd["date"] != ev_date:
                     continue
                 if ev_end_min <= start_minute:
-                    dd["before"].append((start_local.strftime("%H:%M"), summary, location, color))
+                    dd["before"].append((start_local.strftime("%H:%M"), summary, location, ev_color, kind))
                 elif ev_start_min >= end_hour * 60:
-                    dd["after"].append((start_local.strftime("%H:%M"), summary, location, color))
+                    dd["after"].append((start_local.strftime("%H:%M"), summary, location, ev_color, kind))
                 else:
                     clipped_start = max(ev_start_min, start_minute)
                     clipped_end = min(ev_end_min, end_hour * 60)
                     offset = clipped_start - start_minute
                     duration = max(clipped_end - clipped_start, 10)
                     dd["main"].append((offset, duration, total_minutes,
-                                       start_local.strftime("%H:%M"), summary, location, color))
+                                       start_local.strftime("%H:%M"), summary, location, ev_color, kind))
 
     # Tilldela lanes för parallella händelser
     for dd in day_data:
@@ -218,9 +226,10 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     parts.append('<div class="isch-corner-allday"></div>')
     for dd in day_data:
         parts.append('<div class="isch-allday-col">')
-        for summary, location, color in dd["all_day"]:
+        for summary, location, color, kind in dd["all_day"]:
             color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
-            parts.append(f'<div class="isch-allday-ev" style="{color_style}">{summary}</div>')
+            kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
+            parts.append(f'<div class="isch-allday-ev{kind_cls}" style="{color_style}">{summary}</div>')
         if not dd["all_day"]:
             parts.append('<div class="isch-allday-empty"></div>')
         parts.append('</div>')
@@ -231,10 +240,11 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         parts.append('<div class="isch-section-label">↑</div>')
         for dd in day_data:
             parts.append('<div class="isch-overflow-col">')
-            for time_str, summary, location, color in dd["before"]:
+            for time_str, summary, location, color, kind in dd["before"]:
                 color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
                 parts.append(
-                    f'<div class="isch-overflow-ev" style="{color_style}">'
+                    f'<div class="isch-overflow-ev{kind_cls}" style="{color_style}">'
                     f'<span class="isch-t">{time_str}</span>{summary}</div>'
                 )
             parts.append('</div>')
@@ -262,13 +272,14 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append('<div class="isch-now-line"></div>')
 
         for ev in dd["main"]:
-            offset, duration, total, time_str, summary, location, color, lane, n_lanes = ev
+            offset, duration, total, time_str, summary, location, color, kind, lane, n_lanes = ev
             top = _pct(offset, total)
             height = _pct(duration, total)
             # Parallell-layout: dela bredden
             lane_w = 100 / n_lanes
             left = f"{lane * lane_w:.4f}%"
             width = f"{lane_w - 1:.4f}%"
+            kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
             border = f'border-left:3px solid {color};' if color else ""
 
             # Anpassa innehåll efter block-höjd (duration i minuter)
@@ -292,7 +303,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 )
 
             parts.append(
-                f'<div class="isch-ev-block" style="top:{top};height:{height};left:{left};width:{width};{border}">'
+                f'<div class="isch-ev-block{kind_cls}" style="top:{top};height:{height};left:{left};width:{width};{border}">'
                 f'{inner}'
                 f'</div>'
             )
@@ -304,10 +315,11 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         parts.append('<div class="isch-section-label">↓</div>')
         for dd in day_data:
             parts.append('<div class="isch-overflow-col">')
-            for time_str, summary, location, color in dd["after"]:
+            for time_str, summary, location, color, kind in dd["after"]:
                 color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
                 parts.append(
-                    f'<div class="isch-overflow-ev" style="{color_style}">'
+                    f'<div class="isch-overflow-ev{kind_cls}" style="{color_style}">'
                     f'<span class="isch-t">{time_str}</span>{summary}</div>'
                 )
             parts.append('</div>')
