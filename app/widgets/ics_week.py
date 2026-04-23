@@ -10,7 +10,7 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import apply_private, get_event_kind, should_filter, source_color
+from app.widgets.ics_common import apply_private, get_event_kind, online_badge_html, should_filter, source_color
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -115,7 +115,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             summary = html_mod.escape(display_summary)
             location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
             ev_color = free_color if kind == "free" and not show_colors else color
-            day_events[day].append((start, all_day, summary, location, ev_color, kind))
+            badge = online_badge_html(ev, config)
+            day_events[day].append((start, all_day, summary, location, ev_color, kind, badge))
 
     for d in week_days:
         day_events[d].sort(key=lambda e: (not e[1], e[0]))  # type: ignore[index]
@@ -146,16 +147,16 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         total = len(evs)
         limit = max_per_day if max_per_day is not None else total
 
-        for start, all_day, summary, location, color, kind in all_day_evs:
+        for start, all_day, summary, location, color, kind, badge in all_day_evs:
             if shown >= limit:
                 break
-            parts.append(_render_event("", summary, location, color, all_day=True, kind=kind))
+            parts.append(_render_event("", summary, location, color, badge=badge, all_day=True, kind=kind))
             shown += 1
 
-        for start, all_day, summary, location, color, kind in timed_evs:
+        for start, all_day, summary, location, color, kind, badge in timed_evs:
             if shown >= limit:
                 break
-            parts.append(_render_event(start.strftime("%H:%M"), summary, location, color, kind=kind))
+            parts.append(_render_event(start.strftime("%H:%M"), summary, location, color, badge=badge, kind=kind))
             shown += 1
 
         if total > limit:
@@ -180,7 +181,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     return "".join(parts)
 
 
-def _render_event(time_str: str, summary: str, location: str, color: str, all_day: bool = False, kind: str = "busy") -> str:
+def _render_event(time_str: str, summary: str, location: str, color: str, badge: str = "", all_day: bool = False, kind: str = "busy") -> str:
     color_style = f'border-left:2px solid {color};padding-left:3px;' if color else ""
     heldag_cls = " icw-ev-allday" if all_day else ""
     kind_cls = f" icw-ev-{kind}" if kind != "busy" else ""
@@ -189,7 +190,7 @@ def _render_event(time_str: str, summary: str, location: str, color: str, all_da
     return (
         f'<div class="icw-ev{heldag_cls}{kind_cls}" style="{color_style}">'
         f'{time_html}'
-        f'<span class="icw-s">{summary}</span>'
+        f'<span class="icw-s">{summary}{badge}</span>'
         f'{loc_html}'
         f'</div>'
     )

@@ -11,7 +11,13 @@ from sqlmodel import select
 from app.database import get_session
 from app.models import IcsCache
 from app.services.ics_fetcher import get_ics_urls
-from app.widgets.ics_common import apply_private, get_event_kind, should_filter, source_color
+from app.widgets.ics_common import (
+    apply_private,
+    get_event_kind,
+    online_badge_html,
+    should_filter,
+    source_color,
+)
 
 _TZ = ZoneInfo("Europe/Stockholm")
 
@@ -56,8 +62,9 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     _, days_in_month = monthrange(year, month)
     last_day = date(year, month, days_in_month)
 
-    # day -> [(time_str, summary, color, kind)]
-    day_events: dict[date, list[tuple[str, str, str, str]]] = {}
+    # day -> [(time_str, summary, color, kind, badge, span_pos)]
+    # span_pos: None=single day, "start"|"mid"|"end"=multi-day all-day
+    day_events: dict[date, list[tuple]] = {}
     has_error = False
     oldest_fetched: datetime | None = None
 
@@ -91,24 +98,46 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             kind = get_event_kind(ev)
             if hide_free and kind == "free":
                 continue
-            d = _to_date(dt)
-            if not (first_day <= d <= last_day):
-                continue
-            if isinstance(dt, datetime):
-                time_str = dt.astimezone(_TZ).strftime("%H:%M")
-            else:
-                time_str = ""
             display_summary = apply_private(raw_summary, ev, config)
             summary = html_mod.escape(display_summary)
             ev_color = free_color if kind == "free" and not show_colors else color
-            day_events.setdefault(d, []).append((time_str, summary, ev_color, kind))
+            badge = online_badge_html(ev, config)
+            all_day = not isinstance(dt, datetime)
+
+            if all_day:
+                start_date = dt if isinstance(dt, date) else dt.date()
+                dtend_obj = ev.get("DTEND")
+                if dtend_obj:
+                    raw_end = dtend_obj.dt
+                    end_date = (raw_end if isinstance(raw_end, date) else raw_end.date()) - timedelta(days=1)
+                else:
+                    end_date = start_date
+
+                if end_date > start_date:
+                    # Flerdagarshändelse: lägg till på varje dag i spannet
+                    curr = max(start_date, first_day)
+                    span_end = min(end_date, last_day)
+                    while curr <= span_end:
+                        pos = "start" if curr == start_date else ("end" if curr == end_date else "mid")
+                        day_events.setdefault(curr, []).append(("", summary, ev_color, kind, badge, pos))
+                        curr += timedelta(days=1)
+                else:
+                    d = start_date
+                    if first_day <= d <= last_day:
+                        day_events.setdefault(d, []).append(("", summary, ev_color, kind, badge, None))
+            else:
+                d = _to_date(dt)
+                if not (first_day <= d <= last_day):
+                    continue
+                time_str = dt.astimezone(_TZ).strftime("%H:%M")
+                day_events.setdefault(d, []).append((time_str, summary, ev_color, kind, badge, None))
 
     # Kalender-grid
     if start_on_monday:
-        start_offset = first_day.weekday()  # Mon=0
+        start_offset = first_day.weekday()
         headers = _WEEKDAYS_MON
     else:
-        start_offset = (first_day.weekday() + 1) % 7  # Sun=0
+        start_offset = (first_day.weekday() + 1) % 7
         headers = _WEEKDAYS_SUN
 
     weeks: list[list[date | None]] = []
@@ -138,11 +167,25 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append(f'<div class="{cls}">')
             parts.append(f'<div class="icm-num">{d.day}</div>')
             evs = day_events.get(d, [])
-            for time_str, summary, color, kind in evs[:max_per_day]:
-                color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
-                time_html = f'<span class="icm-t">{time_str}</span>' if time_str else ""
+            for time_str, summary, color, kind, badge, span_pos in evs[:max_per_day]:
                 kind_cls = f" icm-ev-{kind}" if kind != "busy" else ""
-                parts.append(f'<div class="icm-ev{kind_cls}" style="{color_style}">{time_html}{summary}</div>')
+                if span_pos is not None:
+                    # Flerdagarshändelse: visas som fylld balk
+                    bg = f'background:{color};' if color else "background:rgba(255,255,255,0.18);"
+                    span_cls = f" icm-ev-span icm-ev-span-{span_pos}"
+                    parts.append(
+                        f'<div class="icm-ev{kind_cls}{span_cls}" style="{bg}">'
+                        f'{summary}{badge}'
+                        f'</div>'
+                    )
+                else:
+                    color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                    time_html = f'<span class="icm-t">{time_str}</span>' if time_str else ""
+                    parts.append(
+                        f'<div class="icm-ev{kind_cls}" style="{color_style}">'
+                        f'{time_html}{summary}{badge}'
+                        f'</div>'
+                    )
             if len(evs) > max_per_day:
                 parts.append(f'<div class="icm-more">+{len(evs) - max_per_day}</div>')
             parts.append('</div>')
