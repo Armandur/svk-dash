@@ -30,6 +30,12 @@ Scope för v1: intern drift, ingen publik åtkomst, svenska som enda språk, ing
 
 **Widget** — en enskild komponent (ICS-kalender, markdown-text, bildspel, iframe, klocka). Widgets är fristående entiteter som kan återanvändas i flera vyer/skärmar. Varje widget har en **edit-token** som ger åtkomst till redigeringsvyn utan inloggning.
 
+**Layout** — en mall som delar upp skärmen i zoner. En skärm kan ha flera layouter som växlar enligt ett schema.
+
+**LayoutZone** — en namngiven yta i en layout (t.ex. "Main", "Sidebar", "Footer"). Zoner kan vara persistenta (visar samma sak hela tiden) eller schemalagda (roterar mellan olika vyer).
+
+**ScreenLayoutAssignment** — kopplar en skärm till en specifik layout med ett valfritt schema för när den ska visas.
+
 **Admin** — superanvändare (du) som hanterar skärmar, vyer och widget-layout. Loggar in med lösenord.
 
 ---
@@ -82,6 +88,7 @@ class View(SQLModel):
     name: str
     duration_seconds: int | None # override av screen.rotation_seconds
     layout_json: dict            # grid-layout + vilka widgets som ligger var
+    schedule_json: dict | None   # schemaläggning (samma format som ScreenLayoutAssignment)
 
 class Widget(SQLModel):
     id: int
@@ -113,16 +120,31 @@ class WidgetRevision(SQLModel):
     # Rensningspolicy: max 20 revisioner per widget. Äldsta rensas
     # automatiskt vid varje ny spara.
 
-class ViewSchedule(SQLModel):
-    """Frivillig schemaläggning per vy. Om en vy har aktiva scheman
-    visas den bara när minst ett schema matchar. Vyer utan scheman
-    visas alltid (default)."""
+class Layout(SQLModel):
     id: int
-    view_id: int                 # FK → View
-    cron_expression: str         # t.ex. "0 0 23 12 *" för "från 23 dec"
-    duration_hours: int          # hur länge fönstret är öppet
-    name: str                    # "Jul", "Påsk", etc.
-    enabled: bool = True
+    name: str
+    aspect_ratio: str            # "16:9", "9:16" etc.
+
+class LayoutZone(SQLModel):
+    id: int
+    layout_id: int               # FK → Layout
+    name: str
+    role: str                    # "persistent" | "schedulable"
+    x_pct: float                 # 0-100%
+    y_pct: float
+    w_pct: float
+    h_pct: float
+    rotation_seconds: int        # tid per vy i zonen
+
+class ScreenLayoutAssignment(SQLModel):
+    """Kopplar skärm till layout. Cron-modellen är övergiven till förmån för schedule_json."""
+    id: int
+    screen_id: int               # FK → Screen
+    layout_id: int               # FK → Layout
+    schedule_json: dict | None   # {type: 'always'|'weekly'|'monthly'|'yearly'|'dates', 
+                                 #  time_start: 'HH:MM', time_end: 'HH:MM', ...}
+    duration_seconds: int | None # för rotation mellan layouter
+    transition: str              # "fade", "slide", "none"
 ```
 
 **In-memory-state (inte i DB):**
@@ -549,7 +571,7 @@ Milstolpe: admin kan dra och ändra storlek på widgets i en vy och se dem place
 - [ ] `ics_month`-widget
 - [x] Bakgrundsjobb (asyncio-loop med try/except) som refreshar alla ICS-cachar var 10:e minut
 - [ ] Felhantering + senast-uppdaterad-indikator per widget
-- [ ] **Heartbeat-logik**: skärmar uppdaterar `last_seen_at` på `Screen` via SSE-keepalive
+- [ ] **Heartbeat-logik**: skärmar uppdaterar `last_seen_at` on `Screen` via SSE-keepalive
 - [ ] **Live-status på admin-dashboard**: grön/gul/röd indikator baserad på heartbeat-ålder
 - [ ] **Larm vid död skärm**: när heartbeat > 15 min, skicka notis via konfigurerbar kanal (mail via SMTP, eller webhook → gotify/pushover/discord). `alert_sent_at` förhindrar spam.
 
@@ -574,12 +596,15 @@ Milstolpe: hela konfigurationen kan versionshanteras i git. Alla widget-typer fi
 
 ### Fas 4 — schemaläggning
 
-- [ ] UI för `ViewSchedule`: admin kan sätta vyer att visas under specifika perioder
-- [ ] Cron-parsing + evaluering vid vy-rotation i servern
-- [ ] Vyer utan aktiva scheman visas alltid (baseline); vyer med scheman visas endast när någon regel matchar
-- [ ] Visualisering av kommande schemaläggningar i admin ("Denna vy visas 23–26 december")
+- [x] UI för `schedule_json`: admin kan sätta vyer och layouter att visas under specifika perioder (veckodagar, datum, klockslag m.m.)
+- [x] Evaluering av schema-logik (typerna `always`, `weekly`, `monthly`, `yearly`, `dates`)
+- [x] Vyer/layouter utan aktiva scheman visas alltid (baseline); de med scheman visas endast när någon regel matchar
+- [x] Visualisering av kommande schemaläggningar i admin ("Denna vy visas 23–26 december")
+- [x] Layout-rotation implementerad på klientsidan: alla aktiva layouter förrenderas i DOM och rotation sker sömlöst utan `location.reload()`
+- [x] Schema-typ är `schedule_json` (inte cron-uttryck)
 
 Milstolpe: "påskvyn" och "julvyn" kan sättas upp i förväg.
+
 
 ### Fas 5 — utökad offline-tolerans (om det behövs)
 
