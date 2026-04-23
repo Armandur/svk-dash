@@ -16,7 +16,7 @@ from app.routes.kiosk import broadcast_widget_updated
 from app.services.ics_fetcher import fetch_and_cache, get_ics_urls
 from app.templating import templates
 
-_ICS_KINDS = frozenset({"ics_list", "ics_month", "ics_week"})
+_ICS_KINDS = frozenset({"ics_list", "ics_month", "ics_week", "ics_schedule"})
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 
@@ -24,6 +24,7 @@ WIDGET_KINDS = [
     ("ics_list", "ICS-kalender (lista)"),
     ("ics_month", "ICS-kalender (månad)"),
     ("ics_week", "ICS-kalender (vecka)"),
+    ("ics_schedule", "ICS-kalender (schema/block)"),
     ("markdown", "Markdown/text"),
     ("slideshow", "Bildspel"),
     ("iframe", "Iframe"),

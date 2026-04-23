@@ -133,8 +133,8 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             evs = day_events.get(d, [])
             for time_str, summary, color in evs[:max_per_day]:
                 color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
-                label = f"{time_str} {summary}".strip() if time_str else summary
-                parts.append(f'<div class="icm-ev" style="{color_style}">{label}</div>')
+                time_html = f'<span class="icm-t">{time_str}</span>' if time_str else ""
+                parts.append(f'<div class="icm-ev" style="{color_style}">{time_html}{summary}</div>')
             if len(evs) > max_per_day:
                 parts.append(f'<div class="icm-more">+{len(evs) - max_per_day}</div>')
             parts.append('</div>')

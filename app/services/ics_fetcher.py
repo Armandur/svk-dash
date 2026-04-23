@@ -10,7 +10,7 @@ from app.models import IcsCache, Widget
 
 logger = logging.getLogger(__name__)
 
-_ICS_KINDS = frozenset({"ics_list", "ics_month", "ics_week"})
+_ICS_KINDS = frozenset({"ics_list", "ics_month", "ics_week", "ics_schedule"})
 _REFRESH_INTERVAL = 600  # sekunder
 
 

@@ -1,0 +1,252 @@
+import html as html_mod
+from datetime import date, datetime, timedelta
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import icalendar
+import recurring_ical_events
+from sqlmodel import select
+
+from app.database import get_session
+from app.models import IcsCache
+from app.services.ics_fetcher import get_ics_urls
+from app.widgets.ics_common import should_filter, source_color
+
+_TZ = ZoneInfo("Europe/Stockholm")
+
+_WEEKDAYS = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
+_WEEKDAYS_SHORT = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
+_MONTHS_SHORT = [
+    "", "jan", "feb", "mar", "apr", "maj", "jun",
+    "jul", "aug", "sep", "okt", "nov", "dec",
+]
+
+
+def _to_local(dt) -> datetime:
+    if isinstance(dt, datetime):
+        return dt.astimezone(_TZ) if dt.tzinfo else dt.replace(tzinfo=_TZ)
+    return datetime(dt.year, dt.month, dt.day, tzinfo=_TZ)
+
+
+def _is_all_day(dt) -> bool:
+    return not isinstance(dt, datetime)
+
+
+def _pct(minutes: int, total: int) -> str:
+    return f"{100 * minutes / total:.4f}%"
+
+
+def render(config: dict[str, Any], context: dict[str, Any]) -> str:
+    widget_id = context.get("widget_id")
+    urls = get_ics_urls(config)
+    day_offset = int(config.get("day_offset", 0))
+    day_count = max(1, min(7, int(config.get("day_count", 1))))
+    start_hour = max(0, min(23, int(config.get("start_hour", 8))))
+    end_hour = max(start_hour + 1, min(24, int(config.get("end_hour", 17))))
+    show_location = bool(config.get("show_location", False))
+    show_colors = bool(config.get("show_source_colors", False))
+    font_size = config.get("font_size", "normal")
+    size_cls = {"small": "ics-sm", "large": "ics-lg"}.get(font_size, "")
+
+    total_minutes = (end_hour - start_hour) * 60
+    start_minute = start_hour * 60
+
+    if not widget_id or not urls:
+        return '<div class="widget-ics-schedule ics-notice">Ingen ICS-URL konfigurerad.</div>'
+
+    with get_session() as db:
+        caches = db.exec(select(IcsCache).where(IcsCache.widget_id == widget_id)).all()
+
+    if not caches:
+        return '<div class="widget-ics-schedule ics-notice">Kalender hämtas…</div>'
+
+    cache_by_url = {c.source_url: c for c in caches}
+    today = datetime.now(_TZ).date()
+    days = [today + timedelta(days=day_offset + i) for i in range(day_count)]
+
+    # Per dag: {all_day: [...], before: [...], main: [...], after: [...]}
+    # main event: (start_min_offset, duration_min, summary, location, color)
+    DayData = dict
+    day_data: list[DayData] = [{
+        "date": d, "all_day": [], "before": [], "main": [], "after": []
+    } for d in days]
+
+    has_error = False
+    oldest_fetched: datetime | None = None
+
+    for url_idx, url in enumerate(urls):
+        cache = cache_by_url.get(url)
+        if cache is None:
+            continue
+        if cache.last_error:
+            has_error = True
+        if not cache.raw_ics:
+            continue
+        if oldest_fetched is None or cache.fetched_at < oldest_fetched:
+            oldest_fetched = cache.fetched_at
+        try:
+            cal = icalendar.Calendar.from_ical(cache.raw_ics)
+            raw_events = recurring_ical_events.of(cal).between(days[0], days[-1] + timedelta(days=1))
+        except Exception:
+            has_error = True
+            continue
+
+        color = source_color(url_idx) if show_colors else ""
+
+        for ev in raw_events:
+            dtstart = ev.get("DTSTART")
+            if not dtstart:
+                continue
+            dt = dtstart.dt
+            raw_summary = str(ev.get("SUMMARY", "Ingen titel"))
+            if should_filter(raw_summary, config):
+                continue
+            summary = html_mod.escape(raw_summary)
+            location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
+
+            if _is_all_day(dt):
+                ev_date = dt if isinstance(dt, date) else dt.date()
+                for dd in day_data:
+                    if dd["date"] == ev_date:
+                        dd["all_day"].append((summary, location, color))
+                continue
+
+            start_local = _to_local(dt)
+            ev_date = start_local.date()
+
+            dtend = ev.get("DTEND")
+            if dtend:
+                end_local = _to_local(dtend.dt)
+            else:
+                end_local = start_local + timedelta(hours=1)
+
+            ev_start_min = start_local.hour * 60 + start_local.minute
+            ev_end_min = end_local.hour * 60 + end_local.minute
+            if ev_end_min <= ev_start_min:
+                ev_end_min = ev_start_min + 60
+
+            for dd in day_data:
+                if dd["date"] != ev_date:
+                    continue
+                if ev_end_min <= start_minute:
+                    dd["before"].append((start_local.strftime("%H:%M"), summary, location, color))
+                elif ev_start_min >= end_hour * 60:
+                    dd["after"].append((start_local.strftime("%H:%M"), summary, location, color))
+                else:
+                    # Klipp händelsen till synligt fönster
+                    clipped_start = max(ev_start_min, start_minute)
+                    clipped_end = min(ev_end_min, end_hour * 60)
+                    offset = clipped_start - start_minute
+                    duration = max(clipped_end - clipped_start, 15)
+                    dd["main"].append((
+                        offset, duration, total_minutes,
+                        start_local.strftime("%H:%M"), summary, location, color,
+                    ))
+
+    parts: list[str] = [f'<div class="widget-ics-schedule {size_cls}">']
+
+    # Tidsetiketter (vänster kolumn)
+    hour_labels: list[str] = []
+    for h in range(start_hour, end_hour + 1):
+        pct = _pct((h * 60 - start_minute), total_minutes)
+        hour_labels.append(
+            f'<div class="isch-hour-label" style="top:{pct}">{h:02d}</div>'
+        )
+
+    # Rutnät
+    col_style = f"grid-template-columns: 1.8em repeat({day_count}, 1fr);"
+    parts.append(f'<div class="isch-outer" style="{col_style}">')
+
+    # Rubrikrad
+    parts.append('<div class="isch-corner"></div>')
+    for dd in day_data:
+        d = dd["date"]
+        today_cls = " isch-today" if d == today else ""
+        parts.append(
+            f'<div class="isch-col-head{today_cls}">'
+            f'<span class="isch-dow">{_WEEKDAYS_SHORT[d.weekday()]}</span>'
+            f' <span class="isch-date">{d.day} {_MONTHS_SHORT[d.month]}</span>'
+            f'</div>'
+        )
+
+    # Heldagshändelser
+    parts.append('<div class="isch-corner-allday"></div>')
+    for dd in day_data:
+        parts.append('<div class="isch-allday-col">')
+        for summary, location, color in dd["all_day"]:
+            color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+            parts.append(f'<div class="isch-allday-ev" style="{color_style}">{summary}</div>')
+        if not dd["all_day"]:
+            parts.append('<div class="isch-allday-empty"></div>')
+        parts.append('</div>')
+
+    # "Tidigare"-rad
+    has_before = any(dd["before"] for dd in day_data)
+    if has_before:
+        parts.append('<div class="isch-section-label">↑</div>')
+        for dd in day_data:
+            parts.append('<div class="isch-overflow-col">')
+            for time_str, summary, location, color in dd["before"]:
+                color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                parts.append(
+                    f'<div class="isch-overflow-ev" style="{color_style}">'
+                    f'<span class="isch-t">{time_str}</span>{summary}'
+                    f'</div>'
+                )
+            parts.append('</div>')
+
+    # Tidsblock-sektion
+    parts.append('<div class="isch-time-col" style="position:relative;">')
+    for label in hour_labels:
+        parts.append(label)
+    parts.append('</div>')
+
+    for dd in day_data:
+        today_cls = " isch-today-col" if dd["date"] == today else ""
+        parts.append(f'<div class="isch-main-col{today_cls}">')
+        # Rutnätslinjer
+        for h in range(start_hour, end_hour):
+            pct = _pct((h * 60 - start_minute), total_minutes)
+            parts.append(f'<div class="isch-grid-line" style="top:{pct}"></div>')
+        # Händelseblock
+        for offset, duration, total, time_str, summary, location, color in dd["main"]:
+            top = _pct(offset, total)
+            height = _pct(duration, total)
+            border = f'border-left:3px solid {color};' if color else ""
+            loc_html = f'<span class="isch-loc">{location}</span>' if location else ""
+            parts.append(
+                f'<div class="isch-ev-block" style="top:{top};height:{height};{border}">'
+                f'<span class="isch-ev-time">{time_str}</span>'
+                f'<span class="isch-ev-title">{summary}</span>'
+                f'{loc_html}'
+                f'</div>'
+            )
+        parts.append('</div>')
+
+    # "Senare"-rad
+    has_after = any(dd["after"] for dd in day_data)
+    if has_after:
+        parts.append('<div class="isch-section-label">↓</div>')
+        for dd in day_data:
+            parts.append('<div class="isch-overflow-col">')
+            for time_str, summary, location, color in dd["after"]:
+                color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                parts.append(
+                    f'<div class="isch-overflow-ev" style="{color_style}">'
+                    f'<span class="isch-t">{time_str}</span>{summary}'
+                    f'</div>'
+                )
+            parts.append('</div>')
+
+    parts.append('</div>')  # isch-outer
+
+    if oldest_fetched:
+        fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
+        fetched_str = fetched_local.strftime("%H:%M")
+        if has_error:
+            parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+        else:
+            parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
+
+    parts.append('</div>')
+    return "".join(parts)

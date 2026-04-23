@@ -243,6 +243,79 @@ function removeIcsUrl(btn) {
                     placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
         </div>
 
+        {% elif widget.kind == 'ics_schedule' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-källa(or)</label>
+          <div id="ics-url-list" class="flex flex-col gap-1 mb-1"></div>
+          <button type="button" onclick="addIcsUrl()"
+                  class="text-xs text-blue-600 hover:text-blue-800">+ Lägg till källa</button>
+          <script>
+            (function(){
+              var raw = {{ cfg.get('ics_url', '') | tojson }};
+              var urls = typeof raw==='string' ? (raw?[raw]:[]) : (Array.isArray(raw)?raw:[]);
+              urls = urls.map(function(u){return typeof u==='string'?u:(u&&u.url)||'';}).filter(Boolean);
+              if(urls.length===0) urls=[''];
+              urls.forEach(function(u){addIcsUrl(u);});
+            })();
+          </script>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Dag-offset (0=idag, 1=imorgon…)</label>
+            <input type="number" data-field="day_offset" value="{{ cfg.get('day_offset', 0) }}"
+                   min="-30" max="30" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Antal dagar (1–7)</label>
+            <input type="number" data-field="day_count" value="{{ cfg.get('day_count', 1) }}"
+                   min="1" max="7" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Starttimme (t.ex. 8)</label>
+            <input type="number" data-field="start_hour" value="{{ cfg.get('start_hour', 8) }}"
+                   min="0" max="23" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Sluttimme (t.ex. 17)</label>
+            <input type="number" data-field="end_hour" value="{{ cfg.get('end_hour', 17) }}"
+                   min="1" max="24" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
+          <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
+            <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
+            <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="show_location"
+                   {% if cfg.get('show_location', false) %}checked{% endif %} class="rounded">
+            Visa plats
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="show_source_colors"
+                   {% if cfg.get('show_source_colors', false) %}checked{% endif %} class="rounded">
+            Färgkoda per källa
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Filtrera bort prefix (ett per rad, t.ex. !A - )</label>
+          <textarea data-field="filter_prefixes" rows="2"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
+                    placeholder="!A - ">{{ cfg.get('filter_prefixes', []) | join('\n') if cfg.get('filter_prefixes') is iterable and cfg.get('filter_prefixes') is not string else cfg.get('filter_prefixes', '') }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Filtrera bort nyckelord (ett per rad)</label>
+          <textarea data-field="filter_keywords" rows="2"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
+                    placeholder="Ledig">{{ cfg.get('filter_keywords', []) | join('\n') if cfg.get('filter_keywords') is iterable and cfg.get('filter_keywords') is not string else cfg.get('filter_keywords', '') }}</textarea>
+        </div>
+
         {% elif widget.kind == 'markdown' %}
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Innehåll (Markdown)</label>
