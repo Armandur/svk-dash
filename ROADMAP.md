@@ -81,6 +81,31 @@ Setup-skript som konfigurerar RPi i kiosk-läge: Chromium helskärm, autostart, 
 - Larm vid död skärm: notis via konfigurerbar kanal (SMTP, webhook) när heartbeat > 15 min
 - `alert_sent_at` på `Screen` för att förhindra larm-spam
 
+### Spelartelemetri – rapportering från kiosk till admin
+
+Varje ansluten kiosk-klient rapporterar periodiskt diagnostikdata till servern via ett dedikerat POST-anrop. Servern lagrar informationen per skärm och visar den i admin-gränssnittet.
+
+**Vad klienten rapporterar:**
+- Nätverks-IP som servern ser på anropet (= LAN-IP om de är på samma nät, annars publik IP)
+- Skärmupplösning (`screen.width × screen.height`) och fönsterstorlek (`window.innerWidth × innerHeight`)
+- User agent (identifierar browser och OS, t.ex. `Chromium/124 Linux armv7l`)
+- Kiosk-JS-version (konstant i kiosk.js, t.ex. `dev` eller git-SHA vid byggd release)
+- Tid sedan sidan laddades (uptime i sekunder — indikerar t.ex. om skärmen startat om)
+- Aktivt layout-ID och vy-position per zon (vad som visas just nu)
+- SSE-reconnect-räknare (indikerar instabilt nätverk)
+
+**Teknisk plan:**
+1. Nytt endpoint `POST /s/<slug>/telemetry` — autentiseras med samma slug, inget lösenord krävs (icke-känslig driftsinfo). Rate-limitad till max 1 req/min per skärm.
+2. Nya kolumner på `Screen`: `client_ip`, `client_user_agent`, `client_resolution`, `client_uptime_seconds`, `client_js_version`, `client_reconnects`, `telemetry_at` (tidsstämpel).
+3. `kiosk.js` skickar telemetri vid sidladdning och sedan var 5:e minut (inbyggt i det befintliga heartbeat-intervallet).
+4. Admin-skärmsidan (`screen_detail.html`) visar en "Diagnostik"-panel med senast rapporterad data och ålder på rapporten.
+5. Admin-dashboard visar en kompakt statusindikator per skärm (grön/gul/röd baserat på `telemetry_at`-ålder, klickbar för detaljer).
+
+**Avgränsningar:**
+- Ingen historik sparas — bara senaste rapport per skärm.
+- Batteristatus (Battery API) utelämnas — inte relevant för Pi.
+- Ingen GPS eller annan känslig data.
+
 ### Skärm-hårdvarukontroll
 - HDMI-CEC via SSE-event (`display_power`) — stäng av skärmen nattetid
 - Schema per skärm för tändning/släckning
