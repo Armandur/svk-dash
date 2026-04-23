@@ -54,6 +54,29 @@ def apply_private(summary: str, ev, config: dict) -> str:
     return summary
 
 
+_DEFAULT_ONLINE_PATTERNS = ["teams", "zoom", "meet", "skype", "webex", "whereby", "jitsi"]
+
+
+def is_online_meeting(ev, config: dict) -> bool:
+    """Returnerar True om platsen matchar något av online-mötesmönstren."""
+    patterns = _parse_str_list(config.get("online_meeting_patterns", _DEFAULT_ONLINE_PATTERNS))
+    if not patterns:
+        return False
+    location = str(ev.get("LOCATION", "")).lower()
+    url = str(ev.get("URL", "")).lower()
+    for p in patterns:
+        if p.lower() in location or p.lower() in url:
+            return True
+    return False
+
+
+def online_badge_html(ev, config: dict) -> str:
+    """Returnerar HTML för ett online-mötes-märke om tillämpligt, annars tom sträng."""
+    if config.get("show_online_badge", True) and is_online_meeting(ev, config):
+        return '<span class="ics-online-badge" title="Digitalt möte">&#x1F4BB;</span>'
+    return ""
+
+
 def should_filter(summary: str, config: dict) -> bool:
     """Returnerar True om händelsen ska filtreras bort (döljas)."""
     prefixes = _parse_str_list(config.get("filter_prefixes", []))

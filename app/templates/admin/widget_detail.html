@@ -141,6 +141,25 @@ function removeIcsUrl(btn) {
             </label>
           </div>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Auto-scroll (px/s, tomt = av)</label>
+            <input type="number" data-field="auto_scroll_speed" value="{{ cfg.get('auto_scroll_speed', '') }}"
+                   min="5" max="200" placeholder="t.ex. 30" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div class="flex flex-col justify-end gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="scrollable"
+                     {% if cfg.get('scrollable', false) %}checked{% endif %} class="rounded">
+              Tillåt manuell scroll
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-field="show_online_badge"
+                     {% if cfg.get('show_online_badge', true) %}checked{% endif %} class="rounded">
+              Visa online-mötes-ikon
+            </label>
+          </div>
+        </div>
 
         {% elif widget.kind == 'ics_month' %}
         <div>

@@ -129,6 +129,59 @@
   setInterval(tickClocks, 1000);
   tickClocks();
 
+  // --- Auto-scroll (ics_list) ---
+
+  (function () {
+    var PAUSE_MS = 3000;
+
+    document.querySelectorAll('[data-autoscroll]').forEach(function (el) {
+      var speed = parseFloat(el.dataset.autoscroll) || 30; // px/s
+      var userPaused = false;
+      var state = 'pause-top'; // 'scrolling' | 'pause-top' | 'pause-bottom'
+      var lastTs = null;
+      var pauseUntil = performance.now() + PAUSE_MS;
+
+      el.addEventListener('touchstart', function () {
+        userPaused = true;
+      }, { passive: true });
+      el.addEventListener('touchend', function () {
+        setTimeout(function () {
+          userPaused = false;
+          lastTs = null;
+          state = 'pause-top';
+          el.scrollTop = 0;
+          pauseUntil = performance.now() + PAUSE_MS;
+        }, 2000);
+      }, { passive: true });
+
+      function step(ts) {
+        requestAnimationFrame(step);
+        if (userPaused || el.scrollHeight <= el.clientHeight) return;
+        if (lastTs === null) lastTs = ts;
+        var dt = (ts - lastTs) / 1000;
+        lastTs = ts;
+
+        if (state === 'pause-top' || state === 'pause-bottom') {
+          if (ts >= pauseUntil) state = state === 'pause-top' ? 'scrolling' : 'pause-reset';
+          return;
+        }
+        if (state === 'pause-reset') {
+          el.scrollTop = 0;
+          state = 'pause-top';
+          pauseUntil = ts + PAUSE_MS;
+          return;
+        }
+        el.scrollTop += speed * dt;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+          state = 'pause-bottom';
+          pauseUntil = ts + PAUSE_MS;
+        }
+      }
+
+      requestAnimationFrame(step);
+    });
+  })();
+
   // --- Tidslinje (ics_schedule) ---
 
   function updateNowLines() {
