@@ -9,7 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from app import sse as sse_registry
 from app.database import get_session
-from app.models import Screen, View, Widget
+from app.models import Layout, LayoutZone, Screen, ScreenLayoutAssignment, View, Widget
 from app.templating import templates
 from app.widgets.base import render_widget
 
@@ -18,83 +18,119 @@ router = APIRouter()
 _VERSION = "dev"
 
 
+def _render_view(view: View, context: dict, db) -> dict:
+    layout = view.layout_json or {"widgets": []}
+    rendered_widgets = []
+    for entry in layout.get("widgets", []):
+        x = entry.get("x", 0)
+        y = entry.get("y", 0)
+        w = entry.get("w", 12)
+        h = entry.get("h", 6)
+        if "inline_id" in entry:
+            ctx = {**context, "view_position": view.position + 1}
+            inner = render_widget(entry["kind"], entry.get("config") or {}, ctx)
+            eid = entry["inline_id"]
+        else:
+            widget = db.get(Widget, entry["widget_id"])
+            if widget is None:
+                inner = '<div class="widget-missing">Widget saknas</div>'
+            else:
+                ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
+                inner = render_widget(widget.kind, widget.config_json or {}, ctx)
+            eid = entry["widget_id"]
+        rendered_widgets.append({
+            "html": inner,
+            "widget_id": eid,
+            "col_start": x + 1,
+            "col_end": x + w + 1,
+            "row_start": y + 1,
+            "row_end": y + h + 1,
+            "z_index": entry.get("z_index", 1),
+            "opacity": entry.get("opacity", 100),
+        })
+    return {
+        "id": view.id,
+        "position": view.position,
+        "duration_seconds": view.duration_seconds,
+        "widgets": rendered_widgets,
+        "grid_cols": view.grid_cols,
+        "grid_rows": view.grid_rows,
+    }
+
+
 @router.get("/s/{slug}", response_class=HTMLResponse)
 async def kiosk_view(request: Request, slug: str, debug: str = ""):
     with get_session() as db:
         screen = db.exec(select(Screen).where(Screen.slug == slug)).first()
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
-        views = db.exec(
-            select(View).where(View.screen_id == screen.id).order_by(View.position)
-        ).all()
 
         context = {
             "screen_name": screen.name,
             "screen_slug": screen.slug,
-            "view_count": len(views),
             "version": _VERSION,
         }
 
-        rendered_views = []
-        for view in views:
-            layout = view.layout_json or {"widgets": []}
-            rendered_widgets = []
-            for entry in layout.get("widgets", []):
-                x = entry.get("x", 0)
-                y = entry.get("y", 0)
-                w = entry.get("w", 12)
-                h = entry.get("h", 6)
-                if "inline_id" in entry:
-                    ctx = {**context, "view_position": view.position + 1}
-                    inner = render_widget(entry["kind"], entry.get("config") or {}, ctx)
-                    eid = entry["inline_id"]
-                else:
-                    widget = db.get(Widget, entry["widget_id"])
-                    if widget is None:
-                        inner = '<div class="widget-missing">Widget saknas</div>'
-                    else:
-                        ctx = {
-                            **context,
-                            "view_position": view.position + 1,
-                            "widget_id": widget.id,
-                        }
-                        inner = render_widget(widget.kind, widget.config_json or {}, ctx)
-                    eid = entry["widget_id"]
-                rendered_widgets.append(
-                    {
-                        "html": inner,
-                        "widget_id": eid,
-                        "x": x,
-                        "y": y,
-                        "w": w,
-                        "h": h,
-                        "col_start": x + 1,
-                        "col_end": x + w + 1,
-                        "row_start": y + 1,
-                        "row_end": y + h + 1,
-                        "z_index": entry.get("z_index", 1),
-                        "opacity": entry.get("opacity", 100),
-                    }
-                )
+        # Kolla om skärmen har en layout
+        assignment = db.exec(
+            select(ScreenLayoutAssignment)
+            .where(ScreenLayoutAssignment.screen_id == screen.id)
+        ).first()
 
-            rendered_views.append(
-                {
-                    "id": view.id,
-                    "position": view.position,
-                    "name": view.name,
-                    "duration_seconds": view.duration_seconds or 30,
-                    "widgets": rendered_widgets,
-                    "grid_cols": view.grid_cols,
-                    "grid_rows": view.grid_rows,
-                }
-            )
+        zones_rendered = None
+        layout = None
+        legacy_views = None
+
+        if assignment:
+            layout = db.get(Layout, assignment.layout_id)
+            if layout:
+                db_zones = db.exec(
+                    select(LayoutZone)
+                    .where(LayoutZone.layout_id == layout.id)
+                    .order_by(LayoutZone.z_index)
+                ).all()
+                zones_rendered = []
+                for zone in db_zones:
+                    zone_views = db.exec(
+                        select(View)
+                        .where(View.screen_id == screen.id, View.zone_id == zone.id)
+                        .order_by(View.position)
+                    ).all()
+                    views_data = [_render_view(v, context, db) for v in zone_views]
+                    zones_rendered.append({
+                        "id": zone.id,
+                        "role": zone.role,
+                        "x_pct": zone.x_pct,
+                        "y_pct": zone.y_pct,
+                        "w_pct": zone.w_pct,
+                        "h_pct": zone.h_pct,
+                        "z_index": zone.z_index,
+                        "rotation_seconds": zone.rotation_seconds,
+                        "transition": zone.transition,
+                        "transition_direction": zone.transition_direction,
+                        "views": views_data,
+                    })
+
+        if zones_rendered is None:
+            # Legacy: ingen layout, visa vyer direkt
+            db_views = db.exec(
+                select(View)
+                .where(View.screen_id == screen.id, View.zone_id == None)  # noqa: E711
+                .order_by(View.position)
+            ).all()
+            legacy_views = []
+            for v in db_views:
+                rv = _render_view(v, context, db)
+                rv["duration_seconds"] = rv["duration_seconds"] or 30
+                legacy_views.append(rv)
 
     show_debug = debug == "1"
     return HTMLResponse(
         templates.get_template("kiosk/screen.html").render(
             request=request,
             screen=screen,
-            views=rendered_views,
+            zones=zones_rendered,
+            legacy_views=legacy_views,
             show_debug=show_debug,
             version=_VERSION,
         )

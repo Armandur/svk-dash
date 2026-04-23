@@ -1,19 +1,152 @@
 (function () {
   'use strict';
 
-  // --- Vy-rotation ---
+  // --- Vy-rotation (Zon-baserad eller Legacy) ---
 
-  let currentPosition = 0;
-  let rotationTimer = null;
-  let rotationPaused = false;
+  let zoneStates = {}; // zoneId -> { currentIdx, timer, paused }
+  let legacyState = { currentPosition: 0, timer: null, paused: false };
+  let isLegacy = (typeof KIOSK_ZONES === 'undefined' || KIOSK_ZONES === null);
 
-  function showView(position) {
+  function initRotation() {
+    if (!isLegacy) {
+      KIOSK_ZONES.forEach(function(zone) {
+        if (zone.role === 'schedulable' && zone.views && zone.views.length > 1) {
+          zoneStates[zone.id] = {
+            currentIdx: 0,
+            timer: null,
+            paused: false
+          };
+          scheduleZone(zone.id);
+        }
+      });
+    } else {
+      if (LEGACY_VIEWS && LEGACY_VIEWS.length > 1) {
+        scheduleLegacy();
+      }
+    }
+    if (window.__KIOSK_DEBUG) updateDebugView();
+  }
+
+  // --- Zon-logik ---
+
+  function showZoneView(zoneId, idx) {
+    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    if (!zone || !zoneStates[zoneId]) return;
+
+    const state = zoneStates[zoneId];
+    const prevIdx = state.currentIdx;
+    state.currentIdx = idx;
+
+    const views = zone.views;
+    const nextView = views[idx];
+    const nextEl = document.getElementById('z' + zoneId + '-v' + nextView.position);
+    if (!nextEl) return;
+
+    const transition = zone.transition || 'fade';
+    const transitionDir = zone.transition_direction || 'left';
+
+    if (transition === 'slide') {
+      const leavingEl = document.getElementById('z' + zoneId + '-v' + views[prevIdx].position);
+      
+      // Setup classes for slide animation
+      // Note: We use the same CSS classes as legacy slide but scoped to the zone
+      // Since .view is position absolute inset 0, it works within the zone's div
+      
+      // Reset classes
+      zone.views.forEach(v => {
+        const el = document.getElementById('z' + zoneId + '-v' + v.position);
+        if (el) el.classList.remove('active', 'view-entering', 'view-leaving');
+      });
+
+      // Set direction on body or zone? The CSS expects it on body vt-dir
+      // We'll temporarily set it on body or just use the default
+      document.body.setAttribute('data-vt-dir', transitionDir);
+      document.body.className = 'vt-slide';
+
+      if (leavingEl && leavingEl !== nextEl) leavingEl.classList.add('view-leaving');
+      nextEl.classList.add('view-entering', 'active');
+      nextEl.style.opacity = '1';
+
+      setTimeout(function() {
+        if (leavingEl) {
+          leavingEl.classList.remove('view-leaving');
+          leavingEl.style.opacity = '0';
+        }
+        nextEl.classList.remove('view-entering');
+      }, 700);
+    } else if (transition === 'none') {
+      zone.views.forEach(v => {
+        const el = document.getElementById('z' + zoneId + '-v' + v.position);
+        if (el) {
+          el.classList.remove('active');
+          el.style.opacity = '0';
+        }
+      });
+      nextEl.classList.add('active');
+      nextEl.style.opacity = '1';
+    } else { // fade (default)
+      zone.views.forEach(v => {
+        const el = document.getElementById('z' + zoneId + '-v' + v.position);
+        if (el) el.classList.remove('active');
+      });
+      nextEl.classList.add('active');
+      // CSS handles the opacity transition for .view
+      // But we need to make sure the inline style from template doesn't override it forever
+      nextEl.style.opacity = '1';
+      zone.views.forEach((v, i) => {
+        if (i !== idx) {
+          const el = document.getElementById('z' + zoneId + '-v' + v.position);
+          if (el) el.style.opacity = '0';
+        }
+      });
+    }
+
+    if (window.__KIOSK_DEBUG) updateDebugView();
+  }
+
+  function scheduleZone(zoneId) {
+    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    const state = zoneStates[zoneId];
+    if (!zone || !state) return;
+
+    clearTimeout(state.timer);
+    if (state.paused) return;
+
+    const currentView = zone.views[state.currentIdx];
+    const duration = currentView.duration_seconds || zone.rotation_seconds || 30;
+
+    state.timer = setTimeout(function() {
+      const nextIdx = (state.currentIdx + 1) % zone.views.length;
+      showZoneView(zoneId, nextIdx);
+      scheduleZone(zoneId);
+    }, duration * 1000);
+  }
+
+  function nextZoneView(zoneId) {
+    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    const state = zoneStates[zoneId];
+    if (!zone || !state) return;
+    const nextIdx = (state.currentIdx + 1) % zone.views.length;
+    showZoneView(zoneId, nextIdx);
+  }
+
+  function prevZoneView(zoneId) {
+    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    const state = zoneStates[zoneId];
+    if (!zone || !state) return;
+    const prevIdx = (state.currentIdx - 1 + zone.views.length) % zone.views.length;
+    showZoneView(zoneId, prevIdx);
+  }
+
+  // --- Legacy-logik ---
+
+  function showLegacyView(position) {
     var tr = (typeof SCREEN_TRANSITION !== 'undefined') ? SCREEN_TRANSITION : 'fade';
     var nextEl = document.getElementById('view-' + position);
     if (!nextEl) return;
 
     if (tr === 'slide') {
-      var leavingEl = document.getElementById('view-' + currentPosition);
+      var leavingEl = document.getElementById('view-' + legacyState.currentPosition);
       document.querySelectorAll('.view').forEach(function (el) {
         el.classList.remove('active', 'view-entering', 'view-leaving');
       });
@@ -31,36 +164,63 @@
       nextEl.classList.add('active');
     }
 
-    currentPosition = position;
+    legacyState.currentPosition = position;
     if (window.__KIOSK_DEBUG) updateDebugView();
   }
 
-  function nextView() {
-    showView((currentPosition + 1) % VIEW_COUNT);
-  }
-
-  function prevView() {
-    showView((currentPosition - 1 + VIEW_COUNT) % VIEW_COUNT);
-  }
-
-  function scheduleNext() {
-    clearTimeout(rotationTimer);
-    if (VIEW_COUNT <= 1 || rotationPaused) return;
-    var duration = (VIEWS[currentPosition] && VIEWS[currentPosition].duration) || 30;
-    rotationTimer = setTimeout(function () {
-      nextView();
-      scheduleNext();
+  function scheduleLegacy() {
+    clearTimeout(legacyState.timer);
+    if (!LEGACY_VIEWS || LEGACY_VIEWS.length <= 1 || legacyState.paused) return;
+    var duration = (LEGACY_VIEWS[legacyState.currentPosition] && LEGACY_VIEWS[legacyState.currentPosition].duration_seconds) || 30;
+    legacyState.timer = setTimeout(function () {
+      var nextPos = (legacyState.currentPosition + 1) % LEGACY_VIEWS.length;
+      showLegacyView(nextPos);
+      scheduleLegacy();
     }, duration * 1000);
   }
 
-  function pauseRotation() {
-    rotationPaused = true;
-    clearTimeout(rotationTimer);
+  // --- Gemensamma kontroller ---
+
+  function pauseAll() {
+    if (!isLegacy) {
+      Object.keys(zoneStates).forEach(id => {
+        zoneStates[id].paused = true;
+        clearTimeout(zoneStates[id].timer);
+      });
+    } else {
+      legacyState.paused = true;
+      clearTimeout(legacyState.timer);
+    }
   }
 
-  function resumeRotation() {
-    rotationPaused = false;
-    scheduleNext();
+  function resumeAll() {
+    if (!isLegacy) {
+      Object.keys(zoneStates).forEach(id => {
+        zoneStates[id].paused = false;
+        scheduleZone(parseInt(id));
+      });
+    } else {
+      legacyState.paused = false;
+      scheduleLegacy();
+    }
+  }
+
+  function stepAll(direction) {
+    if (!isLegacy) {
+      Object.keys(zoneStates).forEach(id => {
+        if (direction === 'next') nextZoneView(parseInt(id));
+        else prevZoneView(parseInt(id));
+        if (!zoneStates[id].paused) scheduleZone(parseInt(id));
+      });
+    } else {
+      const count = LEGACY_VIEWS.length;
+      if (direction === 'next') {
+        showLegacyView((legacyState.currentPosition + 1) % count);
+      } else {
+        showLegacyView((legacyState.currentPosition - 1 + count) % count);
+      }
+      if (!legacyState.paused) scheduleLegacy();
+    }
   }
 
   // --- Kiosk-navigation ---
@@ -90,11 +250,11 @@
       if (navPaused) {
         navPaused = false;
         pauseBtn.innerHTML = '&#9646;&#9646;';
-        resumeRotation();
+        resumeAll();
       } else {
         navPaused = true;
         pauseBtn.innerHTML = '&#9654;';
-        pauseRotation();
+        pauseAll();
       }
     });
   }
@@ -102,16 +262,14 @@
   var prevBtn = document.getElementById('nav-prev');
   if (prevBtn) {
     prevBtn.addEventListener('click', function () {
-      prevView();
-      if (!navPaused) scheduleNext();
+      stepAll('prev');
     });
   }
 
   var nextBtn = document.getElementById('nav-next');
   if (nextBtn) {
     nextBtn.addEventListener('click', function () {
-      nextView();
-      if (!navPaused) scheduleNext();
+      stepAll('next');
     });
   }
 
@@ -243,7 +401,7 @@
         pendingReload = false;
         location.reload();
       } else {
-        resumeRotation();
+        resumeAll();
       }
     };
 
@@ -259,16 +417,29 @@
     eventSource.addEventListener('goto_view', function (e) {
       lastEventAt = Date.now();
       var data = JSON.parse(e.data);
-      showView(data.position);
-      scheduleNext();
+      if (data.zone_id && !isLegacy) {
+        const zone = KIOSK_ZONES.find(z => z.id === data.zone_id);
+        if (zone) {
+          const viewIdx = zone.views.findIndex(v => v.position === data.position);
+          if (viewIdx !== -1) {
+            showZoneView(data.zone_id, viewIdx);
+            if (!zoneStates[data.zone_id].paused) scheduleZone(data.zone_id);
+          }
+        }
+      } else {
+        if (!isLegacy) {
+          stepAll('next');
+        } else {
+          showLegacyView(data.position);
+          if (!legacyState.paused) scheduleLegacy();
+        }
+      }
     });
 
     eventSource.addEventListener('config_changed', function () {
       lastEventAt = Date.now();
-      // Ladda inte om direkt — vänta tills SSE är uppkopplad (redan är vi det)
       pendingReload = true;
-      pauseRotation();
-      // Reload sker vid nästa onopen om anslutningen bryts, annars omedelbart
+      pauseAll();
       location.reload();
     });
 
@@ -278,7 +449,6 @@
       fetchWidgetUpdate(data.widget_id);
     });
 
-    // Kommentarer (keepalive) räknas som aktivitet
     eventSource.onmessage = function () {
       lastEventAt = Date.now();
     };
@@ -293,11 +463,10 @@
     };
   }
 
-  // Offline-detektion: om ingen SSE-aktivitet på >90s
   setInterval(function () {
     if (Date.now() - lastEventAt > 90000) {
       offlineBanner.classList.add('visible');
-      pauseRotation();
+      pauseAll();
     }
   }, 10000);
 
@@ -318,7 +487,16 @@
 
   function updateDebugView() {
     var el = document.getElementById('debug-view');
-    if (el) el.textContent = 'Vy ' + (currentPosition + 1) + '/' + VIEW_COUNT;
+    if (!el) return;
+    if (isLegacy) {
+      el.textContent = 'Vy ' + (legacyState.currentPosition + 1) + '/' + (LEGACY_VIEWS ? LEGACY_VIEWS.length : 0);
+    } else {
+      let status = Object.keys(zoneStates).map(id => {
+        const z = KIOSK_ZONES.find(zone => zone.id == id);
+        return 'Z' + id + ':' + (zoneStates[id].currentIdx + 1) + '/' + z.views.length;
+      }).join(' ');
+      el.textContent = status || 'Zon-läge';
+    }
   }
 
   function updateDebugReconnects() {
@@ -338,7 +516,6 @@
 
   // --- Start ---
 
-  showView(0);
-  scheduleNext();
+  initRotation();
   connectSSE();
 })();
