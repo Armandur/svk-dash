@@ -184,6 +184,7 @@ async def view_detail(request: Request, view_id: int):
         for w in all_widgets:
             cat_buckets.setdefault(_kind_to_cat.get(w.kind, "Övrigt"), []).append(w)
         widget_categories = [(cat, cat_buckets.get(cat, [])) for cat, _ in _WIDGET_CATEGORIES]
+        zone = db.get(LayoutZone, view.zone_id) if view.zone_id else None
         sibling_views = db.exec(
             select(View)
             .where(View.screen_id == view.screen_id, View.zone_id == view.zone_id)
@@ -192,13 +193,15 @@ async def view_detail(request: Request, view_id: int):
     aspect_ratio_css = _zone_aspect_css(db, view)
     sib_ids = [v.id for v in sibling_views]
     cur_idx = sib_ids.index(view_id) if view_id in sib_ids else 0
-    prev_view = sibling_views[cur_idx - 1] if cur_idx > 0 else None
-    next_view = sibling_views[cur_idx + 1] if cur_idx < len(sibling_views) - 1 else None
+    is_persistent = zone is not None and zone.role == "persistent"
+    prev_view = sibling_views[cur_idx - 1] if not is_persistent and cur_idx > 0 else None
+    next_view = sibling_views[cur_idx + 1] if not is_persistent and cur_idx < len(sibling_views) - 1 else None
     return HTMLResponse(
         templates.get_template("admin/view_detail.html").render(
             request=request,
             view=view,
             screen=screen,
+            zone=zone,
             aspect_ratio_css=aspect_ratio_css,
             layout_entries=layout_entries,
             layers=layers,

@@ -14,10 +14,45 @@
 </div>
 
 {% if zone.role == 'persistent' %}
-<!-- Persistent zon: widget-hantering (steg 2) -->
-<div class="bg-white rounded-lg shadow p-12 text-center">
-  <p class="text-gray-400 mb-2">Widget-hantering för persistenta zoner</p>
-  <p class="text-sm text-gray-400">Kommer i nästa steg — här placerar du fasta widgets som logga och klocka.</p>
+<!-- Persistent zon: direkt widget-redigering -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-lg shadow p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-sm">Widgets i zonen</h2>
+        <a href="/admin/views/{{ persistent_view.id }}"
+           class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Redigera widgets →</a>
+      </div>
+      {% set widget_count = persistent_view.layout_json.widgets | length if persistent_view.layout_json else 0 %}
+      {% if widget_count > 0 %}
+      <p class="text-sm text-gray-600">{{ widget_count }} widget{% if widget_count != 1 %}s{% endif %} konfigurerade.</p>
+      {% else %}
+      <div class="py-8 text-center border border-dashed border-gray-200 rounded-lg">
+        <p class="text-sm text-gray-400 mb-3">Inga widgets tillagda än.</p>
+        <a href="/admin/views/{{ persistent_view.id }}"
+           class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Öppna widget-editorn</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <div class="bg-white rounded-lg shadow p-5 space-y-2 text-sm">
+      <h2 class="font-semibold text-sm mb-3">Zon-info</h2>
+      <div class="flex justify-between text-xs">
+        <span class="text-gray-500">Position</span>
+        <span>{{ "%.0f"|format(zone.x_pct) }}, {{ "%.0f"|format(zone.y_pct) }} %</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-gray-500">Storlek</span>
+        <span>{{ "%.0f"|format(zone.w_pct) }} × {{ "%.0f"|format(zone.h_pct) }} %</span>
+      </div>
+      <div class="flex justify-between text-xs">
+        <span class="text-gray-500">Grid</span>
+        <span>{{ zone.grid_cols }} × {{ zone.grid_rows }}</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% else %}

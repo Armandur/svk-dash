@@ -243,6 +243,24 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
             .where(View.screen_id == screen_id, View.zone_id == zone_id)
             .order_by(View.position)
         ).all()
+
+        persistent_view = None
+        if zone.role == "persistent":
+            if views:
+                persistent_view = views[0]
+            else:
+                # Skapa vy automatiskt första gången
+                persistent_view = View(
+                    screen_id=screen_id,
+                    zone_id=zone_id,
+                    name=zone.name,
+                    position=0,
+                    layout_json={"widgets": []},
+                )
+                db.add(persistent_view)
+                db.commit()
+                db.refresh(persistent_view)
+
         assignment = db.exec(
             select(ScreenLayoutAssignment)
             .where(ScreenLayoutAssignment.screen_id == screen_id)
@@ -256,7 +274,8 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
             ).all()
     return HTMLResponse(
         templates.get_template("admin/zone_detail.html").render(
-            request=request, screen=screen, zone=zone, views=views, other_zones=other_zones
+            request=request, screen=screen, zone=zone, views=views,
+            persistent_view=persistent_view, other_zones=other_zones
         )
     )
 
