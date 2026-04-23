@@ -142,10 +142,15 @@
     body.vt-slide .view { transition:none; }
     body.vt-slide .view.view-leaving,
     body.vt-slide .view.view-entering { opacity:1; }
-    @keyframes vt-slide-in  { from { transform:translateX(100%); } to { transform:translateX(0); } }
-    @keyframes vt-slide-out { from { transform:translateX(0);    } to { transform:translateX(-100%); } }
-    body.vt-slide .view.view-entering { animation:vt-slide-in  0.6s ease forwards; }
-    body.vt-slide .view.view-leaving  { animation:vt-slide-out 0.6s ease forwards; }
+
+    body.vt-slide[data-vt-dir="left"]  .view.view-entering { animation:ss-from-right  0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="left"]  .view.view-leaving  { animation:ss-to-left     0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="right"] .view.view-entering { animation:ss-from-left   0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="right"] .view.view-leaving  { animation:ss-to-right    0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="up"]    .view.view-entering { animation:ss-from-bottom 0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="up"]    .view.view-leaving  { animation:ss-to-top      0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="down"]  .view.view-entering { animation:ss-from-top    0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="down"]  .view.view-leaving  { animation:ss-to-bottom   0.6s ease forwards; }
 
     /* ics_schedule */
     .widget-ics-schedule { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.3em 0.4em; font-size:clamp(8px,1.5cqh,12px); }
@@ -278,7 +283,7 @@
     #nav-pause { font-size: 1rem; width: 2.4rem; height: 2.4rem; }
   </style>
 </head>
-<body class="vt-{{ screen.transition or 'fade' }}">
+<body class="vt-{{ screen.transition or 'fade' }}" data-vt-dir="{{ screen.transition_direction or 'left' }}">
   <div id="offline-banner">Ingen anslutning till server</div>
 
   <div id="kiosk-nav">

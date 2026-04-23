@@ -44,12 +44,30 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Vy-övergång</label>
-          <select name="transition" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <select name="transition" id="screen-transition-sel" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
             <option value="fade" {% if screen.transition == "fade" or not screen.transition %}selected{% endif %}>Tona (fade)</option>
-            <option value="slide" {% if screen.transition == "slide" %}selected{% endif %}>Glid åt sidan (slide)</option>
+            <option value="slide" {% if screen.transition == "slide" %}selected{% endif %}>Glid (slide)</option>
             <option value="none" {% if screen.transition == "none" %}selected{% endif %}>Ingen</option>
           </select>
         </div>
+        <div id="screen-direction-wrap" {% if screen.transition != "slide" %}style="display:none"{% endif %}>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Riktning</label>
+          <select name="transition_direction" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="left"  {% if (screen.transition_direction or 'left') == 'left'  %}selected{% endif %}>Vänster → höger</option>
+            <option value="right" {% if screen.transition_direction == 'right' %}selected{% endif %}>Höger → vänster</option>
+            <option value="up"    {% if screen.transition_direction == 'up'    %}selected{% endif %}>Nedåt → uppåt</option>
+            <option value="down"  {% if screen.transition_direction == 'down'  %}selected{% endif %}>Uppåt → nedåt</option>
+          </select>
+        </div>
+        <script>
+        (function(){
+          var sel = document.getElementById('screen-transition-sel');
+          var wrap = document.getElementById('screen-direction-wrap');
+          if(sel && wrap) sel.addEventListener('change', function(){
+            wrap.style.display = this.value === 'slide' ? '' : 'none';
+          });
+        })();
+        </script>
         <button type="submit" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700">Spara</button>
       </form>
 
