@@ -185,7 +185,9 @@ async def view_detail(request: Request, view_id: int):
             cat_buckets.setdefault(_kind_to_cat.get(w.kind, "Övrigt"), []).append(w)
         widget_categories = [(cat, cat_buckets.get(cat, [])) for cat, _ in _WIDGET_CATEGORIES]
         sibling_views = db.exec(
-            select(View).where(View.screen_id == view.screen_id).order_by(View.position)
+            select(View)
+            .where(View.screen_id == view.screen_id, View.zone_id == view.zone_id)
+            .order_by(View.position)
         ).all()
     aspect_ratio_css = _zone_aspect_css(db, view)
     sib_ids = [v.id for v in sibling_views]
