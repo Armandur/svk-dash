@@ -1,6 +1,44 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ zone.name }} – {{ screen.name }}{% endblock %}
 {% block content %}
+
+{# ── Zon-preview-makro ────────────────────────────────────────────── #}
+{% macro zone_preview(view) %}
+<div class="bg-white rounded-lg shadow p-5">
+  <h2 class="font-semibold text-sm mb-3">Förhandsgranskning</h2>
+  <div style="position:relative; width:100%; aspect-ratio:{{ zone_aspect_css }};
+              background:#0f172a; border-radius:0.5rem; overflow:hidden;">
+    {% if view and view.layout_json and view.layout_json.widgets %}
+    <div style="position:absolute; inset:0;
+                display:grid;
+                grid-template-columns:repeat({{ view.grid_cols }}, 1fr);
+                grid-template-rows:repeat({{ view.grid_rows }}, 1fr);
+                gap:2px; padding:4px;">
+      {% for w in view.layout_json.widgets %}
+      {% set x = w.get('x', 0) %}
+      {% set y = w.get('y', 0) %}
+      {% set ww = w.get('w', 4) %}
+      {% set wh = w.get('h', 3) %}
+      <div style="grid-column:{{ x+1 }}/{{ x+ww+1 }};
+                  grid-row:{{ y+1 }}/{{ y+wh+1 }};
+                  background:rgba(59,130,246,0.25);
+                  border:1px solid rgba(59,130,246,0.5);
+                  border-radius:3px;
+                  display:flex; align-items:center; justify-content:center;">
+        <span style="font-size:0.55rem; color:rgba(255,255,255,0.6); text-align:center; padding:2px;">
+          {% if 'inline_id' in w %}{{ w.kind }}{% else %}widget{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+      <span style="font-size:0.7rem; color:rgba(255,255,255,0.25);">Tom zon</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
 <div class="mb-6 flex items-center gap-2 flex-wrap">
   <a href="/admin/" class="text-sm text-gray-500 hover:text-gray-900">← Skärmar</a>
   <span class="text-gray-300">/</span>
@@ -36,7 +74,8 @@
     </div>
   </div>
 
-  <div>
+  <div class="space-y-4">
+    {{ zone_preview(persistent_view) }}
     <div class="bg-white rounded-lg shadow p-5 space-y-2 text-sm">
       <h2 class="font-semibold text-sm mb-3">Zon-info</h2>
       <div class="flex justify-between text-xs">
@@ -126,8 +165,9 @@
     </div>
   </div>
 
-  <!-- Höger: zon-info -->
-  <div>
+  <!-- Höger: preview + zon-info -->
+  <div class="space-y-4">
+    {{ zone_preview(views[0] if views else none) }}
     <div class="bg-white rounded-lg shadow p-5 space-y-2 text-sm">
       <h2 class="font-semibold text-sm mb-3">Zon-info</h2>
       <div class="flex justify-between text-xs">

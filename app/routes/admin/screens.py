@@ -282,10 +282,22 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
                 .where(View.screen_id == screen_id, View.zone_id == zone_id)
                 .order_by(View.position)
             ).all()
+
+        # Beräkna zonens aspect-ratio för preview
+        zone_aspect_css = "16 / 9"
+        if assignment:
+            layout = db.get(Layout, assignment.layout_id)
+            if layout and zone.w_pct and zone.h_pct:
+                _ASPECT = {"16:9": 16/9, "9:16": 9/16, "4:3": 4/3, "1:1": 1.0, "21:9": 21/9}
+                sr = _ASPECT.get(layout.aspect_ratio, 16/9)
+                zr = sr * (zone.w_pct / zone.h_pct)
+                zone_aspect_css = f"{zr:.6f} / 1"
+
     return HTMLResponse(
         templates.get_template("admin/zone_detail.html").render(
             request=request, screen=screen, zone=zone, views=views,
-            persistent_view=persistent_view, other_zones=other_zones
+            persistent_view=persistent_view, other_zones=other_zones,
+            zone_aspect_css=zone_aspect_css,
         )
     )
 
