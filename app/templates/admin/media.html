@@ -434,7 +434,7 @@
     updateBatch();
   }
   if (container) container.addEventListener('click', function(e) {
-    if (e.target.closest('button,a,form,select')) return;
+    if (e.target.closest('button,a,form,select') || e.target.matches('input[type="checkbox"]')) return;
     var card = e.target.closest('.media-card');
     if (card) toggleCard(card);
   });
