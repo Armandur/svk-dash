@@ -39,14 +39,14 @@
       {% endif %}
     </div>
     {% endfor %}
-  {% if widgets %}
-  ...
-  {% else %}
-  <div class="bg-white rounded-xl shadow p-12 text-center">
-    <p class="text-gray-400 mb-4">Inga widgets ännu.</p>
-    <button onclick="document.getElementById('open-new-widget').click()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Skapa din första widget</button>
   </div>
-  {% endif %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow p-12 text-center">
+  <p class="text-gray-400 mb-4">Inga widgets ännu.</p>
+  <button onclick="document.getElementById('open-new-widget').click()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Skapa din första widget</button>
+</div>
+{% endif %}
 
   <!-- Ny widget-modal -->
   <div id="new-widget-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.45)">
