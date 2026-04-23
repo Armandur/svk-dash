@@ -135,7 +135,9 @@
       <!-- 3: namn + (i gridvy: storlek + knappar) -->
       <div class="col-name">
         <p class="media-name" title="{{ f.original_name }}">{{ f.original_name }}</p>
-        <p class="grid-only media-meta">{{ (f.size_bytes / 1024) | round(1) }} KB</p>
+        <p class="grid-only media-meta">{{ (f.size_bytes / 1024) | round(1) }} KB
+          {% if usages %}<span class="usage-badge" title="{{ usages | map(attribute='name') | join(', ') }}">{{ usages | length }} användning{% if usages | length != 1 %}ar{% endif %}</span>{% endif %}
+        </p>
         <div class="grid-only grid-actions">
           <button type="button" class="copy-url-btn" data-url="/uploads/{{ f.filename }}">URL</button>
           <button type="button" class="replace-btn" data-id="{{ f.id }}">Ersätt</button>
@@ -324,6 +326,12 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .media-meta { font-size: 0.7rem; color: #9ca3af; }
+.usage-badge {
+  display: inline-block; margin-left: 4px;
+  font-size: 0.65rem; background: #dbeafe; color: #1d4ed8;
+  border-radius: 3px; padding: 0 4px; font-weight: 500;
+  white-space: nowrap;
+}
 .grid-actions { display: flex; gap: 3px; margin-top: auto; padding-top: 6px; flex-wrap: wrap; }
 
 /* Col 4–6 dolda i gridvy */
