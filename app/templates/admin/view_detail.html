@@ -448,6 +448,10 @@
     btn.classList.replace('hover:bg-amber-600','hover:bg-green-700');
   }
 
+  window.addEventListener('beforeunload', e => {
+    if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
   // ── Helpers ──────────────────────────────────────────
   function cellW() { return gridEl.offsetWidth / COLS; }
   function rowH()  { return gridEl.offsetHeight / ROWS; }
@@ -662,8 +666,11 @@
           widgets.push({widget_id:+card.dataset.widgetId, x:+card.dataset.x, y:+card.dataset.y, w:+card.dataset.w, h:+card.dataset.h, z_index:+card.dataset.z, opacity});
         }
       });
+      console.log('Sparar layout:', JSON.stringify({widgets}));
       const resp=await fetch('/admin/views/{{ view.id }}/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({widgets})});
-      if(resp.ok){ clearDirty(); status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
+      console.log('Svar:', resp.status, resp.redirected, resp.url);
+      if(resp.ok && !resp.redirected){ clearDirty(); status.textContent='Sparad.'; status.className='text-xs mt-2 text-center text-green-600'; }
+      else if(resp.redirected){ status.textContent='Session utgången – ladda om sidan.'; status.className='text-xs mt-2 text-center text-red-500'; }
       else { status.textContent='Fel vid sparande ('+resp.status+').'; status.className='text-xs mt-2 text-center text-red-500'; }
     } catch(err) {
       console.error('Sparfel:', err);
