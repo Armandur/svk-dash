@@ -115,6 +115,13 @@ class LayoutZone(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class LayoutRevision(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    layout_id: int = Field(foreign_key="layout.id")
+    zones_json: Any = Field(default_factory=list, sa_column=Column(JSON))
+    saved_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ZoneWidgetPlacement(SQLModel, table=True):
     """Widget-placering i en zon. screen_id=None → template-default; screen_id satt → skärm-override."""
     id: int | None = Field(default=None, primary_key=True)

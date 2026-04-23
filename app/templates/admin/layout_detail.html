@@ -174,6 +174,40 @@
         <p id="save-status" class="text-xs text-center mt-3 hidden"></p>
       </div>
     </div>
+
+    <!-- Revisioner -->
+    {% if revisions %}
+    <button id="open-revisions" class="w-full text-left bg-white rounded-lg shadow p-5 hover:bg-gray-50 transition-colors">
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-sm text-gray-700">Revisionshistorik</span>
+        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ revisions | length }}</span>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">Senast: {{ revisions[0].saved_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </button>
+
+    <!-- Revisionsmodal -->
+    <div id="revision-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.45)">
+      <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:480px;max-height:80vh;margin:1rem">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
+          <h2 class="font-semibold text-sm">Revisionshistorik</h2>
+          <button id="close-revisions" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="overflow-y-auto flex-1">
+          {% for rev in revisions %}
+          <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 last:border-0">
+            <div>
+              <div class="text-sm text-gray-700">{{ rev.saved_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            </div>
+            <form method="post" action="/admin/layouts/{{ layout.id }}/revert/{{ rev.id }}"
+              onsubmit="return confirm('Återställ till denna version?')">
+              <button type="submit" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Återställ</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -757,6 +791,19 @@
   window.addEventListener('beforeunload', e => {
     if (isDirty) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  // Revisionsmodal
+  const revModal = document.getElementById('revision-modal');
+  const openRevBtn = document.getElementById('open-revisions');
+  const closeRevBtn = document.getElementById('close-revisions');
+  if (openRevBtn && revModal) {
+    openRevBtn.onclick = () => revModal.classList.remove('hidden');
+    closeRevBtn.onclick = () => revModal.classList.add('hidden');
+    revModal.onclick = (e) => { if (e.target === revModal) revModal.classList.add('hidden'); };
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !revModal.classList.contains('hidden')) revModal.classList.add('hidden');
+    });
+  }
 })();
 </script>
 {% endblock %}

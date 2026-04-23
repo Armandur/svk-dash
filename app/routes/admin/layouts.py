@@ -6,7 +6,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Layout, LayoutZone, ZoneWidgetPlacement
+from app.models import Layout, LayoutRevision, LayoutZone, ZoneWidgetPlacement
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -101,10 +101,16 @@ async def layout_detail(request: Request, layout_id: int):
             }
             for z in zones
         ]
+        revisions = db.exec(
+            select(LayoutRevision)
+            .where(LayoutRevision.layout_id == layout_id)
+            .order_by(LayoutRevision.saved_at.desc())
+        ).all()
     return _render("admin/layout_detail.html", {
         "request": request,
         "layout": layout,
         "zones": zones_data,
+        "revisions": revisions,
         "aspect_ratios": ASPECT_RATIOS,
     })
 
@@ -170,9 +176,71 @@ async def zones_save(request: Request, layout_id: int):
 
         layout.updated_at = datetime.utcnow()
         db.add(layout)
+
+        # Spara revision
+        existing_zones = db.exec(
+            select(LayoutZone).where(LayoutZone.layout_id == layout_id)
+        ).all()
+        snapshot = [
+            {"id": z.id, "name": z.name, "role": z.role,
+             "x_pct": z.x_pct, "y_pct": z.y_pct, "w_pct": z.w_pct, "h_pct": z.h_pct,
+             "grid_cols": z.grid_cols, "grid_rows": z.grid_rows, "z_index": z.z_index}
+            for z in existing_zones
+        ]
+        db.add(LayoutRevision(layout_id=layout_id, zones_json=snapshot))
         db.commit()
+        _prune_revisions(db, layout_id)
 
     return {"ok": True}
+
+
+def _prune_revisions(db, layout_id: int) -> None:
+    revisions = db.exec(
+        select(LayoutRevision)
+        .where(LayoutRevision.layout_id == layout_id)
+        .order_by(LayoutRevision.saved_at.desc())
+    ).all()
+    for old in revisions[20:]:
+        db.delete(old)
+    db.commit()
+
+
+# ── Återställ revision ────────────────────────────────────────────────────────
+
+@router.post("/layouts/{layout_id}/revert/{revision_id}")
+async def layout_revert(layout_id: int, revision_id: int):
+    with get_session() as db:
+        layout = db.get(Layout, layout_id)
+        revision = db.get(LayoutRevision, revision_id)
+        if not layout or not revision or revision.layout_id != layout_id:
+            return RedirectResponse(f"/admin/layouts/{layout_id}", status_code=302)
+
+        # Ta bort befintliga zoner
+        existing = db.exec(
+            select(LayoutZone).where(LayoutZone.layout_id == layout_id)
+        ).all()
+        for z in existing:
+            db.delete(z)
+
+        # Återskapa från snapshot (utan id — nya rader)
+        for z in revision.zones_json:
+            db.add(LayoutZone(
+                layout_id=layout_id,
+                name=z.get("name", "Zon"),
+                role=z.get("role", "schedulable"),
+                x_pct=float(z.get("x_pct", 0)),
+                y_pct=float(z.get("y_pct", 0)),
+                w_pct=float(z.get("w_pct", 100)),
+                h_pct=float(z.get("h_pct", 100)),
+                grid_cols=int(z.get("grid_cols", 12)),
+                grid_rows=int(z.get("grid_rows", 9)),
+                z_index=int(z.get("z_index", 0)),
+            ))
+
+        layout.updated_at = datetime.utcnow()
+        db.add(layout)
+        db.commit()
+    return RedirectResponse(f"/admin/layouts/{layout_id}", status_code=302)
 
 
 # ── Ta bort layout ────────────────────────────────────────────────────────────
