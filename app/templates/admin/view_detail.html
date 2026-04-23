@@ -168,18 +168,20 @@
 {% block content %}
 <div class="mb-4 flex items-center gap-3">
   <a href="/admin/screens/{{ view.screen_id }}" class="text-sm text-gray-500 hover:text-gray-900">← Skärm</a>
-  {% if prev_view %}
-  <a href="/admin/views/{{ prev_view.id }}" class="text-gray-400 hover:text-gray-700 text-xl leading-none" title="{{ prev_view.name }}">&#8249;</a>
-  {% else %}
-  <span class="text-gray-200 text-xl leading-none">&#8249;</span>
-  {% endif %}
+  <div class="flex items-center gap-1 border border-gray-200 rounded overflow-hidden">
+    {% if prev_view %}
+    <a href="/admin/views/{{ prev_view.id }}" class="px-2 py-0.5 text-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900" title="{{ prev_view.name }}">&#8249;</a>
+    {% else %}
+    <span class="px-2 py-0.5 text-lg text-gray-300 cursor-default">&#8249;</span>
+    {% endif %}
+    <span class="px-2 py-0.5 text-xs text-gray-500 border-l border-r border-gray-200">{{ view_index + 1 }}/{{ view_count }}</span>
+    {% if next_view %}
+    <a href="/admin/views/{{ next_view.id }}" class="px-2 py-0.5 text-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900" title="{{ next_view.name }}">&#8250;</a>
+    {% else %}
+    <span class="px-2 py-0.5 text-lg text-gray-300 cursor-default">&#8250;</span>
+    {% endif %}
+  </div>
   <h1 class="text-2xl font-bold">{{ view.name }}</h1>
-  <span class="text-sm text-gray-400">{{ view_index + 1 }}/{{ view_count }}</span>
-  {% if next_view %}
-  <a href="/admin/views/{{ next_view.id }}" class="text-gray-400 hover:text-gray-700 text-xl leading-none" title="{{ next_view.name }}">&#8250;</a>
-  {% else %}
-  <span class="text-gray-200 text-xl leading-none">&#8250;</span>
-  {% endif %}
   {% if screen %}<a href="/s/{{ screen.slug }}" target="_blank" class="text-sm text-gray-400 hover:text-gray-700">Kiosk ↗</a>{% endif %}
 </div>
 
