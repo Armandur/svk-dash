@@ -84,6 +84,8 @@ def _assign_lanes(events: list[tuple]) -> list[tuple]:
 def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     widget_id = context.get("widget_id")
     urls = get_ics_urls(config)
+    show_full_week = bool(config.get("show_full_week", False))
+    week_offset = int(config.get("week_offset", 0))
     day_offset = int(config.get("day_offset", 0))
     day_count = max(1, min(7, int(config.get("day_count", 1))))
     start_hour = max(0, min(23, int(config.get("start_hour", 8))))
@@ -107,7 +109,11 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
 
     cache_by_url = {c.source_url: c for c in caches}
     today = datetime.now(_TZ).date()
-    days = [today + timedelta(days=day_offset + i) for i in range(day_count)]
+    if show_full_week:
+        week_monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+        days = [week_monday + timedelta(days=i) for i in range(7)]
+    else:
+        days = [today + timedelta(days=day_offset + i) for i in range(day_count)]
 
     DayData = dict
     day_data: list[DayData] = [{

@@ -259,7 +259,14 @@ function removeIcsUrl(btn) {
             })();
           </script>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="show_full_week" id="sch-full-week"
+                   {% if cfg.get('show_full_week', false) %}checked{% endif %} class="rounded">
+            Visa hela veckan (mån–sön)
+          </label>
+        </div>
+        <div id="sch-dynamic-fields" class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Dag-offset (0=idag, 1=imorgon…)</label>
             <input type="number" data-field="day_offset" value="{{ cfg.get('day_offset', 0) }}"
@@ -271,6 +278,31 @@ function removeIcsUrl(btn) {
                    min="1" max="7" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
           </div>
         </div>
+        <div id="sch-week-fields" class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Vecka-offset (0=denna, 1=nästa…)</label>
+            <input type="number" data-field="week_offset" value="{{ cfg.get('week_offset', 0) }}"
+                   min="-52" max="52" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+        </div>
+        <script>
+          (function(){
+            var cb = document.getElementById('sch-full-week');
+            var dynFields = document.getElementById('sch-dynamic-fields');
+            var weekFields = document.getElementById('sch-week-fields');
+            function updateVis() {
+              if (cb && cb.checked) {
+                if (dynFields) dynFields.style.display = 'none';
+                if (weekFields) weekFields.style.display = '';
+              } else {
+                if (dynFields) dynFields.style.display = '';
+                if (weekFields) weekFields.style.display = 'none';
+              }
+            }
+            if (cb) cb.addEventListener('change', updateVis);
+            updateVis();
+          })();
+        </script>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Starttimme (t.ex. 8)</label>
