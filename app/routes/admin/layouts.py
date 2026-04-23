@@ -91,10 +91,20 @@ async def layout_detail(request: Request, layout_id: int):
             .where(LayoutZone.layout_id == layout_id)
             .order_by(LayoutZone.z_index)
         ).all()
+        zones_data = [
+            {
+                "id": z.id, "name": z.name, "role": z.role,
+                "x_pct": z.x_pct, "y_pct": z.y_pct,
+                "w_pct": z.w_pct, "h_pct": z.h_pct,
+                "grid_cols": z.grid_cols, "grid_rows": z.grid_rows,
+                "z_index": z.z_index,
+            }
+            for z in zones
+        ]
     return _render("admin/layout_detail.html", {
         "request": request,
         "layout": layout,
-        "zones": zones,
+        "zones": zones_data,
         "aspect_ratios": ASPECT_RATIOS,
     })
 
