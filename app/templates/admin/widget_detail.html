@@ -581,6 +581,16 @@ function removeIcsUrl(btn) {
         </div>
         {% endif %}
 
+        {% if widget.kind not in ('debug', 'raw_html') %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Anpassad CSS</label>
+          <textarea data-field="custom_css" rows="6" spellcheck="false"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono"
+                    placeholder=".widget-ics-list { font-size: 1.1em; }">{{ cfg.get('custom_css', '') }}</textarea>
+          <p class="text-xs text-gray-400 mt-1">Injiceras som <code>&lt;style&gt;</code> i widgetens HTML. Scope selektorer själv med klassnamn eller <code>[data-widget-id="{{ widget.id }}"]</code>.</p>
+        </div>
+        {% endif %}
+
         {% if widget.kind != 'debug' %}
         <details class="text-xs">
           <summary class="cursor-pointer text-gray-400 hover:text-gray-600 select-none py-1">Rå JSON</summary>

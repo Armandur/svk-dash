@@ -23,4 +23,8 @@ def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) ->
     renderer = renderers.get(kind)
     if renderer is None:
         return f'<div class="widget-placeholder">Widget-typ "{kind}" saknar renderer.</div>'
-    return renderer.render(config, context)
+    html = renderer.render(config, context)
+    custom_css = (config.get("custom_css") or "").strip()
+    if custom_css:
+        html = f"<style>{custom_css}</style>" + html
+    return html
