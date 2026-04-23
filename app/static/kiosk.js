@@ -129,6 +129,30 @@
   setInterval(tickClocks, 1000);
   tickClocks();
 
+  // --- Tidslinje (ics_schedule) ---
+
+  function updateNowLines() {
+    var now = new Date();
+    var nowMin = now.getHours() * 60 + now.getMinutes();
+    document.querySelectorAll('[data-now-start]').forEach(function (col) {
+      var line = col.querySelector('.isch-now-line');
+      if (!line) return;
+      var startH = parseInt(col.dataset.nowStart, 10);
+      var endH   = parseInt(col.dataset.nowEnd, 10);
+      var totalMin = (endH - startH) * 60;
+      var offset   = nowMin - startH * 60;
+      if (offset < 0 || offset > totalMin) {
+        line.style.display = 'none';
+      } else {
+        line.style.display = '';
+        line.style.top = (100 * offset / totalMin).toFixed(4) + '%';
+      }
+    });
+  }
+
+  updateNowLines();
+  setInterval(updateNowLines, 60000);
+
   // --- SSE ---
 
   var lastEventAt = Date.now();

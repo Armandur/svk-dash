@@ -246,11 +246,17 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     parts.append('</div>')
 
     for dd in day_data:
-        today_cls = " isch-today-col" if dd["date"] == today else ""
-        parts.append(f'<div class="isch-main-col{today_cls}">')
+        is_today = dd["date"] == today
+        today_cls = " isch-today-col" if is_today else ""
+        now_attrs = (f' data-now-start="{start_hour}" data-now-end="{end_hour}"'
+                     if is_today else "")
+        parts.append(f'<div class="isch-main-col{today_cls}"{now_attrs}>')
         for h in range(start_hour, end_hour):
             pct = _pct(h * 60 - start_minute, total_minutes)
             parts.append(f'<div class="isch-grid-line" style="top:{pct}"></div>')
+
+        if dd["date"] == today:
+            parts.append('<div class="isch-now-line"></div>')
 
         for ev in dd["main"]:
             offset, duration, total, time_str, summary, location, color, lane, n_lanes = ev

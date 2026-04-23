@@ -101,6 +101,17 @@
     .isch-t { color:rgba(255,255,255,0.4); margin-right:0.2em; font-variant-numeric:tabular-nums; }
     .isch-ev-inline { display:flex; gap:0.2em; align-items:baseline; overflow:hidden; }
     .isch-ev-compact { font-size:0.65em; line-height:1.1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .isch-now-line {
+      position:absolute; left:0; right:0; height:2px;
+      background:#ef4444;
+      box-shadow: 0 0 4px rgba(239,68,68,0.7);
+      pointer-events:none; z-index:10;
+    }
+    .isch-now-line::before {
+      content:''; position:absolute; left:-3px; top:-3px;
+      width:8px; height:8px; border-radius:50%;
+      background:#ef4444;
+    }
     .widget-ics-schedule.ics-sm { font-size:clamp(7px,1.2cqh,10px); }
     .widget-ics-schedule.ics-lg { font-size:clamp(9px,1.9cqh,14px); }
 
