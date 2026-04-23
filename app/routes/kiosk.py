@@ -18,33 +18,110 @@ router = APIRouter()
 _VERSION = "dev"
 
 
-def _active_assignment(assignments, now: datetime):
-    """Väljer den mest prioriterade aktiva tilldelningen baserat på schema."""
-    active = []
-    current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))]
+def _is_active(schedule, now: datetime):
+    if not schedule:
+        return True
+    
+    if isinstance(schedule, str):
+        try:
+            schedule = json.loads(schedule)
+        except:
+            return True
+            
+    type_ = schedule.get("type", "always")
+    if type_ == "always":
+        return True
+        
+    # Check time
     current_time = now.strftime("%H:%M")
+    time_start = schedule.get("time_start")
+    time_end = schedule.get("time_end")
+    if time_start and current_time < time_start:
+        return False
+    if time_end and current_time >= time_end:
+        return False
+        
+    if type_ == "weekly":
+        current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))]
+        days = schedule.get("weekdays", [])
+        return current_day in days
+        
+    if type_ == "monthly":
+        return now.day == schedule.get("day")
+        
+    if type_ == "yearly":
+        return now.day == schedule.get("day") and now.month == schedule.get("month")
+        
+    if type_ == "dates":
+        current_date = now.strftime("%Y-%m-%d")
+        return current_date in schedule.get("dates", [])
+        
+    return True
 
-    for a in assignments:
-        # Veckodagar
-        if a.weekdays:
-            days = [d.strip() for d in a.weekdays.split(",")]
-            if current_day not in days:
-                continue
 
-        # Tid
-        if a.time_start and current_time < a.time_start:
-            continue
-        if a.time_end and current_time >= a.time_end:
-            continue
-
-        active.append(a)
+def _get_active_assignments(assignments, now: datetime):
+    import logging as _log
+    active = [a for a in assignments if _is_active(a.schedule_json, now)]
 
     if not active:
-        return None
+        _log.getLogger(__name__).info("layout-val: inga aktiva tilldelningar")
+        return []
 
-    # Sortera på prioritet (högst först)
-    active.sort(key=lambda x: x.priority, reverse=True)
-    return active[0]
+    rotating = [a for a in active if a.duration_seconds]
+    if rotating:
+        rotating.sort(key=lambda x: (x.priority, x.id), reverse=True)
+        _log.getLogger(__name__).info("layout-val: roterande=%s", [a.id for a in rotating])
+        return rotating
+    
+    active.sort(key=lambda x: (x.priority, x.id), reverse=True)
+    _log.getLogger(__name__).info("layout-val: vinnare=%s", active[0].id)
+    return [active[0]]
+
+
+def _render_layout(assignment, screen, context, db):
+    layout = db.get(Layout, assignment.layout_id)
+    if not layout:
+        return None
+        
+    db_zones = db.exec(
+        select(LayoutZone)
+        .where(LayoutZone.layout_id == layout.id)
+        .order_by(LayoutZone.z_index)
+    ).all()
+    
+    zones_rendered = []
+    for zone in db_zones:
+        zone_views = db.exec(
+            select(View)
+            .where(View.screen_id == screen.id, View.zone_id == zone.id)
+            .order_by(View.position)
+        ).all()
+        views_data = [_render_view(v, context, db) for v in zone_views]
+        zones_rendered.append(
+            {
+                "id": zone.id,
+                "name": zone.name,
+                "role": zone.role,
+                "x_pct": zone.x_pct,
+                "y_pct": zone.y_pct,
+                "w_pct": zone.w_pct,
+                "h_pct": zone.h_pct,
+                "z_index": zone.z_index,
+                "rotation_seconds": zone.rotation_seconds,
+                "transition": zone.transition,
+                "transition_direction": zone.transition_direction,
+                "views": views_data,
+            }
+        )
+    
+    return {
+        "assignment_id": assignment.id,
+        "layout_id": layout.id,
+        "duration_seconds": assignment.duration_seconds,
+        "transition": assignment.transition,
+        "transition_duration_ms": assignment.transition_duration_ms,
+        "zones": zones_rendered,
+    }
 
 
 def _render_view(view: View, context: dict, db) -> dict:
@@ -84,9 +161,7 @@ def _render_view(view: View, context: dict, db) -> dict:
         "name": view.name,
         "position": view.position,
         "duration_seconds": view.duration_seconds,
-        "schedule_weekdays": view.schedule_weekdays,
-        "schedule_time_start": view.schedule_time_start,
-        "schedule_time_end": view.schedule_time_end,
+        "schedule_json": view.schedule_json,
         "widgets": rendered_widgets,
         "grid_cols": view.grid_cols,
         "grid_rows": view.grid_rows,
@@ -106,112 +181,65 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
             "version": _VERSION,
         }
 
-        # Kolla om skärmen har en layout
+        # Hämta alla tilldelningar för skärmen
         assignments = db.exec(
             select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen.id)
         ).all()
 
         now = datetime.now()
-        assignment = _active_assignment(assignments, now)
+        active_assignments = _get_active_assignments(assignments, now)
 
-        zones_rendered = None
-        layout = None
-        legacy_views = None
+        layouts_rendered = []
+        for assignment in active_assignments:
+            rendered = _render_layout(assignment, screen, context, db)
+            if rendered:
+                layouts_rendered.append(rendered)
 
-        if assignment:
-            layout = db.get(Layout, assignment.layout_id)
-            if layout:
-                db_zones = db.exec(
-                    select(LayoutZone)
-                    .where(LayoutZone.layout_id == layout.id)
-                    .order_by(LayoutZone.z_index)
-                ).all()
-                zones_rendered = []
-                for zone in db_zones:
-                    zone_views = db.exec(
-                        select(View)
-                        .where(View.screen_id == screen.id, View.zone_id == zone.id)
-                        .order_by(View.position)
-                    ).all()
-                    views_data = [_render_view(v, context, db) for v in zone_views]
-                    zones_rendered.append(
-                        {
-                            "id": zone.id,
-                            "name": zone.name,
-                            "role": zone.role,
-                            "x_pct": zone.x_pct,
-                            "y_pct": zone.y_pct,
-                            "w_pct": zone.w_pct,
-                            "h_pct": zone.h_pct,
-                            "z_index": zone.z_index,
-                            "rotation_seconds": zone.rotation_seconds,
-                            "transition": zone.transition,
-                            "transition_direction": zone.transition_direction,
-                            "views": views_data,
-                        }
-                    )
-
-        if zones_rendered is None:
-            # Legacy: ingen layout, visa vyer direkt
-            db_views = db.exec(
-                select(View)
-                .where(View.screen_id == screen.id, View.zone_id == None)  # noqa: E711
-                .order_by(View.position)
-            ).all()
-            legacy_views = []
-            for v in db_views:
-                rv = _render_view(v, context, db)
-                rv["duration_seconds"] = rv["duration_seconds"] or 30
-                legacy_views.append(rv)
-
-    def _strip_html(zones):
-        """Returnerar en kopia av zones utan widget-HTML (för JS-konstanten)."""
-        if zones is None:
-            return None
-        result = []
-        for z in zones:
+    def _strip_html(layout):
+        """Returnerar en kopia av layouten utan widget-HTML (för JS-konstanten)."""
+        stripped_zones = []
+        for z in layout["zones"]:
             views_meta = [
                 {
                     "position": v["position"],
                     "name": v["name"],
                     "duration_seconds": v["duration_seconds"],
-                    "schedule_weekdays": v["schedule_weekdays"],
-                    "schedule_time_start": v["schedule_time_start"],
-                    "schedule_time_end": v["schedule_time_end"],
+                    "schedule_json": v["schedule_json"],
                 }
                 for v in z["views"]
             ]
-            result.append({k: v for k, v in z.items() if k != "views"} | {"views": views_meta})
-        return result
-
-    def _legacy_meta(views):
-        if views is None:
-            return None
-        return [
-            {
-                "position": v["position"],
-                "name": v["name"],
-                "duration_seconds": v["duration_seconds"],
-                "schedule_weekdays": v["schedule_weekdays"],
-                "schedule_time_start": v["schedule_time_start"],
-                "schedule_time_end": v["schedule_time_end"],
-            }
-            for v in views
-        ]
+            stripped_zones.append({k: v for k, v in z.items() if k != "views"} | {"views": views_meta})
+        
+        return {
+            "assignment_id": layout["assignment_id"],
+            "duration_seconds": layout["duration_seconds"],
+            "transition": layout["transition"],
+            "transition_duration_ms": layout["transition_duration_ms"],
+            "zones": stripped_zones,
+        }
 
     show_debug = debug == "1"
-    return HTMLResponse(
+    
+    # Första layouten bestämmer initiala body-klasser om vi bara har en, 
+    # annars hanteras det av JS.
+    first_layout = layouts_rendered[0] if layouts_rendered else None
+    
+    response = HTMLResponse(
         templates.get_template("kiosk/screen.html").render(
             request=request,
             screen=screen,
-            zones=zones_rendered,
-            zones_js=_strip_html(zones_rendered),
-            legacy_views=legacy_views,
-            legacy_views_js=_legacy_meta(legacy_views),
+            layouts=layouts_rendered,
+            layouts_js=[_strip_html(l) for l in layouts_rendered] if layouts_rendered else None,
+            layout_rotation={
+                "duration_seconds": first_layout["duration_seconds"] if first_layout else None,
+                "transition": first_layout["transition"] if first_layout else "fade",
+                "transition_duration_ms": first_layout["transition_duration_ms"] if first_layout else 700,
+            },
             show_debug=show_debug,
             version=_VERSION,
         )
     )
+    return response
 
 
 def _update_heartbeat(screen_id: int) -> None:

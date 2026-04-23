@@ -116,13 +116,22 @@
               {% endif %}
 
               {% set is_active = True %}
-              {% if view.schedule_weekdays or view.schedule_time_start or view.schedule_time_end %}
+              {% if view.schedule_json %}
+                {% set s = view.schedule_json %}
                 {% set now = now_local() %}
                 {% set current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))] %}
                 {% set current_time = now.strftime("%H:%M") %}
-                {% if view.schedule_weekdays and current_day not in view.schedule_weekdays.split(',') %}{% set is_active = False %}{% endif %}
-                {% if view.schedule_time_start and current_time < view.schedule_time_start %}{% set is_active = False %}{% endif %}
-                {% if view.schedule_time_end and current_time >= view.schedule_time_end %}{% set is_active = False %}{% endif %}
+                {% set current_date = now.strftime("%Y-%m-%d") %}
+                
+                {% if s.time_start and current_time < s.time_start %}{% set is_active = False %}{% endif %}
+                {% if s.time_end and current_time >= s.time_end %}{% set is_active = False %}{% endif %}
+                
+                {% if is_active %}
+                  {% if s.type == 'weekly' and current_day not in s.weekdays %}{% set is_active = False %}{% endif %}
+                  {% if s.type == 'monthly' and now.day != s.day %}{% set is_active = False %}{% endif %}
+                  {% if s.type == 'yearly' and (now.day != s.day or now.month != s.month) %}{% set is_active = False %}{% endif %}
+                  {% if s.type == 'dates' and current_date not in s.dates %}{% set is_active = False %}{% endif %}
+                {% endif %}
               {% endif %}
 
               {% if is_active %}
@@ -146,31 +155,15 @@
             </div>
           </div>
 
-          <!-- Schema-formulär -->
-          <form method="post" action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule"
-                class="bg-gray-50 rounded p-2 text-xs">
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div class="flex items-center gap-2">
-                {% for day_code, day_name in [('mon','Mån'), ('tue','Tis'), ('wed','Ons'), ('thu','Tor'), ('fri','Fre'), ('sat','Lör'), ('sun','Sön')] %}
-                <label class="flex items-center gap-1 cursor-pointer">
-                  <input type="checkbox" name="weekdays" value="{{ day_code }}"
-                         {% if view.schedule_weekdays and day_code in view.schedule_weekdays.split(',') %}checked{% endif %}
-                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                  <span>{{ day_name }}</span>
-                </label>
-                {% endfor %}
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-gray-500">Tid:</span>
-                <input type="time" name="time_start" value="{{ view.schedule_time_start or '' }}"
-                       class="border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none">
-                <span class="text-gray-400">–</span>
-                <input type="time" name="time_end" value="{{ view.schedule_time_end or '' }}"
-                       class="border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none">
-                <button type="submit" class="ml-2 bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors">Spara schema</button>
-              </div>
+          <!-- Schema-sammanfattning (klickbar för modal) -->
+          <div class="bg-gray-50 rounded p-2 text-xs flex items-center justify-between group cursor-pointer hover:bg-gray-100 transition-colors"
+               onclick="openScheduleModal('view', {{ view.id }}, {{ (view.schedule_json or {}) | tojson }}, null, '/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule')">
+            <div>
+              <span class="text-gray-400 font-semibold uppercase text-[9px] mr-2">Schema:</span>
+              <span class="text-gray-700 font-medium">{{ view.schedule_json | schedule_summary }}</span>
             </div>
-          </form>
+            <span class="text-blue-600 font-medium group-hover:underline">Ändra</span>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -197,7 +190,7 @@
     </div>
   </div>
 
-  <!-- Höger: preview + zon-info -->
+  <!-- Höger: preview + zon-info + inställningar -->
   <div class="space-y-4">
     {{ zone_preview(views[0] if views else none) }}
     <div class="bg-white rounded-lg shadow p-5 space-y-2 text-sm">
@@ -215,8 +208,42 @@
         <span>{{ zone.grid_cols }} × {{ zone.grid_rows }}</span>
       </div>
     </div>
+
+    <form method="post" action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/settings"
+          class="bg-white rounded-lg shadow p-5 space-y-3 text-sm">
+      <h2 class="font-semibold text-sm mb-1">Rotation &amp; övergång</h2>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Standardtid per vy (s)</label>
+        <input type="number" name="rotation_seconds" min="1" value="{{ zone.rotation_seconds }}"
+               class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-gray-400 mt-1">Används om vyn saknar egen tid.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Övergång</label>
+        <select name="transition" id="zone-transition-select"
+                onchange="document.getElementById('zone-direction-row').style.display = this.value === 'slide' ? '' : 'none'"
+                class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="fade" {% if zone.transition == 'fade' %}selected{% endif %}>Fade</option>
+          <option value="slide" {% if zone.transition == 'slide' %}selected{% endif %}>Slide</option>
+          <option value="none" {% if zone.transition == 'none' %}selected{% endif %}>Ingen</option>
+        </select>
+      </div>
+      <div id="zone-direction-row" {% if zone.transition != 'slide' %}style="display:none"{% endif %}>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Riktning</label>
+        <select name="transition_direction"
+                class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="left" {% if zone.transition_direction == 'left' %}selected{% endif %}>Vänster</option>
+          <option value="right" {% if zone.transition_direction == 'right' %}selected{% endif %}>Höger</option>
+          <option value="up" {% if zone.transition_direction == 'up' %}selected{% endif %}>Upp</option>
+          <option value="down" {% if zone.transition_direction == 'down' %}selected{% endif %}>Ner</option>
+        </select>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Spara</button>
+    </form>
   </div>
 
 </div>
 {% endif %}
+
+{% include "admin/_schedule_modal.html" %}
 {% endblock %}

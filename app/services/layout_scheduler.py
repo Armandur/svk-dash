@@ -14,32 +14,61 @@ logger = logging.getLogger(__name__)
 _last_active: dict[int, int | None] = {}
 
 
+def _is_active(schedule, now: datetime):
+    if not schedule:
+        return True
+    
+    if isinstance(schedule, str):
+        try:
+            import json
+            schedule = json.loads(schedule)
+        except:
+            return True
+            
+    type_ = schedule.get("type", "always")
+    if type_ == "always":
+        return True
+        
+    # Check time
+    current_time = now.strftime("%H:%M")
+    time_start = schedule.get("time_start")
+    time_end = schedule.get("time_end")
+    if time_start and current_time < time_start:
+        return False
+    if time_end and current_time >= time_end:
+        return False
+        
+    if type_ == "weekly":
+        current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))]
+        days = schedule.get("weekdays", [])
+        return current_day in days
+        
+    if type_ == "monthly":
+        return now.day == schedule.get("day")
+        
+    if type_ == "yearly":
+        return now.day == schedule.get("day") and now.month == schedule.get("month")
+        
+    if type_ == "dates":
+        current_date = now.strftime("%Y-%m-%d")
+        return current_date in schedule.get("dates", [])
+        
+    return True
+
+
 def _active_assignment_id(assignments: list[ScreenLayoutAssignment], now: datetime) -> int | None:
     """Väljer den mest prioriterade aktiva tilldelningen baserat på schema."""
     active = []
-    current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))]
-    current_time = now.strftime("%H:%M")
 
     for a in assignments:
-        # Veckodagar
-        if a.weekdays:
-            days = [d.strip() for d in a.weekdays.split(",")]
-            if current_day not in days:
-                continue
-
-        # Tid
-        if a.time_start and current_time < a.time_start:
-            continue
-        if a.time_end and current_time >= a.time_end:
-            continue
-
-        active.append(a)
+        if _is_active(a.schedule_json, now):
+            active.append(a)
 
     if not active:
         return None
 
     # Sortera på prioritet (högst först)
-    active.sort(key=lambda x: x.priority, reverse=True)
+    active.sort(key=lambda x: (x.priority, x.id), reverse=True)
     return active[0].id
 
 

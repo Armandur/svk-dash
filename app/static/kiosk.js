@@ -1,50 +1,170 @@
 (function () {
   'use strict';
 
-  // --- Vy-rotation (Zon-baserad eller Legacy) ---
+  // --- Layout- och Vy-rotation ---
 
+  let layoutState = { currentIdx: 0, timer: null };
   let zoneStates = {}; // zoneId -> { currentIdx, timer, paused, activeViews, lastActiveKey }
-  let legacyState = { currentPosition: 0, timer: null, paused: false };
-  let isLegacy = (typeof KIOSK_ZONES === 'undefined' || KIOSK_ZONES === null);
   let isPaused = false;
 
   function _isViewActive(view, now) {
-    if (view.schedule_weekdays) {
-      const days = view.schedule_weekdays.split(',').map(d => d.trim());
-      const currentDay = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
-      if (!days.includes(currentDay)) return false;
-    }
+    const s = view.schedule_json;
+    if (!s) return true;
+    
+    const type = s.type || 'always';
+    if (type === 'always') return true;
+
     const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-    if (view.schedule_time_start && currentTime < view.schedule_time_start) return false;
-    if (view.schedule_time_end && currentTime >= view.schedule_time_end) return false;
+    if (s.time_start && currentTime < s.time_start) return false;
+    if (s.time_end && currentTime >= s.time_end) return false;
+
+    if (type === 'weekly') {
+      const days = s.weekdays || [];
+      const currentDay = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
+      return days.includes(currentDay);
+    }
+    
+    if (type === 'monthly') {
+      return now.getDate() === s.day;
+    }
+    
+    if (type === 'yearly') {
+      return now.getDate() === s.day && (now.getMonth() + 1) === s.month;
+    }
+    
+    if (type === 'dates') {
+      const currentDate = now.getFullYear() + '-' + (now.getMonth() + 1).toString().padStart(2, '0') + '-' + now.getDate().toString().padStart(2, '0');
+      return (s.dates || []).includes(currentDate);
+    }
+
     return true;
   }
 
   function initRotation() {
-    if (!isLegacy) {
-      KIOSK_ZONES.forEach(function(zone) {
-        if (zone.role === 'schedulable' && zone.views && zone.views.length > 0) {
-          zoneStates[zone.id] = {
-            currentIdx: 0,
-            timer: null,
-            paused: false,
-            activeViews: [],
-            lastActiveKey: ''
-          };
-          scheduleZone(zone.id);
-        }
-      });
-    } else {
-      if (LEGACY_VIEWS && LEGACY_VIEWS.length > 0) {
-        scheduleLegacy();
+    if (KIOSK_LAYOUTS && KIOSK_LAYOUTS.length > 1) {
+      scheduleLayoutRotation();
+    }
+    startActiveLayoutZones();
+  }
+
+  function startActiveLayoutZones() {
+    if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+
+    layout.zones.forEach(function(zone) {
+      if (zone.role === 'schedulable' && zone.views && zone.views.length > 0) {
+        zoneStates[zone.id] = {
+          currentIdx: 0,
+          timer: null,
+          paused: false,
+          activeViews: [],
+          lastActiveKey: ''
+        };
+        scheduleZone(zone.id);
       }
+    });
+  }
+
+  function stopAllZones() {
+    Object.keys(zoneStates).forEach(id => {
+      clearTimeout(zoneStates[id].timer);
+      delete zoneStates[id];
+    });
+  }
+
+  function scheduleLayoutRotation() {
+    clearTimeout(layoutState.timer);
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+    if (!layout || !layout.duration_seconds || KIOSK_LAYOUTS.length <= 1) return;
+
+    layoutState.timer = setTimeout(function() {
+      if (isPaused) return;
+      rotateLayout();
+    }, layout.duration_seconds * 1000);
+  }
+
+  function rotateLayout() {
+    const prevIdx = layoutState.currentIdx;
+    const nextIdx = (prevIdx + 1) % KIOSK_LAYOUTS.length;
+    
+    const prevLayout = KIOSK_LAYOUTS[prevIdx];
+    const prevPanel = document.getElementById('layout-panel-' + prevIdx);
+    const nextPanel = document.getElementById('layout-panel-' + nextIdx);
+    
+    if (!prevPanel || !nextPanel) return;
+
+    // Stoppa gamla zon-rotationer
+    stopAllZones();
+    clearTimeout(layoutState.timer);
+
+    const transition = prevLayout.transition || 'fade';
+    const transMs = prevLayout.transition_duration_ms || 700;
+
+    if (transition === 'fade') {
+      nextPanel.style.opacity = '0';
+      nextPanel.style.zIndex = '10';
+      nextPanel.style.transform = 'translateX(0)';
+      nextPanel.classList.add('active');
+      
+      void nextPanel.offsetWidth; // Force reflow
+      nextPanel.style.transition = 'opacity ' + transMs + 'ms ease';
+      nextPanel.style.opacity = '1';
+
+      setTimeout(finish, transMs);
+    } else if (transition === 'slide') {
+      nextPanel.style.transition = 'none';
+      nextPanel.style.transform = 'translateX(100%)';
+      nextPanel.style.opacity = '1';
+      nextPanel.style.zIndex = '10';
+      nextPanel.classList.add('active');
+      
+      void nextPanel.offsetWidth; // Force reflow
+      nextPanel.style.transition = 'transform ' + transMs + 'ms ease';
+      prevPanel.style.transition = 'transform ' + transMs + 'ms ease';
+      
+      nextPanel.style.transform = 'translateX(0)';
+      prevPanel.style.transform = 'translateX(-100%)';
+
+      setTimeout(finish, transMs);
+    } else { // none
+      finish();
+    }
+
+    function finish() {
+      // Frys transitionerna innan klassändringar
+      prevPanel.style.transition = 'none';
+      nextPanel.style.transition = 'none';
+      void prevPanel.offsetHeight; // reflow
+
+      prevPanel.classList.remove('active');
+
+      // Dölj prev — lämna transform orörd så den stannar off-screen
+      prevPanel.style.opacity = '0';
+      prevPanel.style.zIndex = '';
+
+      // Rensa next-panel inline-styles (CSS .active tar över)
+      nextPanel.style.opacity = '';
+      nextPanel.style.transform = '';
+      nextPanel.style.zIndex = '';
+
+      // Återställ CSS-transitionerna i nästa frame
+      requestAnimationFrame(function() {
+        prevPanel.style.transition = '';
+        nextPanel.style.transition = '';
+      });
+
+      layoutState.currentIdx = nextIdx;
+      startActiveLayoutZones();
+      scheduleLayoutRotation();
     }
   }
 
   // --- Zon-logik ---
 
   function showZoneView(zoneId, idx) {
-    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+    const zone = layout.zones.find(z => z.id === zoneId);
     if (!zone || !zoneStates[zoneId]) return;
 
     const state = zoneStates[zoneId];
@@ -63,10 +183,7 @@
 
     if (transition === 'slide') {
       const leavingEl = document.getElementById('z' + zoneId + '-v' + views[prevIdx].position);
-      
-      // Setup classes for slide animation
-      // Note: We use the same CSS classes as legacy slide but scoped to the zone
-      // Since .view is position absolute inset 0, it works within the zone's div
+      const zoneEl = document.querySelector('.zone[data-zone-id="' + zoneId + '"]');
       
       // Reset classes
       zone.views.forEach(v => {
@@ -74,11 +191,10 @@
         if (el) el.classList.remove('active', 'view-entering', 'view-leaving');
       });
 
-      // Set direction on body or zone? The CSS expects it on body vt-dir
-      // We'll temporarily set it on body or just use the default
-      document.body.setAttribute('data-vt-dir', transitionDir);
-      document.body.classList.remove('vt-fade', 'vt-none');
-      document.body.classList.add('vt-slide');
+      if (zoneEl) {
+        zoneEl.setAttribute('data-vt-dir', transitionDir);
+        zoneEl.classList.add('zone-sliding');
+      }
 
       if (leavingEl && leavingEl !== nextEl) leavingEl.classList.add('view-leaving');
       nextEl.classList.add('view-entering', 'active');
@@ -87,11 +203,13 @@
       setTimeout(function() {
         if (leavingEl) {
           leavingEl.style.transition = 'none';
-          leavingEl.classList.remove('view-leaving');
           leavingEl.style.opacity = '0';
+          void leavingEl.offsetHeight;
+          leavingEl.classList.remove('view-leaving');
           requestAnimationFrame(function() { leavingEl.style.removeProperty('transition'); });
         }
         nextEl.classList.remove('view-entering');
+        if (zoneEl) zoneEl.classList.remove('zone-sliding');
       }, 700);
     } else if (transition === 'none') {
       zone.views.forEach(v => {
@@ -109,28 +227,26 @@
         if (el) el.classList.remove('active');
       });
       nextEl.classList.add('active');
-      // CSS handles the opacity transition for .view
-      // But we need to make sure the inline style from template doesn't override it forever
       nextEl.style.opacity = '1';
-      zone.views.forEach((v, i) => {
-        if (i !== idx) {
+      zone.views.forEach((v) => {
+        if (v.position !== nextView.position) {
           const el = document.getElementById('z' + zoneId + '-v' + v.position);
           if (el) el.style.opacity = '0';
         }
       });
     }
-
   }
 
   function scheduleZone(zoneId) {
-    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+    const zone = layout.zones.find(z => z.id === zoneId);
     const state = zoneStates[zoneId];
     if (!zone || !state) return;
 
     clearTimeout(state.timer);
     if (state.paused) return;
 
-    // Filtrera aktiva vyer
     const now = new Date();
     const activeViews = zone.views.filter(v => _isViewActive(v, now));
     const activeKey = JSON.stringify(activeViews.map(v => v.position));
@@ -138,14 +254,24 @@
     if (activeViews.length === 0) {
       state.activeViews = [];
       state.lastActiveKey = '';
-      return; // Inga aktiva vyer, behåll nuvarande (om någon) stilla
+      return;
     }
 
     if (activeKey !== state.lastActiveKey) {
+      const isFirst = !state.lastActiveKey;
       state.activeViews = activeViews;
       state.lastActiveKey = activeKey;
       state.currentIdx = 0;
-      showZoneView(zoneId, 0);
+      if (isFirst) {
+        zone.views.forEach(v => {
+          const el = document.getElementById('z' + zoneId + '-v' + v.position);
+          if (el) { el.classList.remove('active'); el.style.opacity = '0'; }
+        });
+        const firstEl = document.getElementById('z' + zoneId + '-v' + activeViews[0].position);
+        if (firstEl) { firstEl.classList.add('active'); firstEl.style.opacity = '1'; }
+      } else {
+        showZoneView(zoneId, 0);
+      }
     }
 
     const currentView = state.activeViews[state.currentIdx];
@@ -160,8 +286,9 @@
   }
 
   function checkSchedules() {
-    if (isLegacy) return;
-    KIOSK_ZONES.forEach(function(zone) {
+    if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+    layout.zones.forEach(function(zone) {
       if (zone.role === 'schedulable' && zoneStates[zone.id]) {
         scheduleZone(zone.id);
       }
@@ -171,7 +298,9 @@
   setInterval(checkSchedules, 60000);
 
   function nextZoneView(zoneId) {
-    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+    const zone = layout.zones.find(z => z.id === zoneId);
     const state = zoneStates[zoneId];
     if (!zone || !state || !state.activeViews.length) return;
     const nextIdx = (state.currentIdx + 1) % state.activeViews.length;
@@ -179,147 +308,40 @@
   }
 
   function prevZoneView(zoneId) {
-    const zone = KIOSK_ZONES.find(z => z.id === zoneId);
+    if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
+    const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+    const zone = layout.zones.find(z => z.id === zoneId);
     const state = zoneStates[zoneId];
     if (!zone || !state || !state.activeViews.length) return;
     const prevIdx = (state.currentIdx - 1 + state.activeViews.length) % state.activeViews.length;
     showZoneView(zoneId, prevIdx);
   }
 
-  // --- Legacy-logik ---
-
-  function showLegacyView(position) {
-    var tr = (typeof SCREEN_TRANSITION !== 'undefined') ? SCREEN_TRANSITION : 'fade';
-    var nextEl = document.getElementById('view-' + position);
-    if (!nextEl) return;
-
-    if (tr === 'slide') {
-      var leavingEl = document.getElementById('view-' + legacyState.currentPosition);
-      document.querySelectorAll('.view').forEach(function (el) {
-        el.classList.remove('active', 'view-entering', 'view-leaving');
-      });
-      if (leavingEl && leavingEl !== nextEl) leavingEl.classList.add('view-leaving');
-      nextEl.classList.add('view-entering', 'active');
-      var _lv = leavingEl;
-      setTimeout(function () {
-        if (_lv) _lv.classList.remove('view-leaving');
-        nextEl.classList.remove('view-entering');
-      }, 700);
-    } else {
-      document.querySelectorAll('.view').forEach(function (el) {
-        el.classList.remove('active');
-      });
-      nextEl.classList.add('active');
-    }
-
-    legacyState.currentPosition = position;
-  }
-
-  function scheduleLegacy() {
-    clearTimeout(legacyState.timer);
-    if (!LEGACY_VIEWS || LEGACY_VIEWS.length <= 1 || legacyState.paused) return;
-    var duration = (LEGACY_VIEWS[legacyState.currentPosition] && LEGACY_VIEWS[legacyState.currentPosition].duration_seconds) || 30;
-    legacyState.nextAt = Date.now() + duration * 1000;
-    legacyState.timer = setTimeout(function () {
-      var nextPos = (legacyState.currentPosition + 1) % LEGACY_VIEWS.length;
-      showLegacyView(nextPos);
-      scheduleLegacy();
-    }, duration * 1000);
-  }
-
   // --- Gemensamma kontroller ---
 
   function pauseAll() {
     isPaused = true;
-    if (!isLegacy) {
-      Object.keys(zoneStates).forEach(id => {
-        zoneStates[id].paused = true;
-        clearTimeout(zoneStates[id].timer);
-      });
-    } else {
-      legacyState.paused = true;
-      clearTimeout(legacyState.timer);
-    }
+    clearTimeout(layoutState.timer);
+    Object.keys(zoneStates).forEach(id => {
+      zoneStates[id].paused = true;
+      clearTimeout(zoneStates[id].timer);
+    });
   }
 
   function resumeAll() {
     isPaused = false;
-    if (!isLegacy) {
-      Object.keys(zoneStates).forEach(id => {
-        zoneStates[id].paused = false;
-        scheduleZone(parseInt(id));
-      });
-    } else {
-      legacyState.paused = false;
-      scheduleLegacy();
-    }
+    if (KIOSK_LAYOUTS && KIOSK_LAYOUTS.length > 1) scheduleLayoutRotation();
+    Object.keys(zoneStates).forEach(id => {
+      zoneStates[id].paused = false;
+      scheduleZone(parseInt(id));
+    });
   }
 
   function stepAll(direction) {
-    if (!isLegacy) {
-      Object.keys(zoneStates).forEach(id => {
-        if (direction === 'next') nextZoneView(parseInt(id));
-        else prevZoneView(parseInt(id));
-        if (!zoneStates[id].paused) scheduleZone(parseInt(id));
-      });
-    } else {
-      const count = LEGACY_VIEWS.length;
-      if (direction === 'next') {
-        showLegacyView((legacyState.currentPosition + 1) % count);
-      } else {
-        showLegacyView((legacyState.currentPosition - 1 + count) % count);
-      }
-      if (!legacyState.paused) scheduleLegacy();
-    }
-  }
-
-  // --- Kiosk-navigation ---
-
-  var navOverlay = document.getElementById('kiosk-nav');
-  var navHideTimer = null;
-  var navPaused = false;
-
-  function showNav() {
-    if (!navOverlay) return;
-    navOverlay.classList.add('visible');
-    clearTimeout(navHideTimer);
-    navHideTimer = setTimeout(hideNav, 3000);
-  }
-
-  function hideNav() {
-    if (!navOverlay) return;
-    navOverlay.classList.remove('visible');
-  }
-
-  document.addEventListener('mousemove', showNav);
-  document.addEventListener('touchstart', showNav, { passive: true });
-
-  var pauseBtn = document.getElementById('nav-pause');
-  if (pauseBtn) {
-    pauseBtn.addEventListener('click', function () {
-      if (navPaused) {
-        navPaused = false;
-        pauseBtn.innerHTML = '&#9646;&#9646;';
-        resumeAll();
-      } else {
-        navPaused = true;
-        pauseBtn.innerHTML = '&#9654;';
-        pauseAll();
-      }
-    });
-  }
-
-  var prevBtn = document.getElementById('nav-prev');
-  if (prevBtn) {
-    prevBtn.addEventListener('click', function () {
-      stepAll('prev');
-    });
-  }
-
-  var nextBtn = document.getElementById('nav-next');
-  if (nextBtn) {
-    nextBtn.addEventListener('click', function () {
-      stepAll('next');
+    Object.keys(zoneStates).forEach(id => {
+      if (direction === 'next') nextZoneView(parseInt(id));
+      else prevZoneView(parseInt(id));
+      if (!zoneStates[id].paused) scheduleZone(parseInt(id));
     });
   }
 
@@ -508,22 +530,18 @@
     eventSource.addEventListener('goto_view', function (e) {
       lastEventAt = Date.now();
       var data = JSON.parse(e.data);
-      if (data.zone_id && !isLegacy) {
-        const zone = KIOSK_ZONES.find(z => z.id === data.zone_id);
+      if (data.zone_id && KIOSK_LAYOUTS) {
+        const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
+        const zone = layout.zones.find(z => z.id === data.zone_id);
         if (zone) {
           const viewIdx = zone.views.findIndex(v => v.position === data.position);
           if (viewIdx !== -1) {
             showZoneView(data.zone_id, viewIdx);
-            if (!zoneStates[data.zone_id].paused) scheduleZone(data.zone_id);
+            if (zoneStates[data.zone_id] && !zoneStates[data.zone_id].paused) scheduleZone(data.zone_id);
           }
         }
       } else {
-        if (!isLegacy) {
-          stepAll('next');
-        } else {
-          showLegacyView(data.position);
-          if (!legacyState.paused) scheduleLegacy();
-        }
+        stepAll('next');
       }
     });
 
@@ -595,6 +613,7 @@
 
   // --- Start ---
 
-  initRotation();
+  const startDelay = (typeof LAYOUT_ROTATION !== 'undefined' && LAYOUT_ROTATION.transition_duration_ms) || 700;
+  setTimeout(initRotation, startDelay);
   connectSSE();
 })();

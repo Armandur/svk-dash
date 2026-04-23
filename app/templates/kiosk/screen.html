@@ -137,20 +137,61 @@
     .widget-slideshow.ss-zoom .ss-slide.ss-entering { animation:ss-zoom-in  0.7s ease forwards; z-index:1; }
     .widget-slideshow.ss-zoom .ss-slide.ss-leaving  { animation:ss-zoom-out 0.7s ease forwards; }
 
-    /* vy-övergångar */
-    body.vt-none .view { transition:none; }
-    body.vt-slide .view { transition:none; }
-    body.vt-slide .view.view-leaving,
-    body.vt-slide .view.view-entering { opacity:1; }
+    /* Layout-övergångar */
+    .layout-panel {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--vt-duration, 700ms) ease, transform var(--vt-duration, 700ms) ease;
+    }
+    .layout-panel.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+    .layout-panel.slide-out {
+      transform: translateX(-100%);
+    }
+    .layout-panel.slide-in {
+      transform: translateX(100%);
+      opacity: 1;
+    }
 
-    body.vt-slide[data-vt-dir="left"]  .view.view-entering { animation:ss-from-right  0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="left"]  .view.view-leaving  { animation:ss-to-left     0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="right"] .view.view-entering { animation:ss-from-left   0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="right"] .view.view-leaving  { animation:ss-to-right    0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="up"]    .view.view-entering { animation:ss-from-bottom 0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="up"]    .view.view-leaving  { animation:ss-to-top      0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="down"]  .view.view-entering { animation:ss-from-top    0.6s ease forwards; }
-    body.vt-slide[data-vt-dir="down"]  .view.view-leaving  { animation:ss-to-bottom   0.6s ease forwards; }
+    @keyframes layout-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes layout-fade-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes layout-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes layout-slide-out { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+    body.vt-fade { animation: layout-fade-in var(--vt-duration, 700ms) ease forwards; }
+    body.vt-slide { animation: layout-slide-in var(--vt-duration, 700ms) ease forwards; }
+    body.vt-none { animation: none; }
+
+    body.layout-leaving.vt-fade { animation: layout-fade-out var(--vt-duration, 700ms) ease forwards; }
+    body.layout-leaving.vt-slide { animation: layout-slide-out var(--vt-duration, 700ms) ease forwards; }
+
+    /* vy-övergångar */
+    .zone.zone-sliding .view { transition:none; }
+
+    .zone.zone-sliding .view.view-leaving,
+    .zone.zone-sliding .view.view-entering { opacity:1; }
+
+    body.vt-slide[data-vt-dir="left"]  .view.view-entering,
+    .zone.zone-sliding[data-vt-dir="left"] .view.view-entering { animation:ss-from-right  0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="left"]  .view.view-leaving,
+    .zone.zone-sliding[data-vt-dir="left"] .view.view-leaving { animation:ss-to-left     0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="right"] .view.view-entering,
+    .zone.zone-sliding[data-vt-dir="right"] .view.view-entering { animation:ss-from-left   0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="right"] .view.view-leaving,
+    .zone.zone-sliding[data-vt-dir="right"] .view.view-leaving { animation:ss-to-right    0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="up"]    .view.view-entering,
+    .zone.zone-sliding[data-vt-dir="up"] .view.view-entering { animation:ss-from-bottom 0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="up"]    .view.view-leaving,
+    .zone.zone-sliding[data-vt-dir="up"] .view.view-leaving { animation:ss-to-top      0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="down"]  .view.view-entering,
+    .zone.zone-sliding[data-vt-dir="down"] .view.view-entering { animation:ss-from-top    0.6s ease forwards; }
+    body.vt-slide[data-vt-dir="down"]  .view.view-leaving,
+    .zone.zone-sliding[data-vt-dir="down"] .view.view-leaving { animation:ss-to-bottom   0.6s ease forwards; }
 
     /* ics_schedule */
     .widget-ics-schedule { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.3em 0.4em; font-size:clamp(8px,1.5cqh,12px); }
@@ -316,60 +357,40 @@
     .zone-nav-pause { font-size: 0.6rem; width: 1.5rem; height: 1.5rem; }
   </style>
 </head>
-<body class="vt-fade" data-vt-dir="left">
+<body class="vt-{{ layout_rotation.transition or 'fade' }}" data-vt-dir="left" style="--vt-duration: {{ layout_rotation.transition_duration_ms or 700 }}ms;">
   <div id="offline-banner">Ingen anslutning till server</div>
 
-  {% if zones is none %}
-  <div id="kiosk-nav">
-    <button class="kiosk-nav-btn" id="nav-prev" title="Föregående vy">&#8249;</button>
-    <button class="kiosk-nav-btn" id="nav-pause" title="Pausa/spela">&#9646;&#9646;</button>
-    <button class="kiosk-nav-btn" id="nav-next" title="Nästa vy">&#8250;</button>
-  </div>
-  {% endif %}
-
   <div id="kiosk-stage" style="position:relative; width:100vw; height:100vh; overflow:hidden;">
-  {% if zones is not none %}
-    {% for zone in zones %}
-    <div class="zone" data-zone-id="{{ zone.id }}" data-zone-role="{{ zone.role }}"
-         style="position:absolute; left:{{ zone.x_pct }}%; top:{{ zone.y_pct }}%; right:{{ (100 - zone.x_pct - zone.w_pct) | round(4) }}%; bottom:{{ (100 - zone.y_pct - zone.h_pct) | round(4) }}%; z-index:{{ zone.z_index }}; overflow:hidden;">
-      {% for view in zone.views %}
-      <div
-        class="view{% if loop.first %} active{% endif %}"
-        data-position="{{ view.position }}"
-        data-duration="{{ view.duration_seconds }}"
-        id="z{{ zone.id }}-v{{ view.position }}"
-        style="display:grid; grid-template-columns:repeat({{ view.grid_cols }}, 1fr); grid-template-rows:repeat({{ view.grid_rows }}, 1fr); padding:0; gap:0.25rem;"
-      >
-        {% for widget in view.widgets %}
-        <div data-widget-id="{{ widget.widget_id }}"
-             style="grid-column:{{ widget.col_start }}/{{ widget.col_end }}; grid-row:{{ widget.row_start }}/{{ widget.row_end }}; z-index:{{ widget.z_index }}; opacity:{{ widget.opacity/100 }};">
-          {{ widget.html | safe }}
+  {% if layouts %}
+    {% for layout in layouts %}
+    <div class="layout-panel{% if loop.first %} active{% endif %}" id="layout-panel-{{ loop.index0 }}"
+         style="--vt-duration: {{ layout.transition_duration_ms }}ms; {% if not loop.first %}transform: translateX(100%);{% endif %}">
+      {% for zone in layout.zones %}
+      <div class="zone" data-zone-id="{{ zone.id }}" data-zone-role="{{ zone.role }}"
+           style="position:absolute; left:{{ zone.x_pct }}%; top:{{ zone.y_pct }}%; right:{{ (100 - zone.x_pct - zone.w_pct) | round(4) }}%; bottom:{{ (100 - zone.y_pct - zone.h_pct) | round(4) }}%; z-index:{{ zone.z_index }}; overflow:hidden;">
+        {% for view in zone.views %}
+        <div
+          class="view{% if loop.first %} active{% endif %}"
+          data-position="{{ view.position }}"
+          data-duration="{{ view.duration_seconds }}"
+          id="z{{ zone.id }}-v{{ view.position }}"
+          style="display:grid; grid-template-columns:repeat({{ view.grid_cols }}, 1fr); grid-template-rows:repeat({{ view.grid_rows }}, 1fr); padding:0; gap:0.25rem;"
+        >
+          {% for widget in view.widgets %}
+          <div data-widget-id="{{ widget.widget_id }}"
+               style="grid-column:{{ widget.col_start }}/{{ widget.col_end }}; grid-row:{{ widget.row_start }}/{{ widget.row_end }}; z-index:{{ widget.z_index }}; opacity:{{ widget.opacity/100 }};">
+            {{ widget.html | safe }}
+          </div>
+          {% endfor %}
         </div>
         {% endfor %}
-      </div>
-      {% endfor %}
-      {% if zone.role == 'schedulable' %}
-      <div class="zone-nav">
-        <button class="zone-nav-btn zone-nav-prev" data-zone-id="{{ zone.id }}">&#8249;</button>
-        <button class="zone-nav-btn zone-nav-pause" data-zone-id="{{ zone.id }}">&#9646;&#9646;</button>
-        <button class="zone-nav-btn zone-nav-next" data-zone-id="{{ zone.id }}">&#8250;</button>
-      </div>
-      {% endif %}
-    </div>
-    {% endfor %}
-  {% else %}
-    {% for view in legacy_views %}
-    <div
-      class="view{% if loop.first %} active{% endif %}"
-      data-position="{{ view.position }}"
-      data-duration="{{ view.duration_seconds }}"
-      id="view-{{ view.position }}"
-      style="grid-template-columns: repeat({{ view.grid_cols }}, 1fr); grid-template-rows: repeat({{ view.grid_rows }}, 1fr);"
-    >
-      {% for widget in view.widgets %}
-      <div data-widget-id="{{ widget.widget_id }}"
-           style="grid-column: {{ widget.col_start }} / {{ widget.col_end }}; grid-row: {{ widget.row_start }} / {{ widget.row_end }}; z-index: {{ widget.z_index }}; opacity: {{ (widget.opacity / 100) | round(2) }};">
-        {{ widget.html | safe }}
+        {% if zone.role == 'schedulable' %}
+        <div class="zone-nav">
+          <button class="zone-nav-btn zone-nav-prev" data-zone-id="{{ zone.id }}">&#8249;</button>
+          <button class="zone-nav-btn zone-nav-pause" data-zone-id="{{ zone.id }}">&#9646;&#9646;</button>
+          <button class="zone-nav-btn zone-nav-next" data-zone-id="{{ zone.id }}">&#8250;</button>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -379,14 +400,8 @@
 
   <script>
     const SCREEN_SLUG       = {{ screen.slug | tojson }};
-    const SCREEN_TRANSITION = 'fade';
-    {% if zones is not none %}
-    const KIOSK_ZONES = {{ zones_js | tojson }};
-    const LEGACY_VIEWS = null;
-    {% else %}
-    const KIOSK_ZONES = null;
-    const LEGACY_VIEWS = {{ legacy_views_js | tojson }};
-    {% endif %}
+    const KIOSK_LAYOUTS     = {{ (layouts_js or None) | tojson }};
+    const LAYOUT_ROTATION   = {{ layout_rotation | tojson }};
   </script>
   <script src="/static/kiosk.js"></script>
 

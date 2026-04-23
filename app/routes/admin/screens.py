@@ -92,27 +92,41 @@ async def screen_create(
     return RedirectResponse(f"/admin/screens/{screen.id}", status_code=302)
 
 
-def _get_screen_detail_ctx(db, screen_id: int, error: str | None = None) -> dict | None:
+def _get_screen_detail_ctx(
+    db, screen_id: int, error: str | None = None, selected_id: int | None = None
+) -> dict | None:
     screen = db.get(Screen, screen_id)
     if not screen:
         return None
 
-    assignment = db.exec(
+    assignments = db.exec(
         select(ScreenLayoutAssignment)
         .where(ScreenLayoutAssignment.screen_id == screen_id)
         .order_by(ScreenLayoutAssignment.priority.desc())
-    ).first()
+    ).all()
+
+    selected_assignment = None
+    if selected_id:
+        selected_assignment = next((a for a in assignments if a.id == selected_id), None)
+    if not selected_assignment and assignments:
+        selected_assignment = assignments[0]
 
     layout = None
     zones = []
-    if assignment:
-        layout = db.get(Layout, assignment.layout_id)
+    if selected_assignment:
+        layout = db.get(Layout, selected_assignment.layout_id)
         if layout:
             zones = db.exec(
                 select(LayoutZone)
                 .where(LayoutZone.layout_id == layout.id)
                 .order_by(LayoutZone.z_index)
             ).all()
+
+    assignment_layouts = {}
+    for a in assignments:
+        al = db.get(Layout, a.layout_id)
+        if al:
+            assignment_layouts[a.id] = al
 
     # Vyer utan zon-tilldelning (äldre vyer eller skärm utan layout)
     legacy_views = db.exec(
@@ -129,23 +143,29 @@ def _get_screen_detail_ctx(db, screen_id: int, error: str | None = None) -> dict
         )
 
     all_layouts = db.exec(select(Layout).order_by(Layout.name)).all()
+    assigned_layout_ids = {a.layout_id for a in assignments}
 
     return {
         "screen": screen,
-        "assignment": assignment,
+        "assignments": assignments,
+        "selected_assignment": selected_assignment,
+        "assignment_layouts": assignment_layouts,
         "layout": layout,
         "zones": zones,
         "zone_view_counts": zone_view_counts,
         "legacy_views": legacy_views,
         "all_layouts": all_layouts,
+        "assigned_layout_ids": assigned_layout_ids,
         "error": error,
+        # Bakåtkompatibilitet för zone_detail-vyn
+        "assignment": selected_assignment,
     }
 
 
 @router.get("/screens/{screen_id}", response_class=HTMLResponse)
-async def screen_detail(request: Request, screen_id: int):
+async def screen_detail(request: Request, screen_id: int, sel: int | None = None):
     with get_session() as db:
-        ctx = _get_screen_detail_ctx(db, screen_id)
+        ctx = _get_screen_detail_ctx(db, screen_id, selected_id=sel)
     if not ctx:
         return HTMLResponse("Skärmen hittades inte.", status_code=404)
     return HTMLResponse(
@@ -205,47 +225,71 @@ async def screen_delete(screen_id: int):
 @router.post("/screens/{screen_id}/layout/assign")
 async def screen_assign_layout(screen_id: int, layout_id: int = Form(...)):
     with get_session() as db:
-        # Ta bort eventuell befintlig tilldelning
-        for a in db.exec(
-            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
-        ).all():
-            db.delete(a)
-        db.add(ScreenLayoutAssignment(screen_id=screen_id, layout_id=layout_id))
-        db.commit()
+        existing = db.exec(
+            select(ScreenLayoutAssignment).where(
+                ScreenLayoutAssignment.screen_id == screen_id,
+                ScreenLayoutAssignment.layout_id == layout_id,
+            )
+        ).first()
+        if not existing:
+            count = len(
+                db.exec(
+                    select(ScreenLayoutAssignment).where(
+                        ScreenLayoutAssignment.screen_id == screen_id
+                    )
+                ).all()
+            )
+            new_a = ScreenLayoutAssignment(
+                screen_id=screen_id, layout_id=layout_id, priority=count
+            )
+            db.add(new_a)
+            db.commit()
+            db.refresh(new_a)
+            return RedirectResponse(
+                f"/admin/screens/{screen_id}?sel={new_a.id}", status_code=302
+            )
     return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
 
 
-@router.post("/screens/{screen_id}/layout/remove")
-async def screen_remove_layout(screen_id: int):
+@router.post("/screens/{screen_id}/layout/{assignment_id}/remove")
+async def screen_remove_layout_assignment(screen_id: int, assignment_id: int):
     with get_session() as db:
-        for a in db.exec(
-            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
-        ).all():
+        a = db.get(ScreenLayoutAssignment, assignment_id)
+        if a and a.screen_id == screen_id:
             db.delete(a)
-        db.commit()
+            db.commit()
     return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
 
 
-@router.post("/screens/{screen_id}/layout/schedule")
-async def screen_layout_schedule(
+@router.post("/screens/{screen_id}/layout/{assignment_id}/schedule")
+async def screen_layout_assignment_schedule(
     screen_id: int,
-    weekdays: list[str] = Form(default=[]),
-    time_start: str = Form(None),
-    time_end: str = Form(None),
+    assignment_id: int,
+    schedule_json: str = Form(None),
+    duration_seconds: int | None = Form(None),
+    transition: str = Form("fade"),
+    transition_duration_ms: int = Form(700),
 ):
     with get_session() as db:
-        assignment = db.exec(
-            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
-        ).first()
-        if not assignment:
+        a = db.get(ScreenLayoutAssignment, assignment_id)
+        if not a or a.screen_id != screen_id:
             return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-
-        assignment.weekdays = ",".join(weekdays) if weekdays else None
-        assignment.time_start = time_start if time_start and time_start.strip() else None
-        assignment.time_end = time_end if time_end and time_end.strip() else None
-        db.add(assignment)
+        
+        if schedule_json:
+            import json
+            try:
+                a.schedule_json = json.loads(schedule_json)
+            except:
+                pass
+        else:
+            a.schedule_json = None
+            
+        a.duration_seconds = duration_seconds
+        a.transition = transition
+        a.transition_duration_ms = transition_duration_ms
+        db.add(a)
         db.commit()
-    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
+    return RedirectResponse(f"/admin/screens/{screen_id}?sel={assignment_id}", status_code=302)
 
 
 # ── Zon-hantering ─────────────────────────────────────────────────────────────
@@ -352,6 +396,25 @@ async def zone_view_create(
     return RedirectResponse(f"/admin/views/{view.id}", status_code=302)
 
 
+@router.post("/screens/{screen_id}/zones/{zone_id}/settings")
+async def zone_settings(
+    screen_id: int,
+    zone_id: int,
+    rotation_seconds: int = Form(30),
+    transition: str = Form("fade"),
+    transition_direction: str = Form("left"),
+):
+    with get_session() as db:
+        zone = db.get(LayoutZone, zone_id)
+        if zone and zone.layout_id:
+            zone.rotation_seconds = rotation_seconds
+            zone.transition = transition
+            zone.transition_direction = transition_direction
+            db.add(zone)
+            db.commit()
+    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
+
+
 @router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/delete")
 async def zone_view_delete(screen_id: int, zone_id: int, view_id: int):
     with get_session() as db:
@@ -368,18 +431,22 @@ async def zone_view_schedule(
     screen_id: int,
     zone_id: int,
     view_id: int,
-    weekdays: list[str] = Form(default=[]),
-    time_start: str = Form(None),
-    time_end: str = Form(None),
+    schedule_json: str = Form(None),
 ):
     with get_session() as db:
         view = db.get(View, view_id)
         if not view or view.screen_id != screen_id:
             return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
 
-        view.schedule_weekdays = ",".join(weekdays) if weekdays else None
-        view.schedule_time_start = time_start if time_start and time_start.strip() else None
-        view.schedule_time_end = time_end if time_end and time_end.strip() else None
+        if schedule_json:
+            import json
+            try:
+                view.schedule_json = json.loads(schedule_json)
+            except:
+                pass
+        else:
+            view.schedule_json = None
+            
         db.add(view)
         db.commit()
     return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)

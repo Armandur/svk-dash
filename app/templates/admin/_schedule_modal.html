@@ -1,0 +1,206 @@
+<!-- Schedule Modal -->
+<div id="schedule-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background: rgba(0,0,0,0.5);">
+    <div class="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="font-bold text-lg text-gray-800">Redigera schema</h3>
+            <button onclick="closeScheduleModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <form id="schedule-form" method="post" class="flex flex-col flex-1 min-h-0">
+            <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                <input type="hidden" name="schedule_json" id="modal-schedule-json">
+                
+                <!-- Schedule Type -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Typ</label>
+                    <select id="schedule-type" onchange="updateScheduleFields()" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="always">Visa alltid</option>
+                        <option value="weekly">Veckodagar</option>
+                        <option value="monthly">Månadsdag (t.ex. den 15:e)</option>
+                        <option value="yearly">Årlig händelse (t.ex. 24 dec)</option>
+                        <option value="dates">Specifika datum</option>
+                    </select>
+                </div>
+
+                <!-- Weekly -->
+                <div id="type-weekly" class="schedule-type-fields hidden">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Veckodagar</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        {% for code, name in [('mon','Mån'), ('tue','Tis'), ('wed','Ons'), ('thu','Tor'), ('fri','Fre'), ('sat','Lör'), ('sun','Sön')] %}
+                        <label class="flex items-center gap-2 p-2 border border-gray-200 rounded cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" name="weekdays" value="{{ code }}" class="rounded text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm">{{ name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Monthly -->
+                <div id="type-monthly" class="schedule-type-fields hidden">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Dag i månaden</label>
+                    <input type="number" id="monthly-day" min="1" max="31" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+
+                <!-- Yearly -->
+                <div id="type-yearly" class="schedule-type-fields hidden flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Månad</label>
+                        <select id="yearly-month" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            {% for m in range(1, 13) %}
+                            <option value="{{ m }}">{{ ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'][m-1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="w-24">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Dag</label>
+                        <input type="number" id="yearly-day" min="1" max="31" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Specific Dates -->
+                <div id="type-dates" class="schedule-type-fields hidden">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Datum (YYYY-MM-DD, en per rad)</label>
+                    <textarea id="dates-list" rows="4" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" placeholder="2024-12-24"></textarea>
+                </div>
+
+                <!-- Time Range -->
+                <div id="time-fields" class="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Starttid (valfritt)</label>
+                        <input type="time" id="time-start" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Sluttid (valfritt)</label>
+                        <input type="time" id="time-end" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Transition (Only for Layout Assignment) -->
+                <div id="layout-fields" class="hidden pt-4 border-t border-gray-100 space-y-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visningstid (s)</label>
+                            <input type="number" name="duration_seconds" id="layout-duration" min="0" placeholder="0 = schema" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Transition</label>
+                            <select name="transition" id="transition-select" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="fade">Fade</option>
+                                <option value="slide">Slide</option>
+                                <option value="none">Ingen</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Längd (ms)</label>
+                            <input type="number" name="transition_duration_ms" id="transition-duration" step="50" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onclick="closeScheduleModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Avbryt</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 shadow-sm">Spara schema</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('schedule-modal');
+    const form = document.getElementById('schedule-form');
+    
+    function openScheduleModal(targetType, targetId, currentSchedule, layoutData, actionUrl) {
+        // Reset form
+        form.reset();
+
+        // Set action URL
+        if (targetType === 'layout') {
+            form.action = actionUrl || `/admin/screens/{{ screen.id }}/layout/${targetId}/schedule`;
+            document.getElementById('layout-fields').classList.remove('hidden');
+            if (layoutData) {
+                document.getElementById('layout-duration').value = layoutData.duration_seconds || '';
+                document.getElementById('transition-select').value = layoutData.transition || 'fade';
+                document.getElementById('transition-duration').value = layoutData.transition_duration_ms || 700;
+            }
+        } else {
+            form.action = actionUrl;
+            document.getElementById('layout-fields').classList.add('hidden');
+        }
+        
+        // Fill current data
+        if (currentSchedule && Object.keys(currentSchedule).length > 0) {
+            document.getElementById('schedule-type').value = currentSchedule.type || 'always';
+            document.getElementById('time-start').value = currentSchedule.time_start || '';
+            document.getElementById('time-end').value = currentSchedule.time_end || '';
+            
+            if (currentSchedule.type === 'weekly') {
+                const days = currentSchedule.weekdays || [];
+                document.querySelectorAll('input[name="weekdays"]').forEach(cb => {
+                    cb.checked = days.includes(cb.value);
+                });
+            } else if (currentSchedule.type === 'monthly') {
+                document.getElementById('monthly-day').value = currentSchedule.day || '';
+            } else if (currentSchedule.type === 'yearly') {
+                document.getElementById('yearly-month').value = currentSchedule.month || 1;
+                document.getElementById('yearly-day').value = currentSchedule.day || '';
+            } else if (currentSchedule.type === 'dates') {
+                document.getElementById('dates-list').value = (currentSchedule.dates || []).join('\n');
+            }
+        } else {
+            document.getElementById('schedule-type').value = 'always';
+        }
+        
+        updateScheduleFields();
+        modal.classList.remove('hidden');
+    }
+    
+    function closeScheduleModal() {
+        modal.classList.add('hidden');
+    }
+    
+    function updateScheduleFields() {
+        const type = document.getElementById('schedule-type').value;
+        document.querySelectorAll('.schedule-type-fields').forEach(el => el.classList.add('hidden'));
+        
+        if (type !== 'always') {
+            const target = document.getElementById('type-' + type);
+            if (target) target.classList.remove('hidden');
+        }
+    }
+    
+    form.onsubmit = function(e) {
+        const type = document.getElementById('schedule-type').value;
+        const schedule = { type: type };
+        
+        const start = document.getElementById('time-start').value;
+        const end = document.getElementById('time-end').value;
+        if (start) schedule.time_start = start;
+        if (end) schedule.time_end = end;
+        
+        if (type === 'weekly') {
+            schedule.weekdays = Array.from(document.querySelectorAll('input[name="weekdays"]:checked')).map(cb => cb.value);
+        } else if (type === 'monthly') {
+            schedule.day = parseInt(document.getElementById('monthly-day').value);
+        } else if (type === 'yearly') {
+            schedule.month = parseInt(document.getElementById('yearly-month').value);
+            schedule.day = parseInt(document.getElementById('yearly-day').value);
+        } else if (type === 'dates') {
+            schedule.dates = document.getElementById('dates-list').value.split('\n').map(s => s.trim()).filter(s => s);
+        }
+        
+        if (type === 'always' && !schedule.time_start && !schedule.time_end) {
+            document.getElementById('modal-schedule-json').value = '';
+        } else {
+            document.getElementById('modal-schedule-json').value = JSON.stringify(schedule);
+        }
+    };
+
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeScheduleModal();
+    });
+    
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeScheduleModal();
+    });
+</script>

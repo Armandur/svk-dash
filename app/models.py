@@ -26,9 +26,7 @@ class View(SQLModel, table=True):
     grid_cols: int = 12
     grid_rows: int = 9
     layout_json: Any = Field(default_factory=dict, sa_column=Column(JSON))
-    schedule_weekdays: str | None = None   # t.ex. 'mon,tue,wed,thu,fri' eller None = alltid aktiv
-    schedule_time_start: str | None = None  # 'HH:MM' eller None
-    schedule_time_end: str | None = None    # 'HH:MM' eller None
+    schedule_json: Any = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -150,9 +148,9 @@ class ScreenLayoutAssignment(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     screen_id: int = Field(foreign_key="screen.id")
     layout_id: int = Field(foreign_key="layout.id")
-    priority: int = 0  # högre = testas först vid schemaläggning
-    # Schemaläggning (None = alltid aktiv)
-    weekdays: str | None = None  # t.ex. "mon,tue,wed,thu,fri"
-    time_start: str | None = None  # "HH:MM"
-    time_end: str | None = None  # "HH:MM"
+    priority: int = 0
+    schedule_json: Any = Field(default=None, sa_column=Column(JSON))
+    duration_seconds: int | None = None
+    transition: str = "fade"
+    transition_duration_ms: int = 700
     created_at: datetime = Field(default_factory=datetime.utcnow)
