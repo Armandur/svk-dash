@@ -29,14 +29,6 @@
           <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+"
                  class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Bildformat</label>
-          <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            {% for val, lbl in [("16:9","16:9 liggande"),("9:16","9:16 stående"),("4:3","4:3"),("1:1","1:1")] %}
-            <option value="{{ val }}"{% if screen.aspect_ratio == val %} selected{% endif %}>{{ lbl }}</option>
-            {% endfor %}
-          </select>
-        </div>
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 w-full">Spara ändringar</button>
       </form>
       <hr class="my-4">

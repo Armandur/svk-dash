@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Screen, View, Widget
+from app.models import Layout, LayoutZone, Screen, ScreenLayoutAssignment, View, Widget
 from app.templating import templates
 from app.widgets.base import render_widget
 
@@ -22,6 +22,36 @@ _ASPECT_CSS = {
     "A-L": "1.414 / 1",
     "A-P": "1 / 1.414",
 }
+
+_LAYOUT_ASPECT_FLOAT = {
+    "16:9": 16/9, "9:16": 9/16, "4:3": 4/3, "3:4": 3/4,
+    "1:1": 1.0, "A-L": 1.414, "A-P": 1/1.414,
+}
+
+
+def _zone_aspect_css(db, view: View) -> str:
+    """Returnerar CSS aspect-ratio för vy-editorns canvas.
+    Om vyn har en zon beräknas zonens egna proportioner.
+    Annars faller vi tillbaka på 16/9.
+    """
+    if not view.zone_id:
+        return "16 / 9"
+    zone = db.get(LayoutZone, view.zone_id)
+    if not zone or not zone.w_pct or not zone.h_pct:
+        return "16 / 9"
+    assignment = db.exec(
+        select(ScreenLayoutAssignment)
+        .where(ScreenLayoutAssignment.screen_id == view.screen_id)
+    ).first()
+    if not assignment:
+        return "16 / 9"
+    layout = db.get(Layout, assignment.layout_id)
+    if not layout:
+        return "16 / 9"
+    screen_ratio = _LAYOUT_ASPECT_FLOAT.get(layout.aspect_ratio, 16/9)
+    zone_ratio = screen_ratio * (zone.w_pct / zone.h_pct)
+    return f"{zone_ratio:.6f} / 1"
+
 
 _WIDGET_CATEGORIES: list[tuple[str, set[str]]] = [
     ("Kalender", {"ics_list", "ics_month", "ics_week", "ics_schedule"}),
@@ -157,8 +187,7 @@ async def view_detail(request: Request, view_id: int):
         sibling_views = db.exec(
             select(View).where(View.screen_id == view.screen_id).order_by(View.position)
         ).all()
-    aspect_ratio = screen.aspect_ratio if screen else "16:9"
-    aspect_ratio_css = _ASPECT_CSS.get(aspect_ratio, "16 / 9")
+    aspect_ratio_css = _zone_aspect_css(db, view)
     sib_ids = [v.id for v in sibling_views]
     cur_idx = sib_ids.index(view_id) if view_id in sib_ids else 0
     prev_view = sibling_views[cur_idx - 1] if cur_idx > 0 else None

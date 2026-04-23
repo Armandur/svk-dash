@@ -8,7 +8,6 @@ class Screen(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True, index=True)
     name: str
-    aspect_ratio: str = "16:9"
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0

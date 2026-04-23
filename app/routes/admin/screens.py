@@ -74,7 +74,6 @@ async def screen_create(
     request: Request,
     name: str = Form(...),
     slug: str = Form(...),
-    aspect_ratio: str = Form("16:9"),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
@@ -86,7 +85,7 @@ async def screen_create(
                 ),
                 status_code=422,
             )
-        screen = Screen(name=name, slug=slug, aspect_ratio=aspect_ratio)
+        screen = Screen(name=name, slug=slug)
         db.add(screen)
         db.commit()
         db.refresh(screen)
@@ -162,7 +161,6 @@ async def screen_edit(
     screen_id: int,
     name: str = Form(...),
     slug: str = Form(...),
-    aspect_ratio: str = Form("16:9"),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
@@ -182,7 +180,6 @@ async def screen_edit(
             )
         screen.name = name
         screen.slug = slug
-        screen.aspect_ratio = aspect_ratio
         screen.updated_at = datetime.utcnow()
         db.add(screen)
         db.commit()
