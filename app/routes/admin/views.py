@@ -95,8 +95,15 @@ async def view_detail(request: Request, view_id: int):
                     }
                 )
         all_widgets = db.exec(select(Widget).order_by(Widget.name)).all()
+        sibling_views = db.exec(
+            select(View).where(View.screen_id == view.screen_id).order_by(View.position)
+        ).all()
     aspect_ratio = screen.aspect_ratio if screen else "16:9"
     aspect_ratio_css = _ASPECT_CSS.get(aspect_ratio, "16 / 9")
+    sib_ids = [v.id for v in sibling_views]
+    cur_idx = sib_ids.index(view_id) if view_id in sib_ids else 0
+    prev_view = sibling_views[cur_idx - 1] if cur_idx > 0 else None
+    next_view = sibling_views[cur_idx + 1] if cur_idx < len(sibling_views) - 1 else None
     return HTMLResponse(
         templates.get_template("admin/view_detail.html").render(
             request=request,
@@ -105,6 +112,10 @@ async def view_detail(request: Request, view_id: int):
             aspect_ratio_css=aspect_ratio_css,
             layout_entries=layout_entries,
             all_widgets=all_widgets,
+            prev_view=prev_view,
+            next_view=next_view,
+            view_index=cur_idx,
+            view_count=len(sibling_views),
         )
     )
 

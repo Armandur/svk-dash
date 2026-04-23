@@ -23,6 +23,10 @@
     showView((currentPosition + 1) % VIEW_COUNT);
   }
 
+  function prevView() {
+    showView((currentPosition - 1 + VIEW_COUNT) % VIEW_COUNT);
+  }
+
   function scheduleNext() {
     clearTimeout(rotationTimer);
     if (VIEW_COUNT <= 1 || rotationPaused) return;
@@ -41,6 +45,58 @@
   function resumeRotation() {
     rotationPaused = false;
     scheduleNext();
+  }
+
+  // --- Kiosk-navigation ---
+
+  var navOverlay = document.getElementById('kiosk-nav');
+  var navHideTimer = null;
+  var navPaused = false;
+
+  function showNav() {
+    if (!navOverlay) return;
+    navOverlay.classList.add('visible');
+    clearTimeout(navHideTimer);
+    navHideTimer = setTimeout(hideNav, 3000);
+  }
+
+  function hideNav() {
+    if (!navOverlay) return;
+    navOverlay.classList.remove('visible');
+  }
+
+  document.addEventListener('mousemove', showNav);
+  document.addEventListener('touchstart', showNav, { passive: true });
+
+  var pauseBtn = document.getElementById('nav-pause');
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', function () {
+      if (navPaused) {
+        navPaused = false;
+        pauseBtn.innerHTML = '&#9646;&#9646;';
+        resumeRotation();
+      } else {
+        navPaused = true;
+        pauseBtn.innerHTML = '&#9654;';
+        pauseRotation();
+      }
+    });
+  }
+
+  var prevBtn = document.getElementById('nav-prev');
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function () {
+      prevView();
+      if (!navPaused) scheduleNext();
+    });
+  }
+
+  var nextBtn = document.getElementById('nav-next');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function () {
+      nextView();
+      if (!navPaused) scheduleNext();
+    });
   }
 
   // --- Klocka ---

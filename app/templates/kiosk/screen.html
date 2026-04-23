@@ -100,10 +100,53 @@
       z-index: 100;
     }
     #offline-banner.visible { display: block; }
+
+    /* Kiosk-navigation */
+    #kiosk-nav {
+      display: flex;
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 0.75rem;
+      align-items: center;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    #kiosk-nav.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .kiosk-nav-btn {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      border-radius: 50%;
+      width: 3rem;
+      height: 3rem;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      transition: background 0.15s;
+    }
+    .kiosk-nav-btn:hover { background: rgba(0,0,0,0.8); }
+    #nav-pause { font-size: 1rem; width: 2.4rem; height: 2.4rem; }
   </style>
 </head>
 <body>
   <div id="offline-banner">Ingen anslutning till server</div>
+
+  <div id="kiosk-nav">
+    <button class="kiosk-nav-btn" id="nav-prev" title="Föregående vy">&#8249;</button>
+    <button class="kiosk-nav-btn" id="nav-pause" title="Pausa/spela">&#9646;&#9646;</button>
+    <button class="kiosk-nav-btn" id="nav-next" title="Nästa vy">&#8250;</button>
+  </div>
 
   {% for view in views %}
   <div
