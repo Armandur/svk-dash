@@ -17,15 +17,216 @@
   <div class="lg:col-span-2">
     <div class="bg-white rounded-lg shadow p-5">
       <h2 class="font-semibold mb-4">Konfiguration</h2>
-      <form method="post" action="/admin/widgets/{{ widget.id }}/edit" class="space-y-4">
+      <form method="post" action="/admin/widgets/{{ widget.id }}/edit" class="space-y-4" id="widget-form">
+        <input type="hidden" name="config_json" id="config_json_hidden" value="{{ config_json }}">
+
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
-          <input type="text" name="name" value="{{ widget.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          <input type="text" name="name" value="{{ widget.name }}" required
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+
+        {% set cfg = widget.config_json or {} %}
+
+        {% if widget.kind == 'ics_list' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-URL</label>
+          <input type="text" data-field="ics_url" value="{{ cfg.get('ics_url', '') }}"
+                 placeholder="https://..." class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Dagar framåt</label>
+            <input type="number" data-field="days_ahead" value="{{ cfg.get('days_ahead', 14) }}"
+                   min="1" max="365" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Max händelser</label>
+            <input type="number" data-field="max_events" value="{{ cfg.get('max_events', 20) }}"
+                   min="1" max="200" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Konfiguration (JSON)</label>
-          <textarea name="config_json" rows="12" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ config_json }}</textarea>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
+          <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
+            <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
+            <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
+          </select>
         </div>
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="group_by_day"
+                   {% if cfg.get('group_by_day', true) %}checked{% endif %} class="rounded">
+            Gruppera per dag
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="show_location"
+                   {% if cfg.get('show_location', true) %}checked{% endif %} class="rounded">
+            Visa plats
+          </label>
+        </div>
+
+        {% elif widget.kind == 'ics_month' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">ICS-URL</label>
+          <input type="text" data-field="ics_url" value="{{ cfg.get('ics_url', '') }}"
+                 placeholder="https://..." class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="start_on_monday"
+                   {% if cfg.get('start_on_monday', true) %}checked{% endif %} class="rounded">
+            Börja veckan på måndag
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="highlight_today"
+                   {% if cfg.get('highlight_today', true) %}checked{% endif %} class="rounded">
+            Markera dagens datum
+          </label>
+        </div>
+
+        {% elif widget.kind == 'markdown' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Innehåll (Markdown)</label>
+          <textarea data-field="content_md" rows="14"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ cfg.get('content_md', '') }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
+            <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
+              <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
+              <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Justering</label>
+            <select data-field="alignment" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="left" {% if cfg.get('alignment', 'left') == 'left' %}selected{% endif %}>Vänster</option>
+              <option value="center" {% if cfg.get('alignment') == 'center' %}selected{% endif %}>Centrerad</option>
+              <option value="right" {% if cfg.get('alignment') == 'right' %}selected{% endif %}>Höger</option>
+            </select>
+          </div>
+        </div>
+
+        {% elif widget.kind == 'clock' %}
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Format</label>
+            <select data-field="format" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="time_only" {% if cfg.get('format') == 'time_only' %}selected{% endif %}>Tid</option>
+              <option value="date_only" {% if cfg.get('format') == 'date_only' %}selected{% endif %}>Datum</option>
+              <option value="time_date" {% if cfg.get('format', 'time_date') == 'time_date' %}selected{% endif %}>Tid + datum</option>
+              <option value="day_time" {% if cfg.get('format') == 'day_time' %}selected{% endif %}>Dag + tid</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Storlek</label>
+            <select data-field="size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="sm" {% if cfg.get('size') == 'sm' %}selected{% endif %}>Liten</option>
+              <option value="md" {% if cfg.get('size') == 'md' %}selected{% endif %}>Medium</option>
+              <option value="lg" {% if cfg.get('size') == 'lg' %}selected{% endif %}>Stor</option>
+              <option value="xl" {% if cfg.get('size', 'xl') == 'xl' %}selected{% endif %}>Extra stor</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Tidszon</label>
+            <input type="text" data-field="timezone" value="{{ cfg.get('timezone', 'Europe/Stockholm') }}"
+                   class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Locale</label>
+            <input type="text" data-field="locale" value="{{ cfg.get('locale', 'sv-SE') }}"
+                   class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+        </div>
+
+        {% elif widget.kind == 'raw_html' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">HTML</label>
+          <textarea data-field="html" rows="12"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ cfg.get('html', '') }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">CSS (valfritt)</label>
+          <textarea data-field="css" rows="5"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ cfg.get('css', '') }}</textarea>
+        </div>
+
+        {% elif widget.kind == 'text' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Text</label>
+          <textarea data-field="text" rows="4"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">{{ cfg.get('text', '') }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Storlek</label>
+            <select data-field="size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="small" {% if cfg.get('size') == 'small' %}selected{% endif %}>Liten</option>
+              <option value="normal" {% if cfg.get('size') == 'normal' %}selected{% endif %}>Normal</option>
+              <option value="large" {% if cfg.get('size', 'large') == 'large' %}selected{% endif %}>Stor</option>
+              <option value="xl" {% if cfg.get('size') == 'xl' %}selected{% endif %}>Extra stor</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Justering</label>
+            <select data-field="align" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="left" {% if cfg.get('align') == 'left' %}selected{% endif %}>Vänster</option>
+              <option value="center" {% if cfg.get('align', 'center') == 'center' %}selected{% endif %}>Centrerad</option>
+              <option value="right" {% if cfg.get('align') == 'right' %}selected{% endif %}>Höger</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-end gap-4">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="bold"
+                   {% if cfg.get('bold', false) %}checked{% endif %} class="rounded">
+            Fetstil
+          </label>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Textfärg</label>
+            <input type="color" data-field="color" value="{{ cfg.get('color', '#ffffff') }}"
+                   class="w-12 h-8 border border-gray-300 rounded cursor-pointer">
+          </div>
+        </div>
+
+        {% elif widget.kind == 'color_block' %}
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Färg</label>
+            <input type="color" data-field="color" value="{{ cfg.get('color', '#1e3a5f') }}"
+                   class="w-full h-10 border border-gray-300 rounded cursor-pointer">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Hörnradius (px)</label>
+            <input type="number" data-field="border_radius" value="{{ cfg.get('border_radius', 0) }}"
+                   min="0" max="200" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+        </div>
+
+        {% elif widget.kind == 'debug' %}
+        <p class="text-sm text-gray-400 italic">Debug-widget har ingen konfiguration.</p>
+
+        {% else %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Konfiguration (JSON)</label>
+          <textarea id="raw-json-edit" rows="12"
+                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ config_json }}</textarea>
+        </div>
+        {% endif %}
+
+        {% if widget.kind != 'debug' %}
+        <details class="text-xs">
+          <summary class="cursor-pointer text-gray-400 hover:text-gray-600 select-none py-1">Rå JSON</summary>
+          <pre class="mt-1 bg-gray-50 border border-gray-200 rounded p-2 overflow-x-auto text-gray-600 whitespace-pre-wrap break-all">{{ config_json }}</pre>
+        </details>
+        {% endif %}
+
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Spara</button>
       </form>
     </div>
@@ -114,4 +315,29 @@
     </div>
   </div>
 </div>
+
+<script>
+document.getElementById('widget-form').addEventListener('submit', function(e) {
+  var fields = this.querySelectorAll('[data-field]');
+  var rawEdit = document.getElementById('raw-json-edit');
+  var hidden = this.querySelector('#config_json_hidden');
+
+  if (fields.length > 0) {
+    var cfg = {};
+    fields.forEach(function(el) {
+      var key = el.dataset.field;
+      if (el.type === 'checkbox') {
+        cfg[key] = el.checked;
+      } else if (el.type === 'number') {
+        if (el.value !== '') cfg[key] = parseFloat(el.value);
+      } else {
+        if (el.value !== '') cfg[key] = el.value;
+      }
+    });
+    hidden.value = JSON.stringify(cfg);
+  } else if (rawEdit) {
+    hidden.value = rawEdit.value;
+  }
+});
+</script>
 {% endblock %}
