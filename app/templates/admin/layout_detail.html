@@ -25,7 +25,6 @@
   }
   .zone-box.selected {
     outline: 2px solid #60a5fa;
-    z-index: 20;
     box-shadow: 0 0 15px rgba(96, 165, 250, 0.4);
   }
   .zone-box.dragging {
@@ -241,7 +240,7 @@
       box.style.top = zone.y_pct + '%';
       box.style.width = zone.w_pct + '%';
       box.style.height = zone.h_pct + '%';
-      box.style.zIndex = zone.z_index;
+      box.style.zIndex = (selectedId === zone.id) ? 9999 : zone.z_index;
       if (zone.visible === false) {
         box.style.opacity = '0.3';
       }
