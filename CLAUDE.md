@@ -147,6 +147,54 @@ uv run alembic upgrade head
 uv run ruff check app/ --fix && uv run ruff format app/
 ```
 
+## Planerad arkitektur: Layout-system
+
+> **Status:** ej påbörjat — designbeslut dokumenterade, implementation i tre steg.
+
+### Koncept
+
+Ett nytt lager ovanför nuvarande Vy-modell. En *Layout* är ett återanvändbart template som delar upp skärmen i namngivna *Zoner*. Varje skärm kopplas till en layout och kan schemalägga byte mellan layouter.
+
+```
+Layout  (återanvändbart template)
+  └── LayoutZone
+        x_pct, y_pct, w_pct, h_pct  ← procent av skärmytan
+        role: "persistent" | "schedulable"
+        grid_cols, grid_rows          ← zonen har eget grid
+        └── ZoneWidgetPlacement       ← templatens default-innehåll (persistent zones)
+
+Screen
+  └── ScreenLayoutAssignment          ← vilken layout skärmen kör
+        layout_id
+        schedule: alltid | veckodagar + tidsintervall
+        └── ScreenZoneOverride        ← valfri override av template-default per zon
+              zone_id
+              └── ZoneWidgetPlacement ← skärmens egna version (ersätter template-default)
+
+View  (nuvarande modell, omdöpt konceptuellt till "ZoneContent")
+  zone_binding_id                     ← ersätter screen_id
+  └── ViewSchedule                    ← när innehållet visas i zonen
+```
+
+### Arvslogik för persistenta zoner
+
+- Ingen `ScreenZoneOverride` → template-defaulten visas
+- `ScreenZoneOverride` satt → skärmens version vinner (allt-eller-inget per zon)
+
+Användaren ser det som: *"Använd layout-standard / Anpassa för den här skärmen"*
+
+### Migrationsväg
+
+Befintliga skärmar och vyer migreras automatiskt till en autogenererad default-layout med en enda zon som täcker hela skärmen (`x=0, y=0, w=100, h=100, role=schedulable`). Inget data går förlorat.
+
+### Implementationssteg
+
+1. **Layouts + zon-editor** — DB-modeller, `/admin/layouts`, visuell zon-editor (drag/resize)
+2. **Koppla skärmar** — `ScreenLayoutAssignment`, `ScreenZoneOverride`, migration
+3. **Schemaläggning** — vy-rotation inom zoner, layout-växling per schema
+
+---
+
 ## UI/UX-konventioner
 
 ### Knappstilar

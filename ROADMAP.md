@@ -47,8 +47,24 @@
 
 ## Planerat
 
-### Schema-baserad vy-rotation
-Visa specifika vyer vid specifika tider/dagar (t.ex. "välkomstvy 08–09 på vardagar"). Modellen `ViewSchedule` finns redan i databasen — rotationslogik i kiosken och admin-UI saknas.
+### Layout-system med zoner  *(stor feature, tre steg)*
+
+En skärm delas upp i namngivna zoner via ett återanvändbart layout-template. Möjliggör t.ex. en stående 9:16-skärm med en stor toppzon, två A-format-zoner i mitten och en persistent remsa längst ned med logga och klocka.
+
+**Zoner har två roller:**
+- `persistent` — alltid synlig, innehåller widgets direkt (logga, klocka)
+- `schedulable` — roterar mellan vyer enligt schema (kalender, info)
+
+**Arv:** layout-template definierar default-innehåll för persistenta zoner. Varje skärm kan välja att använda template-default eller sätta en egen override (allt-eller-inget per zon).
+
+**Layout-växling:** en skärm kan schemalägga byte mellan layouter (t.ex. 3-zon dagtid → helskärm kvällstid) baserat på veckodagar och tidsintervall.
+
+Steg:
+1. **Layouts + zon-editor** — DB-modeller, `/admin/layouts`, visuell drag/resize-editor
+2. **Koppla skärmar** — `ScreenLayoutAssignment`, `ScreenZoneOverride`, automatisk migration av befintliga vyer
+3. **Schemaläggning** — vy-rotation inom zoner, layout-växling per schema
+
+Se CLAUDE.md → *Planerad arkitektur: Layout-system* för fullständig datamodell.
 
 ### Kiosk-bootstrap för Raspberry Pi
 Setup-skript som konfigurerar RPi i kiosk-läge: Chromium helskärm, autostart, roterande skärm, nätverkskonfiguration.
