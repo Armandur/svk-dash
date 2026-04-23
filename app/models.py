@@ -63,6 +63,24 @@ class WidgetRevision(SQLModel, table=True):
     editor_user_agent: str | None = None
 
 
+class MediaFolder(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    parent_id: int | None = Field(default=None, foreign_key="mediafolder.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MediaFile(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    filename: str = Field(unique=True, index=True)  # UUID-baserat filnamn på disk
+    original_name: str
+    content_type: str
+    size_bytes: int
+    folder_id: int | None = Field(default=None, foreign_key="mediafolder.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ViewSchedule(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     view_id: int = Field(foreign_key="view.id")

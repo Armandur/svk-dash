@@ -1,0 +1,603 @@
+{% extends "admin/base.html" %}
+{% block title %}Media{% endblock %}
+{% block content %}
+
+<!-- Verktygsfält -->
+<div class="flex items-center gap-3 mb-3 flex-wrap">
+  <h1 class="text-2xl font-bold mr-auto">Mediebibliotek</h1>
+  <div class="flex border border-gray-200 rounded overflow-hidden">
+    <button id="view-grid" class="px-3 py-1.5 text-sm" title="Rutnät">⊞</button>
+    <button id="view-list" class="px-3 py-1.5 text-sm" title="Lista">☰</button>
+  </div>
+  <button id="open-folder-form" class="border border-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50">+ Ny mapp</button>
+  <button id="open-upload" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700">+ Ladda upp</button>
+</div>
+
+<!-- Ny mapp-formulär -->
+<div id="folder-form-wrap" class="hidden mb-3">
+  <form method="post" action="/admin/media/folders/new" class="flex items-center gap-2">
+    <input type="hidden" name="parent_id" value="{{ current_folder_id or '' }}">
+    <input type="text" name="name" required placeholder="Mappnamn"
+           class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
+    <button type="submit" class="bg-gray-700 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-900">Skapa</button>
+    <button type="button" id="cancel-folder-form" class="text-sm text-gray-500 hover:text-gray-800">Avbryt</button>
+  </form>
+</div>
+
+<!-- Batch-fält -->
+<div id="batch-bar" class="hidden mb-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-3 flex-wrap">
+  <span id="batch-count" class="text-sm font-medium text-blue-800">0 markerade</span>
+  <select id="batch-move-target" class="border border-gray-300 rounded px-2 py-1 text-sm">
+    <option value="">Flytta till rot</option>
+    {% for folder in all_folders %}
+    <option value="{{ folder.id }}">{{ folder.name }}</option>
+    {% endfor %}
+  </select>
+  <button id="batch-move-btn" class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-900">Flytta</button>
+  <button id="batch-delete-btn" class="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Ta bort markerade</button>
+  <button id="batch-clear" class="text-sm text-gray-500 hover:text-gray-800 ml-auto">Avmarkera alla</button>
+</div>
+<form id="batch-form" method="post" action="/admin/media/batch">
+  <input type="hidden" name="action" id="batch-action">
+  <input type="hidden" name="file_ids" id="batch-ids">
+  <input type="hidden" name="folder_id" id="batch-folder-id">
+  <input type="hidden" name="current_folder_id" value="{{ current_folder_id or '' }}">
+</form>
+
+<!-- Filhanterare-panel -->
+<div class="bg-white rounded-xl shadow overflow-hidden">
+
+  <!-- Brödsmulor -->
+  <div class="flex items-center gap-1 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-sm flex-wrap">
+    {% if current_folder %}
+    <a href="{{ '/admin/media?folder_id=' + crumbs[-1].id|string if crumbs else '/admin/media' }}"
+       class="flex items-center text-gray-400 hover:text-gray-800 mr-1 shrink-0" title="Upp ett steg">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    {% endif %}
+    <a href="/admin/media" class="text-blue-600 hover:underline shrink-0">Media</a>
+    {% for crumb in crumbs %}
+    <span class="text-gray-300 mx-0.5">/</span>
+    <a href="/admin/media?folder_id={{ crumb.id }}" class="text-blue-600 hover:underline shrink-0">{{ crumb.name }}</a>
+    {% endfor %}
+    {% if current_folder %}
+    <span class="text-gray-300 mx-0.5">/</span>
+    <span class="text-gray-700 font-medium">{{ current_folder.name }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Kolumnrubriker (listvy) -->
+  <div id="list-header" class="hidden border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none"
+       style="display:none;grid-template-columns:32px 48px 1fr 90px 180px 220px;align-items:center;">
+    <span class="px-2 py-2"></span>
+    <span class="py-2"></span>
+    <span class="px-3 py-2">Namn</span>
+    <span class="px-3 py-2">Storlek</span>
+    <span class="px-3 py-2">Används</span>
+    <span class="px-3 py-2">Åtgärder</span>
+  </div>
+
+  {% if not subfolders and not files_with_usage %}
+  <div class="p-12 text-center">
+    <p class="text-gray-400 mb-4">Mappen är tom.</p>
+    <button class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 open-upload-trigger">Ladda upp filer</button>
+  </div>
+  {% else %}
+
+  <!-- Mapprad(er) — alltid full bredd oavsett vy -->
+  {% if subfolders %}
+  <div id="folders-section" class="border-b border-gray-100">
+    {% for folder in subfolders %}
+    <div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 group">
+      <span class="w-5 shrink-0"></span>
+      <span class="text-lg shrink-0">📁</span>
+      <a href="/admin/media?folder_id={{ folder.id }}"
+         class="flex-1 text-sm font-medium text-gray-700 hover:text-blue-600 truncate">{{ folder.name }}</a>
+      <form method="post" action="/admin/media/folders/{{ folder.id }}/delete"
+            onsubmit="return confirm('Ta bort mappen {{ folder.name }}? Den måste vara tom.')">
+        <button type="submit" class="text-xs text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1">Ta bort</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Filer -->
+  <div id="media-container" class="media-grid" data-mode="grid">
+
+    {% for item in files_with_usage %}
+    {% set f = item.file %}
+    {% set usages = item.usages %}
+
+    <!--
+      Kortet har alltid exakt 6 direkta barn i angiven ordning:
+        1. .col-check   — bockruta
+        2. .col-thumb   — miniatyr
+        3. .col-name    — namn (+ meta + gridknappar i grid-läge)
+        4. .col-size    — storlek
+        5. .col-usage   — användning
+        6. .col-actions — åtgärdsknappar
+    -->
+    <div class="media-card" data-file-id="{{ f.id }}">
+
+      <!-- 1: bockruta -->
+      <div class="col-check">
+        <input type="checkbox" class="file-checkbox" data-id="{{ f.id }}">
+        <span class="check-indicator">&#10003;</span>
+      </div>
+
+      <!-- 2: miniatyr -->
+      <div class="col-thumb">
+        <img src="/uploads/{{ f.filename }}" alt="{{ f.original_name }}"
+             onerror="this.style.display='none'">
+      </div>
+
+      <!-- 3: namn + (i gridvy: storlek + knappar) -->
+      <div class="col-name">
+        <p class="media-name" title="{{ f.original_name }}">{{ f.original_name }}</p>
+        <p class="grid-only media-meta">{{ (f.size_bytes / 1024) | round(1) }} KB</p>
+        <div class="grid-only grid-actions">
+          <button type="button" class="copy-url-btn" data-url="/uploads/{{ f.filename }}">URL</button>
+          <button type="button" class="replace-btn" data-id="{{ f.id }}">Ersätt</button>
+          <button type="button" class="delete-btn {% if usages %}warn{% endif %}"
+                  data-id="{{ f.id }}" data-name="{{ f.original_name }}" data-usage-count="{{ usages | length }}">✕</button>
+        </div>
+      </div>
+
+      <!-- 4: storlek (listvy) -->
+      <div class="col-size list-only">{{ (f.size_bytes / 1024) | round(1) }} KB</div>
+
+      <!-- 5: användning (listvy) -->
+      <div class="col-usage list-only">
+        {% if usages %}
+        <button type="button" class="usage-toggle">
+          {{ usages | length }} ställe{% if usages | length != 1 %}n{% endif %}<span class="usage-arrow">▾</span>
+        </button>
+        <ul class="usage-list hidden">
+          {% for u in usages %}
+          <li><a href="{{ u.url }}">
+            {% if u.kind == 'widget' %}W: {{ u.name }}{% else %}V: {{ u.name }} ({{ u.screen_name }}){% endif %}
+          </a></li>
+          {% endfor %}
+        </ul>
+        {% else %}<span class="none">–</span>{% endif %}
+      </div>
+
+      <!-- 6: åtgärder (listvy) -->
+      <div class="col-actions list-only">
+        <button type="button" class="copy-url-btn" data-url="/uploads/{{ f.filename }}">URL</button>
+        <button type="button" class="replace-btn" data-id="{{ f.id }}">Ersätt</button>
+        <button type="button" class="move-btn" data-id="{{ f.id }}" data-name="{{ f.original_name }}">Flytta</button>
+        <button type="button" class="delete-btn {% if usages %}warn{% endif %}"
+                data-id="{{ f.id }}" data-name="{{ f.original_name }}" data-usage-count="{{ usages | length }}">✕</button>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Förhandsgranskningsmodal -->
+<div id="preview-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:10000;background:rgba(0,0,0,0.8)">
+  <div class="relative flex flex-col items-center" style="max-width:90vw;max-height:90vh">
+    <button id="preview-close" class="absolute -top-8 right-0 text-white/70 hover:text-white text-3xl leading-none">&times;</button>
+    <img id="preview-img" src="" alt="" class="rounded-lg shadow-2xl object-contain" style="max-width:90vw;max-height:80vh">
+    <p id="preview-name" class="mt-3 text-white/80 text-sm"></p>
+  </div>
+</div>
+
+<!-- Uppladdningsmodal -->
+<div id="upload-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
+  <div class="bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4" style="width:100%;max-width:440px;margin:1rem">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold text-base" id="upload-modal-title">Ladda upp bilder</h2>
+      <button id="upload-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <div id="upload-drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+      <p class="text-sm text-gray-500">Dra och släpp bilder här</p>
+      <p class="text-xs text-gray-400 mt-1">eller</p>
+      <label class="mt-3 inline-block cursor-pointer bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-sm">
+        Välj filer<input type="file" id="upload-file-input" accept="image/*" multiple class="hidden">
+      </label>
+    </div>
+    <div id="upload-progress" class="hidden space-y-1.5 text-sm text-gray-600"></div>
+    <input type="hidden" id="replace-file-id">
+  </div>
+</div>
+
+<!-- Flytta-modal -->
+<div id="move-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
+  <div class="bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4" style="width:100%;max-width:360px;margin:1rem">
+    <h2 class="font-semibold text-base">Flytta fil</h2>
+    <p class="text-sm text-gray-500 truncate" id="move-file-name"></p>
+    <form id="move-form" method="post" action="" class="flex flex-col gap-3">
+      <select name="folder_id" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        <option value="">Rot (ingen mapp)</option>
+        {% for folder in all_folders %}
+        <option value="{{ folder.id }}">{{ folder.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="flex gap-3">
+        <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900">Flytta</button>
+        <button type="button" id="move-cancel" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bekräftelsemodal radering -->
+<div id="delete-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
+  <div class="bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4" style="width:100%;max-width:380px;margin:1rem">
+    <h2 class="font-semibold text-base">Ta bort fil</h2>
+    <p class="text-sm text-gray-600" id="delete-modal-body"></p>
+    <div class="flex gap-3">
+      <form id="delete-form" method="post" action="">
+        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700">Ta bort</button>
+      </form>
+      <button id="delete-cancel" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ═══════════════════════════════════════════
+   GEMENSAMT
+   ═══════════════════════════════════════════ */
+.media-card { cursor: pointer; transition: background 0.1s; }
+.media-card.selected { outline: 2px solid #3b82f6; outline-offset: -1px; }
+
+/* Knappstilar (återanvänds i grid + list) */
+.col-actions button, .grid-actions button {
+  font-size: 0.7rem; border-radius: 4px; padding: 2px 6px;
+  background: #f3f4f6; color: #374151; white-space: nowrap;
+}
+.col-actions button:hover, .grid-actions button:hover { background: #e5e7eb; }
+.col-actions button.warn, .grid-actions button.warn { background: #fff7ed; color: #c2410c; }
+.col-actions button.warn:hover, .grid-actions button.warn:hover { background: #fed7aa; }
+
+/* ═══════════════════════════════════════════
+   GRIDVY
+   ═══════════════════════════════════════════ */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+@media (min-width: 640px)  { .media-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 768px)  { .media-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1024px) { .media-grid { grid-template-columns: repeat(5, 1fr); } }
+
+.media-grid .media-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.media-grid .media-card:hover { border-color: #93c5fd; background: #f8fafc; }
+.media-grid .media-card.selected { background: #eff6ff; }
+
+/* Col 1 bockruta: flytande overlay i gridvy */
+.media-grid .col-check {
+  position: absolute; top: 6px; left: 6px; z-index: 10;
+  width: 20px; height: 20px;
+}
+.media-grid .col-check input { display: none; }
+.check-indicator {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 4px;
+  border: 2px solid white; background: rgba(255,255,255,0.8);
+  font-size: 11px; color: transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.1s, background 0.1s;
+  opacity: 0;
+}
+.media-card:hover .check-indicator,
+.media-card.selected .check-indicator { opacity: 1; }
+.media-card.selected .check-indicator { background: #3b82f6; border-color: #3b82f6; color: white; }
+
+/* Col 2 miniatyr */
+.media-grid .col-thumb {
+  aspect-ratio: 1; background: #f9fafb;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  cursor: zoom-in;
+}
+.media-grid .col-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.media-grid.list-view .col-thumb { cursor: zoom-in; }
+
+/* Col 3 info */
+.media-grid .col-name {
+  padding: 0.5rem; flex: 1; display: flex; flex-direction: column; gap: 2px;
+}
+.media-name {
+  font-size: 0.75rem; font-weight: 500; color: #374151;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.media-meta { font-size: 0.7rem; color: #9ca3af; }
+.grid-actions { display: flex; gap: 3px; margin-top: auto; padding-top: 6px; flex-wrap: wrap; }
+
+/* Col 4–6 dolda i gridvy */
+.media-grid .list-only { display: none; }
+
+/* ═══════════════════════════════════════════
+   LISTVY
+   ═══════════════════════════════════════════ */
+.media-grid.list-view {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 !important;
+}
+.media-grid.list-view .media-card {
+  position: static;
+  display: grid;
+  grid-template-columns: 32px 48px 1fr 90px 180px 220px;
+  align-items: center;
+  border-radius: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  overflow: visible;
+}
+.media-grid.list-view .media-card:last-child { border-bottom: none !important; }
+.media-grid.list-view .media-card:hover { background: #f9fafb; }
+
+/* Col 1 bockruta: normal cell i listvy */
+.media-grid.list-view .col-check {
+  position: static;
+  width: auto; height: auto;
+  display: flex; align-items: center; justify-content: center;
+}
+.media-grid.list-view .col-check input { display: block; cursor: pointer; }
+.media-grid.list-view .check-indicator { display: none; }
+
+/* Col 2 miniatyr */
+.media-grid.list-view .col-thumb {
+  aspect-ratio: unset;
+  width: 48px; height: 48px;
+}
+
+/* Col 3 namn (bara text i listvy, ingen meta/knappar) */
+.media-grid.list-view .col-name {
+  padding: 0 0.75rem; flex: unset; overflow: hidden;
+}
+.media-grid.list-view .col-name .media-name { font-size: 0.8125rem; }
+.media-grid.list-view .grid-only { display: none !important; }
+
+/* Col 4–6 synliga i listvy */
+.media-grid.list-view .list-only {
+  display: flex; align-items: flex-start; flex-direction: column;
+  font-size: 0.75rem; padding: 0.5rem 0.75rem;
+}
+.media-grid.list-view .col-size { color: #6b7280; }
+.media-grid.list-view .col-usage { color: #6b7280; }
+.media-grid.list-view .col-usage .none { color: #d1d5db; }
+.media-grid.list-view .col-usage .usage-toggle {
+  color: #2563eb; font-size: 0.75rem; display: flex; align-items: center; gap: 2px;
+}
+.media-grid.list-view .col-usage .usage-toggle:hover { color: #1d4ed8; }
+.media-grid.list-view .col-usage .usage-arrow { margin-left: 2px; }
+.media-grid.list-view .col-usage .usage-list { margin-top: 4px; }
+.media-grid.list-view .col-usage .usage-list li a { color: #4b5563; font-size: 0.7rem; }
+.media-grid.list-view .col-usage .usage-list li a:hover { color: #2563eb; }
+.media-grid.list-view .col-actions {
+  flex-direction: row; flex-wrap: wrap; gap: 3px; align-items: center;
+}
+</style>
+
+<script>
+(function() {
+  var container   = document.getElementById('media-container');
+  var listHeader  = document.getElementById('list-header');
+  var gridBtn     = document.getElementById('view-grid');
+  var listBtn     = document.getElementById('view-list');
+  var batchBar    = document.getElementById('batch-bar');
+  var batchCount  = document.getElementById('batch-count');
+  var batchForm   = document.getElementById('batch-form');
+  var batchIds    = document.getElementById('batch-ids');
+  var batchAction = document.getElementById('batch-action');
+  var batchFId    = document.getElementById('batch-folder-id');
+
+  // ── Vy-toggle ──────────────────────────────────────
+  function setView(v) {
+    if (!container) return;
+    var isList = v === 'list';
+    container.classList.toggle('list-view', isList);
+    listHeader.style.display = isList ? 'grid' : 'none';
+    gridBtn.className = 'px-3 py-1.5 text-sm ' + (isList ? 'text-gray-500 hover:bg-gray-100' : 'bg-gray-800 text-white');
+    listBtn.className = 'px-3 py-1.5 text-sm ' + (isList ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100');
+    localStorage.setItem('media_view', v);
+  }
+  setView(localStorage.getItem('media_view') || 'grid');
+  gridBtn.addEventListener('click', function() { setView('grid'); });
+  listBtn.addEventListener('click', function() { setView('list'); });
+
+  // ── Batch-markering ────────────────────────────────
+  var selected = new Set();
+  function updateBatch() {
+    document.querySelectorAll('.media-card').forEach(function(card) {
+      var sel = selected.has(String(card.dataset.fileId));
+      card.classList.toggle('selected', sel);
+      var cb = card.querySelector('.file-checkbox');
+      if (cb) cb.checked = sel;
+    });
+    batchCount.textContent = selected.size + ' markerade';
+    batchBar.classList.toggle('hidden', selected.size === 0);
+  }
+  function toggleCard(card) {
+    var id = String(card.dataset.fileId);
+    if (selected.has(id)) selected.delete(id); else selected.add(id);
+    updateBatch();
+  }
+  if (container) container.addEventListener('click', function(e) {
+    if (e.target.closest('button,a,form,select')) return;
+    var card = e.target.closest('.media-card');
+    if (card) toggleCard(card);
+  });
+  document.addEventListener('change', function(e) {
+    var cb = e.target.closest('.file-checkbox');
+    if (!cb) return;
+    toggleCard(cb.closest('.media-card'));
+  });
+  document.getElementById('batch-clear').addEventListener('click', function() { selected.clear(); updateBatch(); });
+  document.getElementById('batch-delete-btn').addEventListener('click', function() {
+    if (!selected.size || !confirm('Ta bort ' + selected.size + ' markerade filer?')) return;
+    batchAction.value = 'delete'; batchIds.value = Array.from(selected).join(','); batchForm.submit();
+  });
+  document.getElementById('batch-move-btn').addEventListener('click', function() {
+    if (!selected.size) return;
+    batchAction.value = 'move'; batchIds.value = Array.from(selected).join(',');
+    batchFId.value = document.getElementById('batch-move-target').value;
+    batchForm.submit();
+  });
+
+  // ── Ny mapp ────────────────────────────────────────
+  var folderWrap = document.getElementById('folder-form-wrap');
+  document.getElementById('open-folder-form').addEventListener('click', function() {
+    folderWrap.classList.remove('hidden');
+    folderWrap.querySelector('input[name=name]').focus();
+  });
+  document.getElementById('cancel-folder-form').addEventListener('click', function() { folderWrap.classList.add('hidden'); });
+
+  // ── Uppladdning ────────────────────────────────────
+  var uploadModal = document.getElementById('upload-modal');
+  var uploadTitle = document.getElementById('upload-modal-title');
+  var dropZone    = document.getElementById('upload-drop-zone');
+  var fileInput   = document.getElementById('upload-file-input');
+  var progress    = document.getElementById('upload-progress');
+  var replaceIdEl = document.getElementById('replace-file-id');
+  var folderParam = {{ current_folder_id or 'null' }};
+
+  function openUpload(repId, repName) {
+    replaceIdEl.value = repId || '';
+    uploadTitle.textContent = repId ? ('Ersätt: ' + repName) : 'Ladda upp bilder';
+    fileInput.multiple = !repId; fileInput.value = '';
+    progress.innerHTML = ''; progress.classList.add('hidden');
+    uploadModal.classList.remove('hidden');
+  }
+  function closeUpload() { uploadModal.classList.add('hidden'); }
+
+  document.getElementById('open-upload').addEventListener('click', function() { openUpload(); });
+  document.querySelectorAll('.open-upload-trigger').forEach(function(b) { b.addEventListener('click', function() { openUpload(); }); });
+  document.getElementById('upload-close').addEventListener('click', closeUpload);
+  uploadModal.addEventListener('click', function(e) { if (e.target === uploadModal) closeUpload(); });
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('border-blue-400'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('border-blue-400'); });
+  dropZone.addEventListener('drop', function(e) { e.preventDefault(); dropZone.classList.remove('border-blue-400'); doUpload(e.dataTransfer.files); });
+  fileInput.addEventListener('change', function() { doUpload(this.files); });
+  function doUpload(files) {
+    if (!files || !files.length) return;
+    var rid = replaceIdEl.value;
+    progress.classList.remove('hidden');
+    Promise.all(Array.from(files).map(function(file) {
+      var row = document.createElement('div'); row.textContent = file.name + ' – laddar upp…'; progress.appendChild(row);
+      var fd = new FormData(); fd.append('file', file);
+      if (!rid && folderParam) fd.append('folder_id', folderParam);
+      return fetch(rid ? '/admin/media/' + rid + '/replace' : '/admin/media/upload', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(d) { row.textContent = file.name + (d.error ? ' – FEL: ' + d.error : ' – klar'); row.style.color = d.error ? '#dc2626' : '#16a34a'; })
+        .catch(function() { row.textContent = file.name + ' – nätverksfel'; row.style.color = '#dc2626'; });
+    })).then(function() { setTimeout(function() { location.reload(); }, 800); });
+  }
+
+  // ── Kopiera URL ────────────────────────────────────
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.copy-url-btn');
+    if (!btn) return;
+    var url = window.location.origin + btn.dataset.url;
+    var orig = btn.textContent;
+    function flash(ok) {
+      btn.textContent = ok ? 'Kopierad!' : url;
+      if (ok) setTimeout(function() { btn.textContent = orig; }, 1500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function() { flash(true); }).catch(function() { flash(false); });
+    } else {
+      // Fallback för HTTP / äldre webbläsare
+      var ta = document.createElement('textarea');
+      ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand('copy'); flash(true); } catch(err) { flash(false); }
+      document.body.removeChild(ta);
+    }
+  });
+
+  // ── Ersätt ─────────────────────────────────────────
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.replace-btn');
+    if (!btn) return;
+    var card = btn.closest('[data-file-id]');
+    var name = card ? (card.querySelector('.media-name') || {}).textContent || '' : '';
+    openUpload(btn.dataset.id, name.trim());
+  });
+
+  // ── Flytta ─────────────────────────────────────────
+  var moveModal  = document.getElementById('move-modal');
+  var moveForm   = document.getElementById('move-form');
+  var moveNameEl = document.getElementById('move-file-name');
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.move-btn');
+    if (!btn) return;
+    moveNameEl.textContent = btn.dataset.name;
+    moveForm.action = '/admin/media/' + btn.dataset.id + '/move';
+    moveModal.classList.remove('hidden');
+  });
+  document.getElementById('move-cancel').addEventListener('click', function() { moveModal.classList.add('hidden'); });
+  moveModal.addEventListener('click', function(e) { if (e.target === moveModal) moveModal.classList.add('hidden'); });
+
+  // ── Användnings-toggle ─────────────────────────────
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.usage-toggle');
+    if (!btn) return;
+    var list = btn.nextElementSibling;
+    var arrow = btn.querySelector('.usage-arrow');
+    var hidden = list.classList.toggle('hidden');
+    if (arrow) arrow.textContent = hidden ? '▾' : '▴';
+  });
+
+  // ── Radera ─────────────────────────────────────────
+  var deleteModal = document.getElementById('delete-modal');
+  var deleteForm  = document.getElementById('delete-form');
+  var deleteBody  = document.getElementById('delete-modal-body');
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.delete-btn');
+    if (!btn) return;
+    var count = parseInt(btn.dataset.usageCount || '0', 10);
+    deleteBody.innerHTML = count > 0
+      ? '<strong>' + btn.dataset.name + '</strong> används på ' + count + ' ställe' + (count !== 1 ? 'n' : '') + '. Widgets som refererar filen slutar fungera.'
+      : 'Ta bort <strong>' + btn.dataset.name + '</strong>? Detta kan inte ångras.';
+    deleteForm.action = '/admin/media/' + btn.dataset.id + '/delete';
+    deleteModal.classList.remove('hidden');
+  });
+  document.getElementById('delete-cancel').addEventListener('click', function() { deleteModal.classList.add('hidden'); });
+  deleteModal.addEventListener('click', function(e) { if (e.target === deleteModal) deleteModal.classList.add('hidden'); });
+
+  // ── Förhandsgranskning ─────────────────────────────
+  var previewModal = document.getElementById('preview-modal');
+  var previewImg   = document.getElementById('preview-img');
+  var previewName  = document.getElementById('preview-name');
+  document.addEventListener('click', function(e) {
+    var thumb = e.target.closest('.col-thumb');
+    if (!thumb) return;
+    var img = thumb.querySelector('img');
+    if (!img || !img.src) return;
+    var card = thumb.closest('.media-card');
+    var name = card ? (card.querySelector('.media-name') || {}).textContent || '' : '';
+    previewImg.src = img.src;
+    previewName.textContent = name.trim();
+    previewModal.classList.remove('hidden');
+  });
+  document.getElementById('preview-close').addEventListener('click', function() { previewModal.classList.add('hidden'); });
+  previewModal.addEventListener('click', function(e) { if (e.target === previewModal) previewModal.classList.add('hidden'); });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    closeUpload(); moveModal.classList.add('hidden'); deleteModal.classList.add('hidden'); previewModal.classList.add('hidden');
+  });
+})();
+</script>
+{% endblock %}

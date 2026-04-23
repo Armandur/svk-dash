@@ -657,6 +657,7 @@ function removeIcsUrl(btn) {
             {% endif %}
             <input type="file" accept="image/*" id="img-file-input"
                    class="text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer">
+            <button type="button" id="img-library-btn" class="mt-2 text-xs text-blue-600 hover:text-blue-800">Välj från bibliotek…</button>
             <p class="text-xs text-gray-400 mt-1">jpg, png, gif, webp, svg — max storlek begränsas av servern</p>
           </div>
         </div>
@@ -698,6 +699,16 @@ function removeIcsUrl(btn) {
               });
             });
           }
+
+          document.getElementById('img-library-btn').addEventListener('click', function() {
+            openMediaPicker(function(url, filename) {
+              document.getElementById('img-upload-path').value = filename;
+              var preview = document.getElementById('img-preview');
+              if (preview) { preview.src = url; preview.style.display = ''; }
+              var uploadRadio = document.querySelector('[name="img-src-type"][value="upload"]');
+              if (uploadRadio) { uploadRadio.checked = true; uploadRadio.dispatchEvent(new Event('change')); }
+            });
+          });
         })();
         </script>
 
@@ -710,6 +721,7 @@ function removeIcsUrl(btn) {
             + Ladda upp bild
             <input type="file" accept="image/*" id="ss-file-input" class="hidden" multiple>
           </label>
+          <button type="button" id="ss-library-btn" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1">+ Välj från bibliotek</button>
           <input type="hidden" data-field="images" data-field-type="json" id="ss-images-hidden">
         </div>
 
@@ -797,6 +809,13 @@ function removeIcsUrl(btn) {
               });
             });
             this.value = '';
+          });
+
+          document.getElementById('ss-library-btn').addEventListener('click', function() {
+            openMediaPicker(function(url) {
+              images.push({url: url});
+              renderList();
+            });
           });
         })();
         </script>
@@ -933,6 +952,23 @@ function removeIcsUrl(btn) {
   </div>
 </div>
 
+<!-- Mediepicker-modal -->
+<div id="media-picker-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:10000;background:rgba(0,0,0,0.55)">
+  <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:720px;height:70vh;margin:1rem">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
+      <h2 class="font-semibold text-base">Välj bild från bibliotek</h2>
+      <button id="mpm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <div class="flex flex-1 min-h-0">
+      <div class="w-36 flex-shrink-0 border-r border-gray-100 overflow-y-auto py-2" id="mpm-folders">
+        <p class="text-xs text-gray-400 px-3 py-1">Laddar…</p>
+      </div>
+      <div id="mpm-grid" class="flex-1 overflow-y-auto p-3 grid grid-cols-3 sm:grid-cols-4 gap-2 content-start">
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Color picker sync: swatch ↔ hex input
 document.querySelectorAll('.color-picker-wrap').forEach(function(wrap) {
@@ -992,5 +1028,91 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
     hidden.value = rawEdit.value;
   }
 });
+
+  // ── Mediepicker ─────────────────────────────────────
+  (function() {
+    var mpm        = document.getElementById('media-picker-modal');
+    var mpmGrid    = document.getElementById('mpm-grid');
+    var mpmFolders = document.getElementById('mpm-folders');
+    var mpmClose   = document.getElementById('mpm-close');
+    var _mpmCb     = null;
+    var _mpmData   = null;
+
+    function renderFolder(folderId) {
+      var files = _mpmData.files.filter(function(f) {
+        return folderId === null ? true : f.folder_id === folderId;
+      });
+      mpmFolders.querySelectorAll('.mpm-folder-btn').forEach(function(b) {
+        var active = folderId === null ? b.dataset.fid === 'all' : String(b.dataset.fid) === String(folderId);
+        b.style.background = active ? '#eff6ff' : '';
+        b.style.color      = active ? '#1d4ed8' : '#374151';
+        b.style.fontWeight = active ? '600' : '';
+      });
+      mpmGrid.innerHTML = '';
+      if (!files.length) {
+        mpmGrid.innerHTML = '<p class="col-span-4 text-sm text-gray-400 p-2">Inga bilder här.</p>';
+        return;
+      }
+      files.forEach(function(f) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'flex flex-col items-center gap-1 p-1 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors';
+        btn.innerHTML = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">' +
+          '<span class="text-xs text-gray-500 truncate w-full text-center px-1">' + f.original_name + '</span>';
+        btn.addEventListener('click', function() {
+          if (_mpmCb) _mpmCb(f.url, f.filename);
+          closeMpm();
+        });
+        mpmGrid.appendChild(btn);
+      });
+    }
+
+    function buildSidebar() {
+      mpmFolders.innerHTML = '';
+      var allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'mpm-folder-btn w-full text-left px-3 py-2 text-sm rounded-lg transition-colors';
+      allBtn.dataset.fid = 'all';
+      allBtn.textContent = 'Alla filer';
+      allBtn.style.background = '#eff6ff'; allBtn.style.color = '#1d4ed8'; allBtn.style.fontWeight = '600';
+      allBtn.addEventListener('click', function() { renderFolder(null); });
+      mpmFolders.appendChild(allBtn);
+      (_mpmData.folders || []).filter(function(f) { return f.parent_id === null; }).forEach(function(folder) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mpm-folder-btn w-full text-left px-3 py-2 text-sm rounded-lg transition-colors';
+        btn.dataset.fid = String(folder.id);
+        btn.style.color = '#374151';
+        btn.innerHTML = '📁 ' + folder.name;
+        btn.addEventListener('click', function() { renderFolder(folder.id); });
+        mpmFolders.appendChild(btn);
+      });
+    }
+
+    function loadMedia() {
+      if (_mpmData) { buildSidebar(); renderFolder(null); return; }
+      mpmFolders.innerHTML = '<p class="text-xs text-gray-400 px-3 py-1">Laddar…</p>';
+      fetch('/admin/media/picker')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          _mpmData = data;
+          buildSidebar();
+          renderFolder(null);
+        })
+        .catch(function() {
+          mpmGrid.innerHTML = '<p class="col-span-4 text-sm text-red-500 p-2">Kunde inte ladda mediefiler.</p>';
+        });
+    }
+
+    function openMpm(cb) { _mpmCb = cb; loadMedia(); mpm.classList.remove('hidden'); }
+    function closeMpm() { mpm.classList.add('hidden'); }
+
+    mpmClose.addEventListener('click', closeMpm);
+    mpm.addEventListener('click', function(e) { if (e.target === mpm) closeMpm(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !mpm.classList.contains('hidden')) closeMpm(); });
+
+    window.openMediaPicker = openMpm;
+  })();
+
 </script>
 {% endblock %}

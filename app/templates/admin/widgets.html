@@ -7,25 +7,39 @@
 </div>
 
 {% if widgets %}
-<div class="space-y-6">
-  {% for cat_name, cat_widgets in grouped %}
-  {% if cat_widgets %}
-  <div>
-    <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{{ cat_name }}</h2>
-    <div class="grid gap-2">
+<div class="bg-white rounded-xl shadow flex" style="min-height:400px">
+  <!-- Kategori-sidopanel -->
+  <div class="w-44 flex-shrink-0 border-r border-gray-100 py-3">
+    {% for cat_name, cat_widgets in grouped %}
+    <button type="button" class="cat-btn w-full text-left px-4 py-2.5 text-sm transition-colors"
+            data-cat="{{ loop.index0 }}"
+            {% if loop.first %}style="background:#eff6ff;color:#1d4ed8;font-weight:600"{% else %}style="color:#374151"{% endif %}>
+      <div>{{ cat_name }}</div>
+      <div class="text-xs mt-0.5 opacity-60">{{ cat_widgets | length }} widget{% if cat_widgets | length != 1 %}s{% endif %}</div>
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Widget-panel -->
+  <div class="flex-1 p-4">
+    {% for cat_name, cat_widgets in grouped %}
+    <div class="cat-panel grid gap-2" data-cat="{{ loop.index0 }}"{% if not loop.first %} style="display:none"{% endif %}>
+      {% if cat_widgets %}
       {% for w in cat_widgets %}
-      <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+      <div class="flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg hover:border-gray-300">
         <div>
-          <span class="font-medium">{{ w.name }}</span>
-          <span class="ml-3 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ w.kind }}</span>
+          <span class="font-medium text-sm">{{ w.name }}</span>
+          <span class="ml-2 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ w.kind }}</span>
         </div>
         <a href="/admin/widgets/{{ w.id }}" class="text-sm text-blue-600 hover:text-blue-800">Redigera</a>
       </div>
       {% endfor %}
+      {% else %}
+      <p class="text-sm text-gray-400 py-2">Inga widgets i denna kategori.</p>
+      {% endif %}
     </div>
+    {% endfor %}
   </div>
-  {% endif %}
-  {% endfor %}
 </div>
 {% else %}
 <p class="text-gray-500">Inga widgets ännu.</p>
@@ -78,6 +92,24 @@
 
 <script>
 (function() {
+  // Kategori-sidopanel
+  function showCat(idx) {
+    document.querySelectorAll('.cat-btn').forEach(function(b) {
+      if (b.dataset.cat === String(idx)) {
+        b.style.background = '#eff6ff'; b.style.color = '#1d4ed8'; b.style.fontWeight = '600';
+      } else {
+        b.style.background = ''; b.style.color = '#374151'; b.style.fontWeight = '';
+      }
+    });
+    document.querySelectorAll('.cat-panel').forEach(function(p) {
+      p.style.display = (p.dataset.cat === String(idx)) ? '' : 'none';
+    });
+  }
+  document.querySelectorAll('.cat-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { showCat(this.dataset.cat); });
+  });
+
+  // Ny widget-modal
   var modal     = document.getElementById('new-widget-modal');
   var openBtn   = document.getElementById('open-new-widget');
   var closeBtn  = document.getElementById('nwm-close');

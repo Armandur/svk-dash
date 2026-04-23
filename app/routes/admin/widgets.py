@@ -12,7 +12,7 @@ from sqlmodel import select
 from app.config import UPLOADS_DIR
 from app.database import get_session
 from app.deps import require_admin
-from app.models import IcsCache, View, Widget, WidgetRevision
+from app.models import IcsCache, MediaFile, View, Widget, WidgetRevision
 from app.routes.kiosk import broadcast_widget_updated
 from app.services.ics_fetcher import fetch_and_cache, get_ics_urls
 from app.templating import templates
@@ -311,13 +311,23 @@ _ALLOWED_IMAGE_TYPES = {
 
 @router.post("/uploads", response_class=JSONResponse)
 async def upload_image(file: UploadFile = File(...)):
-    content_type = file.content_type or ""
-    ext = _ALLOWED_IMAGE_TYPES.get(content_type.split(";")[0].strip())
+    content_type = (file.content_type or "").split(";")[0].strip()
+    ext = _ALLOWED_IMAGE_TYPES.get(content_type)
     if not ext:
         return JSONResponse({"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400)
+    data = await file.read()
     filename = uuid.uuid4().hex + ext
     dest = Path(UPLOADS_DIR) / filename
-    dest.write_bytes(await file.read())
+    dest.write_bytes(data)
+    with get_session() as db:
+        mf = MediaFile(
+            filename=filename,
+            original_name=file.filename or filename,
+            content_type=content_type,
+            size_bytes=len(data),
+        )
+        db.add(mf)
+        db.commit()
     return JSONResponse({"path": filename, "url": f"/uploads/{filename}"})
 
 

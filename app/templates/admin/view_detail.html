@@ -277,7 +277,7 @@
 
   <!-- Widget-picker-modal -->
   <div id="widget-picker-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
-    <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:640px;max-height:80vh;margin:1rem">
+    <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:640px;height:65vh;margin:1rem">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
         <h2 class="font-semibold text-base">Lägg till widget</h2>
         <button id="wpm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
@@ -288,14 +288,19 @@
         <button class="wpm-tab py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-800 -mb-px" data-tab="inline">Inline</button>
       </div>
 
-      <div id="wpm-tab-library" class="flex-1 overflow-y-auto p-4 space-y-3">
-        {% for cat_name, cat_widgets in widget_categories %}
-        <div>
-          <button type="button" class="wpm-cat-toggle w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700">
-            <span>{{ cat_name }}</span>
-            <span class="wpm-cat-arrow text-gray-400 text-xs">&#9660;</span>
+      <div id="wpm-tab-library" class="flex-1 flex min-h-0">
+        <div class="w-36 flex-shrink-0 border-r border-gray-100 overflow-y-auto py-2" id="wpm-cat-sidebar">
+          {% for cat_name, cat_widgets in widget_categories %}
+          <button type="button" class="wpm-cat-btn w-full text-left px-3 py-2 text-sm rounded-lg transition-colors"
+                  data-cat="{{ loop.index0 }}"
+                  {% if loop.first %}style="background:#eff6ff;color:#1d4ed8;font-weight:600"{% else %}style="color:#374151"{% endif %}>
+            {{ cat_name }}
           </button>
-          <div class="wpm-cat-body mt-2 grid grid-cols-2 gap-2">
+          {% endfor %}
+        </div>
+        <div class="flex-1 overflow-y-auto p-3" id="wpm-cat-panels">
+          {% for cat_name, cat_widgets in widget_categories %}
+          <div class="wpm-cat-panel grid grid-cols-2 gap-2" data-cat="{{ loop.index0 }}"{% if not loop.first %} style="display:none"{% endif %}>
             {% if cat_widgets %}
             {% for w in cat_widgets %}
             <form method="post" action="/admin/views/{{ view.id }}/widgets/add" style="margin:0">
@@ -310,11 +315,11 @@
             <p class="col-span-2 text-sm text-gray-400 px-3 py-1">Inga widgets av denna typ.</p>
             {% endif %}
           </div>
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
 
-      <div id="wpm-tab-inline" class="hidden flex-1 p-4">
+      <div id="wpm-tab-inline" class="hidden flex-1 overflow-y-auto p-4">
         <div class="grid grid-cols-3 gap-3">
           {% for kind, label in inline_labels.items() %}
           <form method="post" action="/admin/views/{{ view.id }}/inline/add" style="margin:0">
@@ -431,6 +436,7 @@
               <div>
                 <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Ladda upp bild</div>
                 <input type="file" accept="image/*" class="icfg-img-upload" style="font-size:0.65rem;color:#94a3b8;width:100%">
+                <button type="button" class="icfg-img-library mt-1 text-xs text-blue-600 hover:text-blue-800">Välj från bibliotek…</button>
               </div>
               {% elif entry.kind == 'slideshow' %}
               <div style="margin-bottom:6px">
@@ -441,6 +447,7 @@
                   <label style="font-size:0.65rem;color:#60a5fa;cursor:pointer">+ Ladda upp
                     <input type="file" accept="image/*" class="ss-inline-upload" style="display:none" multiple>
                   </label>
+                  <button type="button" class="ss-inline-library text-xs text-blue-600 hover:text-blue-800 px-1">+ Bibliotek</button>
                 </div>
               </div>
               <div style="display:flex;gap:6px">
@@ -684,14 +691,21 @@
       });
     });
 
-    // Kategori-toggle
-    modal.querySelectorAll('.wpm-cat-toggle').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var body = this.nextElementSibling;
-        var arrow = this.querySelector('.wpm-cat-arrow');
-        var collapsed = body.classList.toggle('hidden');
-        arrow.innerHTML = collapsed ? '&#9654;' : '&#9660;';
+    // Kategori-sidopanel
+    function showCat(idx) {
+      modal.querySelectorAll('.wpm-cat-btn').forEach(function(b) {
+        if (b.dataset.cat === String(idx)) {
+          b.style.background = '#eff6ff'; b.style.color = '#1d4ed8'; b.style.fontWeight = '600';
+        } else {
+          b.style.background = ''; b.style.color = '#374151'; b.style.fontWeight = '';
+        }
       });
+      modal.querySelectorAll('.wpm-cat-panel').forEach(function(p) {
+        p.style.display = (p.dataset.cat === String(idx)) ? '' : 'none';
+      });
+    }
+    modal.querySelectorAll('.wpm-cat-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { showCat(this.dataset.cat); });
     });
   })();
   function clearDirty() {
@@ -1104,16 +1118,50 @@ if (lyrAddBtn) {
 
   gridEl.addEventListener('click', function(e) {
     const btn = e.target.closest('.ss-inline-add-url');
-    if (!btn) return;
-    const url = prompt('Klistra in bild-URL:');
-    if (!url || !url.trim()) return;
-    const card = btn.closest('.widget-card');
-    const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
-    if (!Array.isArray(cfg.images)) cfg.images = [];
-    cfg.images.push({url: url.trim()});
-    card.dataset.inlineConfig = JSON.stringify(cfg);
-    renderSsInlineList(card);
-    setDirty();
+    if (btn) {
+      const url = prompt('Klistra in bild-URL:');
+      if (url && url.trim()) {
+        const card = btn.closest('.widget-card');
+        const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
+        if (!Array.isArray(cfg.images)) cfg.images = [];
+        cfg.images.push({url: url.trim()});
+        card.dataset.inlineConfig = JSON.stringify(cfg);
+        renderSsInlineList(card);
+        setDirty();
+      }
+      return;
+    }
+
+    const ssLibBtn = e.target.closest('.ss-inline-library');
+    if (ssLibBtn) {
+      const card = ssLibBtn.closest('.widget-card');
+      openMediaPicker(function(url) {
+        if (!card) return;
+        const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
+        if (!Array.isArray(cfg.images)) cfg.images = [];
+        cfg.images.push({url: url});
+        card.dataset.inlineConfig = JSON.stringify(cfg);
+        renderSsInlineList(card);
+        setDirty();
+      });
+      return;
+    }
+
+    const imgLibBtn = e.target.closest('.icfg-img-library');
+    if (imgLibBtn) {
+      const card = imgLibBtn.closest('.widget-card');
+      openMediaPicker(function(url) {
+        if (!card) return;
+        const cfg = JSON.parse(card.dataset.inlineConfig || '{}');
+        cfg.url = url;
+        card.dataset.inlineConfig = JSON.stringify(cfg);
+        const urlField = card.querySelector('.icfg-field[data-cfg-key="url"]');
+        if (urlField) urlField.value = url;
+        applyInlinePreview(card, cfg);
+        setDirty();
+      });
+      return;
+    }
   });
 
   gridEl.addEventListener('change', function(e) {
@@ -1206,8 +1254,110 @@ if (lyrAddBtn) {
     });
   }
 
+  // ── Mediepicker ─────────────────────────────────────
+  (function() {
+    var mpm        = document.getElementById('media-picker-modal');
+    var mpmGrid    = document.getElementById('mpm-grid');
+    var mpmFolders = document.getElementById('mpm-folders');
+    var mpmClose   = document.getElementById('mpm-close');
+    var _mpmCb     = null;
+    var _mpmData   = null;
+
+    function renderFolder(folderId) {
+      var files = _mpmData.files.filter(function(f) {
+        return folderId === null ? true : f.folder_id === folderId;
+      });
+      mpmFolders.querySelectorAll('.mpm-folder-btn').forEach(function(b) {
+        var active = folderId === null ? b.dataset.fid === 'all' : String(b.dataset.fid) === String(folderId);
+        b.style.background = active ? '#eff6ff' : '';
+        b.style.color      = active ? '#1d4ed8' : '#374151';
+        b.style.fontWeight = active ? '600' : '';
+      });
+      mpmGrid.innerHTML = '';
+      if (!files.length) {
+        mpmGrid.innerHTML = '<p class="col-span-4 text-sm text-gray-400 p-2">Inga bilder här.</p>';
+        return;
+      }
+      files.forEach(function(f) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'flex flex-col items-center gap-1 p-1 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors';
+        btn.innerHTML = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">' +
+          '<span class="text-xs text-gray-500 truncate w-full text-center px-1">' + f.original_name + '</span>';
+        btn.addEventListener('click', function() {
+          if (_mpmCb) _mpmCb(f.url, f.filename);
+          closeMpm();
+        });
+        mpmGrid.appendChild(btn);
+      });
+    }
+
+    function buildSidebar() {
+      mpmFolders.innerHTML = '';
+      var allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'mpm-folder-btn w-full text-left px-3 py-2 text-sm rounded-lg transition-colors';
+      allBtn.dataset.fid = 'all';
+      allBtn.textContent = 'Alla filer';
+      allBtn.style.background = '#eff6ff'; allBtn.style.color = '#1d4ed8'; allBtn.style.fontWeight = '600';
+      allBtn.addEventListener('click', function() { renderFolder(null); });
+      mpmFolders.appendChild(allBtn);
+      (_mpmData.folders || []).filter(function(f) { return f.parent_id === null; }).forEach(function(folder) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mpm-folder-btn w-full text-left px-3 py-2 text-sm rounded-lg transition-colors';
+        btn.dataset.fid = String(folder.id);
+        btn.style.color = '#374151';
+        btn.innerHTML = '📁 ' + folder.name;
+        btn.addEventListener('click', function() { renderFolder(folder.id); });
+        mpmFolders.appendChild(btn);
+      });
+    }
+
+    function loadMedia() {
+      if (_mpmData) { buildSidebar(); renderFolder(null); return; }
+      mpmFolders.innerHTML = '<p class="text-xs text-gray-400 px-3 py-1">Laddar…</p>';
+      fetch('/admin/media/picker')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          _mpmData = data;
+          buildSidebar();
+          renderFolder(null);
+        })
+        .catch(function() {
+          mpmGrid.innerHTML = '<p class="col-span-4 text-sm text-red-500 p-2">Kunde inte ladda mediefiler.</p>';
+        });
+    }
+
+    function openMpm(cb) { _mpmCb = cb; loadMedia(); mpm.classList.remove('hidden'); }
+    function closeMpm() { mpm.classList.add('hidden'); }
+
+    mpmClose.addEventListener('click', closeMpm);
+    mpm.addEventListener('click', function(e) { if (e.target === mpm) closeMpm(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !mpm.classList.contains('hidden')) closeMpm(); });
+
+    window.openMediaPicker = openMpm;
+  })();
+
   // Initialisering
   renderLayerPanel();
 })();
 </script>
+
+<!-- Mediepicker-modal -->
+<div id="media-picker-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:10000;background:rgba(0,0,0,0.55)">
+  <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:720px;height:70vh;margin:1rem">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
+      <h2 class="font-semibold text-base">Välj bild från bibliotek</h2>
+      <button id="mpm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+    </div>
+    <div class="flex flex-1 min-h-0">
+      <div class="w-36 flex-shrink-0 border-r border-gray-100 overflow-y-auto py-2" id="mpm-folders">
+        <p class="text-xs text-gray-400 px-3 py-1">Laddar…</p>
+      </div>
+      <div id="mpm-grid" class="flex-1 overflow-y-auto p-3 grid grid-cols-3 sm:grid-cols-4 gap-2 content-start">
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
