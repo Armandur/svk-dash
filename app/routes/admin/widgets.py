@@ -35,14 +35,29 @@ WIDGET_KINDS = [
     ("debug", "Debug/systemstatus"),
 ]
 
+_WIDGET_KIND_LABELS = dict(WIDGET_KINDS)
+
+_WIDGET_CATEGORIES: list[tuple[str, list[tuple[str, str]]]] = [
+    ("Kalender", [(k, _WIDGET_KIND_LABELS[k]) for k in ("ics_list", "ics_month", "ics_week", "ics_schedule")]),
+    ("Media",    [(k, _WIDGET_KIND_LABELS[k]) for k in ("image", "slideshow")]),
+    ("Innehåll", [(k, _WIDGET_KIND_LABELS[k]) for k in ("markdown", "iframe", "raw_html")]),
+    ("Övrigt",   [(k, _WIDGET_KIND_LABELS[k]) for k in ("clock", "debug")]),
+]
+
 
 @router.get("/widgets", response_class=HTMLResponse)
 async def widgets_list(request: Request):
     with get_session() as db:
         widgets = db.exec(select(Widget).order_by(Widget.name)).all()
+    kind_to_cat = {k: cat for cat, kinds in _WIDGET_CATEGORIES for k, _ in kinds}
+    cat_buckets: dict[str, list] = {cat: [] for cat, _ in _WIDGET_CATEGORIES}
+    for w in widgets:
+        cat_buckets.setdefault(kind_to_cat.get(w.kind, "Övrigt"), []).append(w)
+    grouped = [(cat, cat_buckets.get(cat, [])) for cat, _ in _WIDGET_CATEGORIES]
     return HTMLResponse(
         templates.get_template("admin/widgets.html").render(
-            request=request, widgets=widgets, kinds=WIDGET_KINDS
+            request=request, widgets=widgets, kinds=WIDGET_KINDS,
+            grouped=grouped, categories=_WIDGET_CATEGORIES,
         )
     )
 
