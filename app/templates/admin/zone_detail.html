@@ -105,37 +105,33 @@
       {% if views %}
       <div class="space-y-3 mb-4">
         {% for view in views %}
+        {% set is_active = True %}
+        {% if view.schedule_json %}
+          {% set s = view.schedule_json %}
+          {% set now = now_local() %}
+          {% set current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))] %}
+          {% set current_time = now.strftime("%H:%M") %}
+          {% set current_date = now.strftime("%Y-%m-%d") %}
+          {% if s.time_start and current_time < s.time_start %}{% set is_active = False %}{% endif %}
+          {% if s.time_end and current_time >= s.time_end %}{% set is_active = False %}{% endif %}
+          {% if is_active %}
+            {% if s.type == 'weekly' and current_day not in s.weekdays %}{% set is_active = False %}{% endif %}
+            {% if s.type == 'monthly' and now.day != s.day %}{% set is_active = False %}{% endif %}
+            {% if s.type == 'yearly' and (now.day != s.day or now.month != s.month) %}{% set is_active = False %}{% endif %}
+            {% if s.type == 'dates' and current_date not in s.dates %}{% set is_active = False %}{% endif %}
+          {% endif %}
+        {% endif %}
         <div class="border border-gray-200 rounded p-3 hover:border-gray-300 transition-colors">
           <div class="flex items-center justify-between mb-3">
-            <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full flex-shrink-0
+                           {% if not view.enabled %}bg-red-400{% elif is_active %}bg-green-400{% else %}border-2 border-green-400{% endif %}"></span>
               <span class="text-sm font-medium">{{ view.position + 1 }}. {{ view.name }}</span>
               {% if view.duration_seconds %}
-              <span class="ml-2 text-xs text-gray-500">{{ view.duration_seconds }}s</span>
+              <span class="text-xs text-gray-500">{{ view.duration_seconds }}s</span>
               {% else %}
-              <span class="ml-2 text-xs text-gray-400">standard</span>
+              <span class="text-xs text-gray-400">standard</span>
               {% endif %}
-
-              {% set is_active = True %}
-              {% if view.schedule_json %}
-                {% set s = view.schedule_json %}
-                {% set now = now_local() %}
-                {% set current_day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][int(now.strftime("%w"))] %}
-                {% set current_time = now.strftime("%H:%M") %}
-                {% set current_date = now.strftime("%Y-%m-%d") %}
-                
-                {% if s.time_start and current_time < s.time_start %}{% set is_active = False %}{% endif %}
-                {% if s.time_end and current_time >= s.time_end %}{% set is_active = False %}{% endif %}
-                
-                {% if is_active %}
-                  {% if s.type == 'weekly' and current_day not in s.weekdays %}{% set is_active = False %}{% endif %}
-                  {% if s.type == 'monthly' and now.day != s.day %}{% set is_active = False %}{% endif %}
-                  {% if s.type == 'yearly' and (now.day != s.day or now.month != s.month) %}{% set is_active = False %}{% endif %}
-                  {% if s.type == 'dates' and current_date not in s.dates %}{% set is_active = False %}{% endif %}
-                {% endif %}
-              {% endif %}
-
-              <span class="ml-2 inline-block w-2 h-2 rounded-full flex-shrink-0
-                           {% if not view.enabled %}bg-red-400{% elif is_active %}bg-green-400{% else %}border-2 border-green-400{% endif %}"></span>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
               <a href="/admin/views/{{ view.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
