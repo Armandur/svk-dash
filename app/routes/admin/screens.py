@@ -269,10 +269,10 @@ async def screen_layout_assignment_schedule(
     assignment_id: int,
     schedule_json: str = Form(None),
     enabled: str | None = Form(None),
-    duration_seconds: int | None = Form(None),
+    duration_seconds: str | None = Form(None),
     transition: str = Form("fade"),
     transition_direction: str = Form("left"),
-    transition_duration_ms: int = Form(700),
+    transition_duration_ms: str | None = Form(None),
 ):
     with get_session() as db:
         a = db.get(ScreenLayoutAssignment, assignment_id)
@@ -289,10 +289,10 @@ async def screen_layout_assignment_schedule(
             a.schedule_json = None
 
         a.enabled = enabled is not None
-        a.duration_seconds = duration_seconds
+        a.duration_seconds = int(duration_seconds) if duration_seconds else None
         a.transition = transition
         a.transition_direction = transition_direction
-        a.transition_duration_ms = transition_duration_ms
+        a.transition_duration_ms = int(transition_duration_ms) if transition_duration_ms else 700
         db.add(a)
         db.commit()
     return RedirectResponse(f"/admin/screens/{screen_id}?sel={assignment_id}", status_code=302)
@@ -441,10 +441,10 @@ async def zone_view_schedule(
     view_id: int,
     schedule_json: str = Form(None),
     enabled: str | None = Form(None),
-    duration_seconds: int | None = Form(None),
+    duration_seconds: str | None = Form(None),
     transition: str | None = Form(None),
     transition_direction: str | None = Form(None),
-    transition_duration_ms: int | None = Form(None),
+    transition_duration_ms: str | None = Form(None),
 ):
     with get_session() as db:
         view = db.get(View, view_id)
@@ -461,10 +461,10 @@ async def zone_view_schedule(
             view.schedule_json = None
 
         view.enabled = enabled is not None
-        view.duration_seconds = duration_seconds
+        view.duration_seconds = int(duration_seconds) if duration_seconds else None
         view.transition = transition if transition else None
         view.transition_direction = transition_direction if transition_direction else None
-        view.transition_duration_ms = transition_duration_ms
+        view.transition_duration_ms = int(transition_duration_ms) if transition_duration_ms else None
 
         db.add(view)
         db.commit()
