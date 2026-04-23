@@ -145,9 +145,10 @@
         } else if (targetType === 'view') {
             form.action = actionUrl;
             document.getElementById('layout-fields').classList.remove('hidden');
-            document.getElementById('duration-row').style.display = 'none';
+            document.getElementById('duration-row').style.display = '';
             document.getElementById('transition-label').textContent = 'Transition';
             if (layoutData) {
+                document.getElementById('layout-duration').value = layoutData.duration_seconds || '';
                 const t = layoutData.transition || '';
                 document.getElementById('transition-select').value = t;
                 document.getElementById('transition-duration').value = layoutData.transition_duration_ms || '';

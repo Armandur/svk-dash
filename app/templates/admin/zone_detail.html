@@ -157,7 +157,7 @@
 
           <!-- Schema-sammanfattning (klickbar för modal) -->
           <div class="bg-gray-50 rounded p-2 text-xs flex items-center justify-between group cursor-pointer hover:bg-gray-100 transition-colors"
-               onclick="openScheduleModal('view', {{ view.id }}, {{ (view.schedule_json or {}) | tojson }}, {transition: '{{ view.transition or '' }}', transition_direction: '{{ view.transition_direction or '' }}', transition_duration_ms: {{ view.transition_duration_ms | tojson }}}, '/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule')">
+               onclick="openScheduleModal('view', {{ view.id }}, {{ (view.schedule_json or {}) | tojson }}, {duration_seconds: {{ view.duration_seconds | tojson }}, transition: '{{ view.transition or '' }}', transition_direction: '{{ view.transition_direction or '' }}', transition_duration_ms: {{ view.transition_duration_ms | tojson }}}, '/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule')">
             <div>
               <span class="text-gray-400 font-semibold uppercase text-[9px] mr-2">Schema &amp; transition:</span>
               <span class="text-gray-700 font-medium">{{ view.schedule_json | schedule_summary }}</span>

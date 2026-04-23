@@ -438,6 +438,7 @@ async def zone_view_schedule(
     zone_id: int,
     view_id: int,
     schedule_json: str = Form(None),
+    duration_seconds: int | None = Form(None),
     transition: str | None = Form(None),
     transition_direction: str | None = Form(None),
     transition_duration_ms: int | None = Form(None),
@@ -456,6 +457,7 @@ async def zone_view_schedule(
         else:
             view.schedule_json = None
 
+        view.duration_seconds = duration_seconds
         view.transition = transition if transition else None
         view.transition_direction = transition_direction if transition_direction else None
         view.transition_duration_ms = transition_duration_ms
