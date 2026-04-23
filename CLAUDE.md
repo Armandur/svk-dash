@@ -119,9 +119,12 @@ uv run alembic upgrade head
 # Generera adminlösenord
 python3 -c "import bcrypt; print(bcrypt.hashpw(b'ditt-lösenord', bcrypt.gensalt()).decode())"
 
-# Starta dev-server
-ADMIN_PASSWORD_HASH='$2b$12$...' uv run uvicorn app.main:app --reload
+# Starta dev-server (loggar till dev.log i projektmappen)
+ADMIN_PASSWORD_HASH='$2b$12$...' uv run uvicorn app.main:app --reload >> dev.log 2>&1 &
+tail -f dev.log
 ```
+
+Loggen skrivs till `dev.log` i projektmappen. Kontrollera alltid den filen vid startproblem.
 
 ## Vanliga uppgifter
 
