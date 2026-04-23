@@ -76,6 +76,26 @@
     .ics-warn { font-size: 0.7em; color: rgba(251,191,36,0.7); text-align: right; margin-top: auto; padding-top: 0.3em; }
     .ics-updated { font-size: 0.65em; color: rgba(255,255,255,0.25); text-align: right; margin-top: auto; padding-top: 0.3em; }
 
+    /* ics_week */
+    .widget-ics-week { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.3em 0.4em; font-size:clamp(8px,1.6cqh,12px); }
+    .icw-grid { display:grid; grid-template-columns:repeat(7,1fr); grid-template-rows:auto 1fr; gap:2px; flex:1; min-height:0; }
+    .icw-col-head { text-align:center; padding:0.2em 0 0.3em; border-bottom:1px solid rgba(255,255,255,0.12); }
+    .icw-col-head.icw-today { border-bottom-color:rgba(59,130,246,0.8); }
+    .icw-dow { display:block; font-size:0.7em; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:rgba(255,255,255,0.4); }
+    .icw-date { display:block; font-size:0.95em; font-weight:600; color:rgba(255,255,255,0.75); }
+    .icw-col-head.icw-today .icw-date { color:#93c5fd; }
+    .icw-col { background:rgba(255,255,255,0.03); border-radius:3px; padding:0.2em 0.25em; overflow:hidden; display:flex; flex-direction:column; gap:1px; }
+    .icw-col.icw-today-col { background:rgba(59,130,246,0.1); outline:1px solid rgba(59,130,246,0.35); }
+    .icw-ev { font-size:0.68em; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,0.8); }
+    .icw-ev-allday { background:rgba(255,255,255,0.08); border-radius:2px; padding:0 0.2em; color:#fff; }
+    .icw-t { color:rgba(255,255,255,0.45); font-size:0.9em; margin-right:0.2em; font-variant-numeric:tabular-nums; }
+    .icw-s { }
+    .icw-loc { color:rgba(255,255,255,0.35); font-size:0.85em; margin-left:0.2em; }
+    .icw-more { font-size:0.6em; color:rgba(255,255,255,0.3); text-align:right; }
+    .icw-empty { flex:1; }
+    .widget-ics-week.ics-sm { font-size:clamp(7px,1.3cqh,10px); }
+    .widget-ics-week.ics-lg { font-size:clamp(9px,2cqh,15px); }
+
     /* ics_month */
     .widget-ics-month { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.4em 0.5em; font-size:clamp(8px,1.8cqh,13px); }
     .icm-title { text-align:center; font-weight:700; font-size:1.1em; padding-bottom:0.4em; color:rgba(255,255,255,0.85); }
