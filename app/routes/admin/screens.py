@@ -259,7 +259,10 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
                 )
                 db.add(persistent_view)
                 db.commit()
+                # commit() expirerar alla objekt — refresh de som används utanför sessionen
                 db.refresh(persistent_view)
+                db.refresh(zone)
+                db.refresh(screen)
 
         assignment = db.exec(
             select(ScreenLayoutAssignment)
@@ -271,6 +274,13 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
                 select(LayoutZone)
                 .where(LayoutZone.layout_id == assignment.layout_id, LayoutZone.id != zone_id)
                 .order_by(LayoutZone.z_index)
+            ).all()
+        # Hämta views igen om vi committat (persistent_view-skapande expirerar allt)
+        if persistent_view and persistent_view.id and not views:
+            views = db.exec(
+                select(View)
+                .where(View.screen_id == screen_id, View.zone_id == zone_id)
+                .order_by(View.position)
             ).all()
     return HTMLResponse(
         templates.get_template("admin/zone_detail.html").render(
