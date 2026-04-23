@@ -47,7 +47,9 @@ async def _fetch_raw(url: str, etag: str | None) -> tuple[str | None, str | None
         return None, None, str(exc)[:500]
 
 
-def _write_cache(widget_id: int, source_url: str, raw_ics: str | None, etag: str | None, error: str | None) -> None:
+def _write_cache(
+    widget_id: int, source_url: str, raw_ics: str | None, etag: str | None, error: str | None
+) -> None:
     with get_session() as db:
         cache = db.get(IcsCache, (widget_id, source_url))
         now = datetime.utcnow()
@@ -78,7 +80,9 @@ async def fetch_and_cache(widget_id: int, source_url: str) -> None:
 
     raw_ics, new_etag, error = await _fetch_raw(source_url, etag)
     if error:
-        logger.warning("ICS-hämtning misslyckades för widget %d (%s): %s", widget_id, source_url, error)
+        logger.warning(
+            "ICS-hämtning misslyckades för widget %d (%s): %s", widget_id, source_url, error
+        )
     else:
         logger.debug("ICS-cache uppdaterad för widget %d (%s)", widget_id, source_url)
     _write_cache(widget_id, source_url, raw_ics, new_etag, error)

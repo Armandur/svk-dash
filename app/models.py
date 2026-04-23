@@ -101,8 +101,8 @@ class LayoutZone(SQLModel, table=True):
     layout_id: int = Field(foreign_key="layout.id")
     name: str
     role: str = "schedulable"  # "persistent" | "schedulable"
-    x_pct: float = 0.0   # 0–100 % av skärmbredden
-    y_pct: float = 0.0   # 0–100 % av skärmhöjden
+    x_pct: float = 0.0  # 0–100 % av skärmbredden
+    y_pct: float = 0.0  # 0–100 % av skärmhöjden
     w_pct: float = 100.0
     h_pct: float = 100.0
     grid_cols: int = 12
@@ -123,6 +123,7 @@ class LayoutRevision(SQLModel, table=True):
 
 class ZoneWidgetPlacement(SQLModel, table=True):
     """Widget-placering i en zon. screen_id=None → template-default; screen_id satt → skärm-override."""
+
     id: int | None = Field(default=None, primary_key=True)
     zone_id: int = Field(foreign_key="layoutzone.id")
     screen_id: int | None = Field(default=None, foreign_key="screen.id")
@@ -142,12 +143,13 @@ class ZoneWidgetPlacement(SQLModel, table=True):
 
 class ScreenLayoutAssignment(SQLModel, table=True):
     """Kopplar en skärm till en layout, med valfritt tidschema."""
+
     id: int | None = Field(default=None, primary_key=True)
     screen_id: int = Field(foreign_key="screen.id")
     layout_id: int = Field(foreign_key="layout.id")
-    priority: int = 0           # högre = testas först vid schemaläggning
+    priority: int = 0  # högre = testas först vid schemaläggning
     # Schemaläggning (None = alltid aktiv)
     weekdays: str | None = None  # t.ex. "mon,tue,wed,thu,fri"
     time_start: str | None = None  # "HH:MM"
-    time_end: str | None = None    # "HH:MM"
+    time_end: str | None = None  # "HH:MM"
     created_at: datetime = Field(default_factory=datetime.utcnow)

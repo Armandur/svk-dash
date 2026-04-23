@@ -1,4 +1,5 @@
 """Delade hjälpfunktioner för ICS-kalender-widgets."""
+
 from __future__ import annotations
 
 _SOURCE_COLORS = [

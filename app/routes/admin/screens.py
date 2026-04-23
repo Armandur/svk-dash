@@ -124,9 +124,9 @@ def _get_screen_detail_ctx(db, screen_id: int, error: str | None = None) -> dict
     # Antal vyer per zon
     zone_view_counts = {}
     for zone in zones:
-        zone_view_counts[zone.id] = len(db.exec(
-            select(View).where(View.screen_id == screen_id, View.zone_id == zone.id)
-        ).all())
+        zone_view_counts[zone.id] = len(
+            db.exec(select(View).where(View.screen_id == screen_id, View.zone_id == zone.id)).all()
+        )
 
     all_layouts = db.exec(select(Layout).order_by(Layout.name)).all()
 
@@ -149,9 +149,7 @@ async def screen_detail(request: Request, screen_id: int):
     if not ctx:
         return HTMLResponse("Skärmen hittades inte.", status_code=404)
     return HTMLResponse(
-        templates.get_template("admin/screen_detail.html").render(
-            request=request, **ctx
-        )
+        templates.get_template("admin/screen_detail.html").render(request=request, **ctx)
     )
 
 
@@ -173,9 +171,7 @@ async def screen_edit(
         if conflict:
             ctx = _get_screen_detail_ctx(db, screen_id, error=f"Slug '{slug}' används redan.")
             return HTMLResponse(
-                templates.get_template("admin/screen_detail.html").render(
-                    request=request, **ctx
-                ),
+                templates.get_template("admin/screen_detail.html").render(request=request, **ctx),
                 status_code=422,
             )
         screen.name = name
@@ -205,6 +201,7 @@ async def screen_delete(screen_id: int):
 
 # ── Layout-tilldelning ────────────────────────────────────────────────────────
 
+
 @router.post("/screens/{screen_id}/layout/assign")
 async def screen_assign_layout(screen_id: int, layout_id: int = Form(...)):
     with get_session() as db:
@@ -230,6 +227,7 @@ async def screen_remove_layout(screen_id: int):
 
 
 # ── Zon-hantering ─────────────────────────────────────────────────────────────
+
 
 @router.get("/screens/{screen_id}/zones/{zone_id}", response_class=HTMLResponse)
 async def zone_detail(request: Request, screen_id: int, zone_id: int):
@@ -265,8 +263,7 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
                 db.refresh(screen)
 
         assignment = db.exec(
-            select(ScreenLayoutAssignment)
-            .where(ScreenLayoutAssignment.screen_id == screen_id)
+            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen_id)
         ).first()
         other_zones = []
         if assignment:
@@ -288,15 +285,19 @@ async def zone_detail(request: Request, screen_id: int, zone_id: int):
         if assignment:
             layout = db.get(Layout, assignment.layout_id)
             if layout and zone.w_pct and zone.h_pct:
-                _ASPECT = {"16:9": 16/9, "9:16": 9/16, "4:3": 4/3, "1:1": 1.0, "21:9": 21/9}
-                sr = _ASPECT.get(layout.aspect_ratio, 16/9)
+                _ASPECT = {"16:9": 16 / 9, "9:16": 9 / 16, "4:3": 4 / 3, "1:1": 1.0, "21:9": 21 / 9}
+                sr = _ASPECT.get(layout.aspect_ratio, 16 / 9)
                 zr = sr * (zone.w_pct / zone.h_pct)
                 zone_aspect_css = f"{zr:.6f} / 1"
 
     return HTMLResponse(
         templates.get_template("admin/zone_detail.html").render(
-            request=request, screen=screen, zone=zone, views=views,
-            persistent_view=persistent_view, other_zones=other_zones,
+            request=request,
+            screen=screen,
+            zone=zone,
+            views=views,
+            persistent_view=persistent_view,
+            other_zones=other_zones,
             zone_aspect_css=zone_aspect_css,
         )
     )
@@ -342,6 +343,7 @@ async def zone_view_delete(screen_id: int, zone_id: int, view_id: int):
 
 # ── Legacy: vyer direkt under skärm (utan zon) ───────────────────────────────
 
+
 @router.post("/screens/{screen_id}/views/new")
 async def view_create(
     screen_id: int,
@@ -384,6 +386,7 @@ async def view_delete(screen_id: int, view_id: int):
 
 # ── Flytta vy till zon (drag-and-drop + formulär) ────────────────────────────
 
+
 @router.post("/screens/{screen_id}/views/{view_id}/assign-zone")
 async def view_assign_zone(request: Request, screen_id: int, view_id: int):
     body = await request.json()
@@ -422,7 +425,9 @@ async def zone_view_detach(screen_id: int, zone_id: int, view_id: int):
 
 
 @router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/move")
-async def zone_view_move(screen_id: int, zone_id: int, view_id: int, target_zone_id: int = Form(...)):
+async def zone_view_move(
+    screen_id: int, zone_id: int, view_id: int, target_zone_id: int = Form(...)
+):
     with get_session() as db:
         view = db.get(View, view_id)
         if view and view.screen_id == screen_id and view.zone_id == zone_id:

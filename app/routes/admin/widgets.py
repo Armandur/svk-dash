@@ -38,10 +38,16 @@ WIDGET_KINDS = [
 _WIDGET_KIND_LABELS = dict(WIDGET_KINDS)
 
 _WIDGET_CATEGORIES: list[tuple[str, list[tuple[str, str]]]] = [
-    ("Kalender", [(k, _WIDGET_KIND_LABELS[k]) for k in ("ics_list", "ics_month", "ics_week", "ics_schedule")]),
-    ("Media",    [(k, _WIDGET_KIND_LABELS[k]) for k in ("image", "slideshow")]),
+    (
+        "Kalender",
+        [
+            (k, _WIDGET_KIND_LABELS[k])
+            for k in ("ics_list", "ics_month", "ics_week", "ics_schedule")
+        ],
+    ),
+    ("Media", [(k, _WIDGET_KIND_LABELS[k]) for k in ("image", "slideshow")]),
     ("Innehåll", [(k, _WIDGET_KIND_LABELS[k]) for k in ("markdown", "iframe", "raw_html")]),
-    ("Övrigt",   [(k, _WIDGET_KIND_LABELS[k]) for k in ("clock", "debug")]),
+    ("Övrigt", [(k, _WIDGET_KIND_LABELS[k]) for k in ("clock", "debug")]),
 ]
 
 
@@ -56,8 +62,11 @@ async def widgets_list(request: Request):
     grouped = [(cat, cat_buckets.get(cat, [])) for cat, _ in _WIDGET_CATEGORIES]
     return HTMLResponse(
         templates.get_template("admin/widgets.html").render(
-            request=request, widgets=widgets, kinds=WIDGET_KINDS,
-            grouped=grouped, categories=_WIDGET_CATEGORIES,
+            request=request,
+            widgets=widgets,
+            kinds=WIDGET_KINDS,
+            grouped=grouped,
+            categories=_WIDGET_CATEGORIES,
         )
     )
 
@@ -314,7 +323,9 @@ async def upload_image(file: UploadFile = File(...)):
     content_type = (file.content_type or "").split(";")[0].strip()
     ext = _ALLOWED_IMAGE_TYPES.get(content_type)
     if not ext:
-        return JSONResponse({"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400)
+        return JSONResponse(
+            {"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400
+        )
     data = await file.read()
     filename = uuid.uuid4().hex + ext
     dest = Path(UPLOADS_DIR) / filename
@@ -329,7 +340,14 @@ async def upload_image(file: UploadFile = File(...)):
         db.add(mf)
         db.commit()
         db.refresh(mf)
-    return JSONResponse({"path": filename, "url": f"/uploads/{filename}", "media_id": mf.id, "original_name": mf.original_name})
+    return JSONResponse(
+        {
+            "path": filename,
+            "url": f"/uploads/{filename}",
+            "media_id": mf.id,
+            "original_name": mf.original_name,
+        }
+    )
 
 
 def _prune_revisions(db, widget_id: int) -> None:

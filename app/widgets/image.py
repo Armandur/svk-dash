@@ -19,5 +19,5 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     return (
         f'<div class="widget-image">'
         f'<img src="{src}" alt="{alt}" style="width:100%;height:100%;object-fit:{fit};display:block;">'
-        f'</div>'
+        f"</div>"
     )

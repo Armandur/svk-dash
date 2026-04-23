@@ -24,8 +24,18 @@ _TZ = ZoneInfo("Europe/Stockholm")
 _WEEKDAYS = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
 _MONTHS = [
     "",
-    "januari", "februari", "mars", "april", "maj", "juni",
-    "juli", "augusti", "september", "oktober", "november", "december",
+    "januari",
+    "februari",
+    "mars",
+    "april",
+    "maj",
+    "juni",
+    "juli",
+    "augusti",
+    "september",
+    "oktober",
+    "november",
+    "december",
 ]
 
 
@@ -154,7 +164,9 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             for start, all_day, summary, location, color, kind, badge in timed_evs:
                 if shown >= limit:
                     break
-                parts.append(_render_event(start.strftime("%H:%M"), summary, location, color, kind, badge))
+                parts.append(
+                    _render_event(start.strftime("%H:%M"), summary, location, color, kind, badge)
+                )
                 shown += 1
 
             if total > limit:
@@ -168,21 +180,25 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
         fetched_str = fetched_local.strftime("%H:%M")
         if has_error:
-            parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+            parts.append(
+                f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>'
+            )
         else:
             parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
-    parts.append('</div>')
+    parts.append("</div>")
     return "".join(parts)
 
 
-def _render_event(time_str: str, summary: str, location: str, color: str, kind: str = "busy", badge: str = "") -> str:
+def _render_event(
+    time_str: str, summary: str, location: str, color: str, kind: str = "busy", badge: str = ""
+) -> str:
     color_bar = f'<span class="ics-color-bar" style="background:{color}"></span>' if color else ""
     loc_html = f' <span class="ics-loc">{location}</span>' if location else ""
     kind_cls = f" ics-ev-{kind}" if kind != "busy" else ""
     return (
         f'<div class="ics-ev{kind_cls}">'
-        f'{color_bar}'
+        f"{color_bar}"
         f'<span class="ics-t">{time_str}</span>'
         f'<span class="ics-s">{summary}{badge}{loc_html}</span>'
         f"</div>"

@@ -23,8 +23,19 @@ _TZ = ZoneInfo("Europe/Stockholm")
 _WEEKDAYS_MON = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
 _WEEKDAYS_SUN = ["Sön", "Mån", "Tis", "Ons", "Tor", "Fre", "Lör"]
 _MONTHS = [
-    "", "jan", "feb", "mar", "apr", "maj", "jun",
-    "jul", "aug", "sep", "okt", "nov", "dec",
+    "",
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "maj",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "okt",
+    "nov",
+    "dec",
 ]
 
 
@@ -94,7 +105,9 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             oldest_fetched = cache.fetched_at
         try:
             cal = icalendar.Calendar.from_ical(cache.raw_ics)
-            raw_events = recurring_ical_events.of(cal).between(week_first, week_last + timedelta(days=1))
+            raw_events = recurring_ical_events.of(cal).between(
+                week_first, week_last + timedelta(days=1)
+            )
         except Exception:
             has_error = True
             continue
@@ -139,7 +152,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             f'<div class="icw-col-head{today_cls}">'
             f'<span class="icw-dow">{weekday_names[i]}</span>'
             f'<span class="icw-date">{d.day} {_MONTHS[d.month]}</span>'
-            f'</div>'
+            f"</div>"
         )
 
     # Händelsekolumner
@@ -156,13 +169,19 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         for start, all_day, summary, location, color, kind, badge in all_day_evs:
             if shown >= limit:
                 break
-            parts.append(_render_event("", summary, location, color, badge=badge, all_day=True, kind=kind))
+            parts.append(
+                _render_event("", summary, location, color, badge=badge, all_day=True, kind=kind)
+            )
             shown += 1
 
         for start, all_day, summary, location, color, kind, badge in timed_evs:
             if shown >= limit:
                 break
-            parts.append(_render_event(start.strftime("%H:%M"), summary, location, color, badge=badge, kind=kind))
+            parts.append(
+                _render_event(
+                    start.strftime("%H:%M"), summary, location, color, badge=badge, kind=kind
+                )
+            )
             shown += 1
 
         if total > limit:
@@ -171,32 +190,42 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         if not evs:
             parts.append('<div class="icw-empty"></div>')
 
-        parts.append('</div>')
+        parts.append("</div>")
 
-    parts.append('</div>')  # icw-grid
+    parts.append("</div>")  # icw-grid
 
     if oldest_fetched:
         fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
         fetched_str = fetched_local.strftime("%H:%M")
         if has_error:
-            parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+            parts.append(
+                f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>'
+            )
         else:
             parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
-    parts.append('</div>')
+    parts.append("</div>")
     return "".join(parts)
 
 
-def _render_event(time_str: str, summary: str, location: str, color: str, badge: str = "", all_day: bool = False, kind: str = "busy") -> str:
-    color_style = f'border-left:2px solid {color};padding-left:3px;' if color else ""
+def _render_event(
+    time_str: str,
+    summary: str,
+    location: str,
+    color: str,
+    badge: str = "",
+    all_day: bool = False,
+    kind: str = "busy",
+) -> str:
+    color_style = f"border-left:2px solid {color};padding-left:3px;" if color else ""
     heldag_cls = " icw-ev-allday" if all_day else ""
     kind_cls = f" icw-ev-{kind}" if kind != "busy" else ""
     time_html = f'<span class="icw-t">{time_str}</span>' if time_str else ""
     loc_html = f'<span class="icw-loc">{location}</span>' if location else ""
     return (
         f'<div class="icw-ev{heldag_cls}{kind_cls}" style="{color_style}">'
-        f'{time_html}'
+        f"{time_html}"
         f'<span class="icw-s">{summary}{badge}</span>'
-        f'{loc_html}'
-        f'</div>'
+        f"{loc_html}"
+        f"</div>"
     )

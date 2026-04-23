@@ -14,7 +14,7 @@
 {% block content %}
 <div class="mb-6 flex items-center gap-3">
   <a href="/admin/widgets" class="text-sm text-gray-500 hover:text-gray-900">← Widgets</a>
-  <h1 class="text-2xl font-bold">{{ widget.name }}</h1>
+  <h1 class="text-2xl font-bold" id="widget-name-header">{{ widget.name }}</h1>
   <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ widget.kind }}</span>
 </div>
 
@@ -52,7 +52,8 @@ function removeIcsUrl(btn) {
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
           <input type="text" name="name" value="{{ widget.name }}" required
-                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+                 oninput="document.getElementById('widget-name-header').textContent = this.value || '(namnlös)'; document.title = (this.value || '(namnlös)') + ' – Skärmar Admin'">
         </div>
 
         {% set cfg = widget.config_json or {} %}
@@ -869,15 +870,16 @@ function removeIcsUrl(btn) {
 
     <!-- Edit-token -->
     {% if widget.kind != 'raw_html' %}
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="bg-white rounded-lg shadow p-5" id="token-section">
       <h2 class="font-semibold mb-2">Delningstoken</h2>
       <p class="text-xs text-gray-500 mb-3">Dela denna URL för att låta någon redigera utan inloggning.</p>
       <a href="{{ request.base_url }}edit/{{ widget.edit_token }}"
          target="_blank"
-         class="block text-xs bg-gray-100 rounded px-2 py-1.5 break-all text-blue-600 hover:text-blue-800 hover:bg-gray-200">
+         class="block text-xs bg-gray-100 rounded px-2 py-1.5 break-all text-blue-600 hover:text-blue-800 hover:bg-gray-200"
+         id="token-url-display">
         {{ request.base_url }}edit/{{ widget.edit_token }}
       </a>
-      <form method="post" action="/admin/widgets/{{ widget.id }}/rotate-token" class="mt-3">
+      <form hx-post="/admin/widgets/{{ widget.id }}/rotate-token" hx-target="#token-section" hx-select="#token-section" hx-swap="outerHTML" class="mt-3">
         <button type="submit" class="text-xs text-gray-500 hover:text-gray-900 underline">Rotera token</button>
       </form>
     </div>

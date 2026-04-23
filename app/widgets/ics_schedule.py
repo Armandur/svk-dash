@@ -22,8 +22,19 @@ _TZ = ZoneInfo("Europe/Stockholm")
 
 _WEEKDAYS_SHORT = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
 _MONTHS_SHORT = [
-    "", "jan", "feb", "mar", "apr", "maj", "jun",
-    "jul", "aug", "sep", "okt", "nov", "dec",
+    "",
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "maj",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "okt",
+    "nov",
+    "dec",
 ]
 
 
@@ -124,9 +135,9 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         days = [today + timedelta(days=day_offset + i) for i in range(day_count)]
 
     DayData = dict
-    day_data: list[DayData] = [{
-        "date": d, "all_day": [], "before": [], "main": [], "after": []
-    } for d in days]
+    day_data: list[DayData] = [
+        {"date": d, "all_day": [], "before": [], "main": [], "after": []} for d in days
+    ]
 
     has_error = False
     oldest_fetched: datetime | None = None
@@ -143,7 +154,9 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             oldest_fetched = cache.fetched_at
         try:
             cal = icalendar.Calendar.from_ical(cache.raw_ics)
-            raw_events = recurring_ical_events.of(cal).between(days[0], days[-1] + timedelta(days=1))
+            raw_events = recurring_ical_events.of(cal).between(
+                days[0], days[-1] + timedelta(days=1)
+            )
         except Exception:
             has_error = True
             continue
@@ -189,16 +202,31 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                 if dd["date"] != ev_date:
                     continue
                 if ev_end_min <= start_minute:
-                    dd["before"].append((start_local.strftime("%H:%M"), summary, location, ev_color, kind, badge))
+                    dd["before"].append(
+                        (start_local.strftime("%H:%M"), summary, location, ev_color, kind, badge)
+                    )
                 elif ev_start_min >= end_hour * 60:
-                    dd["after"].append((start_local.strftime("%H:%M"), summary, location, ev_color, kind, badge))
+                    dd["after"].append(
+                        (start_local.strftime("%H:%M"), summary, location, ev_color, kind, badge)
+                    )
                 else:
                     clipped_start = max(ev_start_min, start_minute)
                     clipped_end = min(ev_end_min, end_hour * 60)
                     offset = clipped_start - start_minute
                     duration = max(clipped_end - clipped_start, 10)
-                    dd["main"].append((offset, duration, total_minutes,
-                                       start_local.strftime("%H:%M"), summary, location, ev_color, kind, badge))
+                    dd["main"].append(
+                        (
+                            offset,
+                            duration,
+                            total_minutes,
+                            start_local.strftime("%H:%M"),
+                            summary,
+                            location,
+                            ev_color,
+                            kind,
+                            badge,
+                        )
+                    )
 
     # Tilldela lanes för parallella händelser
     for dd in day_data:
@@ -210,9 +238,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     hour_labels: list[str] = []
     for h in range(start_hour, end_hour + 1):
         pct = _pct(h * 60 - start_minute, total_minutes)
-        hour_labels.append(
-            f'<div class="isch-hour-label" style="top:{pct}">{h:02d}</div>'
-        )
+        hour_labels.append(f'<div class="isch-hour-label" style="top:{pct}">{h:02d}</div>')
 
     col_style = f"grid-template-columns: 1.8em repeat({day_count}, 1fr);"
     parts.append(f'<div class="isch-outer" style="{col_style}">')
@@ -226,7 +252,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             f'<div class="isch-col-head{today_cls}">'
             f'<span class="isch-dow">{_WEEKDAYS_SHORT[d.weekday()]}</span>'
             f' <span class="isch-date">{d.day} {_MONTHS_SHORT[d.month]}</span>'
-            f'</div>'
+            f"</div>"
         )
 
     # Heldagshändelser
@@ -234,12 +260,14 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     for dd in day_data:
         parts.append('<div class="isch-allday-col">')
         for summary, location, color, kind, badge in dd["all_day"]:
-            color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+            color_style = f"border-left:2px solid {color};padding-left:2px;" if color else ""
             kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
-            parts.append(f'<div class="isch-allday-ev{kind_cls}" style="{color_style}">{summary}{badge}</div>')
+            parts.append(
+                f'<div class="isch-allday-ev{kind_cls}" style="{color_style}">{summary}{badge}</div>'
+            )
         if not dd["all_day"]:
             parts.append('<div class="isch-allday-empty"></div>')
-        parts.append('</div>')
+        parts.append("</div>")
 
     # "Tidigare"-sektion
     has_before = any(dd["before"] for dd in day_data)
@@ -248,28 +276,29 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         for dd in day_data:
             parts.append('<div class="isch-overflow-col">')
             for time_str, summary, location, color, kind, badge in dd["before"]:
-                color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                color_style = f"border-left:2px solid {color};padding-left:2px;" if color else ""
                 kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
                 parts.append(
                     f'<div class="isch-overflow-ev{kind_cls}" style="{color_style}">'
                     f'<span class="isch-t">{time_str}</span>{summary}{badge}</div>'
                 )
-            parts.append('</div>')
+            parts.append("</div>")
 
     # Tidsblock-sektion
-    now_time_attrs = f' data-now-start="{start_hour}" data-now-end="{end_hour}"' if today in days else ""
+    now_time_attrs = (
+        f' data-now-start="{start_hour}" data-now-end="{end_hour}"' if today in days else ""
+    )
     parts.append(f'<div class="isch-time-col" style="position:relative;"{now_time_attrs}>')
     for label in hour_labels:
         parts.append(label)
     if today in days:
         parts.append('<div class="isch-now-dot"></div>')
-    parts.append('</div>')
+    parts.append("</div>")
 
     for dd in day_data:
         is_today = dd["date"] == today
         today_cls = " isch-today-col" if is_today else ""
-        now_attrs = (f' data-now-start="{start_hour}" data-now-end="{end_hour}"'
-                     if is_today else "")
+        now_attrs = f' data-now-start="{start_hour}" data-now-end="{end_hour}"' if is_today else ""
         parts.append(f'<div class="isch-main-col{today_cls}"{now_attrs}>')
         for h in range(start_hour, end_hour):
             pct = _pct(h * 60 - start_minute, total_minutes)
@@ -279,7 +308,19 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             parts.append('<div class="isch-now-line"></div>')
 
         for ev in dd["main"]:
-            offset, duration, total, time_str, summary, location, color, kind, badge, lane, n_lanes = ev
+            (
+                offset,
+                duration,
+                total,
+                time_str,
+                summary,
+                location,
+                color,
+                kind,
+                badge,
+                lane,
+                n_lanes,
+            ) = ev
             top = _pct(offset, total)
             height = _pct(duration, total)
             # Parallell-layout: dela bredden
@@ -287,7 +328,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             left = f"{lane * lane_w:.4f}%"
             width = f"{lane_w - 1:.4f}%"
             kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
-            border = f'border-left:3px solid {color};' if color else ""
+            border = f"border-left:3px solid {color};" if color else ""
 
             # Anpassa innehåll efter block-höjd (duration i minuter)
             if duration < 15:
@@ -299,22 +340,22 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
                     f'<span class="isch-ev-inline">'
                     f'<span class="isch-ev-time">{time_str}</span>'
                     f'<span class="isch-ev-title">{summary}</span>'
-                    f'</span>'
+                    f"</span>"
                 )
             else:
                 loc_html = f'<span class="isch-loc">{location}</span>' if location else ""
                 inner = (
                     f'<span class="isch-ev-time">{time_str}</span>'
                     f'<span class="isch-ev-title">{summary}{badge}</span>'
-                    f'{loc_html}'
+                    f"{loc_html}"
                 )
 
             parts.append(
                 f'<div class="isch-ev-block{kind_cls}" style="top:{top};height:{height};left:{left};width:{width};{border}">'
-                f'{inner}'
-                f'</div>'
+                f"{inner}"
+                f"</div>"
             )
-        parts.append('</div>')
+        parts.append("</div>")
 
     # "Senare"-sektion
     has_after = any(dd["after"] for dd in day_data)
@@ -323,23 +364,25 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         for dd in day_data:
             parts.append('<div class="isch-overflow-col">')
             for time_str, summary, location, color, kind, badge in dd["after"]:
-                color_style = f'border-left:2px solid {color};padding-left:2px;' if color else ""
+                color_style = f"border-left:2px solid {color};padding-left:2px;" if color else ""
                 kind_cls = f" isch-ev-{kind}" if kind != "busy" else ""
                 parts.append(
                     f'<div class="isch-overflow-ev{kind_cls}" style="{color_style}">'
                     f'<span class="isch-t">{time_str}</span>{summary}{badge}</div>'
                 )
-            parts.append('</div>')
+            parts.append("</div>")
 
-    parts.append('</div>')  # isch-outer
+    parts.append("</div>")  # isch-outer
 
     if oldest_fetched:
         fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
         fetched_str = fetched_local.strftime("%H:%M")
         if has_error:
-            parts.append(f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>')
+            parts.append(
+                f'<div class="ics-warn">⚠ Kan ej uppdatera – visar data från {fetched_str}</div>'
+            )
         else:
             parts.append(f'<div class="ics-updated">Uppdaterad {fetched_str}</div>')
 
-    parts.append('</div>')
+    parts.append("</div>")
     return "".join(parts)

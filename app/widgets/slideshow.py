@@ -3,7 +3,7 @@ import json
 from typing import Any
 
 _VALID_TRANSITIONS = {"none", "fade", "slide", "wipe", "zoom"}
-_VALID_DIRECTIONS  = {"left", "right", "up", "down"}
+_VALID_DIRECTIONS = {"left", "right", "up", "down"}
 
 
 def _src(item: dict) -> str:
@@ -39,7 +39,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     slides_html = "".join(
         f'<div class="ss-slide{" ss-active" if i == 0 else ""}">'
         f'<img src="{src}" alt="" style="width:100%;height:100%;object-fit:{fit};display:block;">'
-        f'</div>'
+        f"</div>"
         for i, src in enumerate(srcs)
     )
 
