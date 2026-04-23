@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% block title %}Layouter{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Layouter</h1>
+  <a href="/admin/layouts/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Ny layout</a>
+</div>
+
+{% if layouts %}
+<div class="space-y-3">
+  {% for layout in layouts %}
+  <div class="bg-white rounded-lg shadow p-5 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <!-- Aspect ratio preview -->
+      {% set parts = layout.aspect_ratio.split(':') %}
+      {% set aw = parts[0] | int %}
+      {% set ah = parts[1] | int %}
+      {% set pw = 48 %}
+      {% set ph = (pw * ah / aw) | int %}
+      <div class="flex-shrink-0 bg-slate-800 rounded border border-slate-600 flex items-center justify-center"
+           style="width:{{ pw }}px;height:{{ ph }}px">
+        <span class="text-slate-400 text-xs">{{ layout.aspect_ratio }}</span>
+      </div>
+      <div>
+        <div class="font-medium text-sm">{{ layout.name }}</div>
+        {% if layout.description %}
+        <div class="text-xs text-gray-400 mt-0.5">{{ layout.description }}</div>
+        {% endif %}
+        <div class="text-xs text-gray-400 mt-0.5">
+          {{ zone_counts.get(layout.id, 0) }} zon{% if zone_counts.get(layout.id, 0) != 1 %}er{% endif %}
+        </div>
+      </div>
+    </div>
+    <a href="/admin/layouts/{{ layout.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow p-12 text-center">
+  <p class="text-gray-400 mb-4">Inga layouter skapade ännu.</p>
+  <a href="/admin/layouts/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Skapa din första layout</a>
+</div>
+{% endif %}
+{% endblock %}

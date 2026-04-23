@@ -1,0 +1,518 @@
+{% extends "admin/base.html" %}
+{% block title %}Redigera layout: {{ layout.name }}{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Layout Editor ─────────────────────────────────── */
+  #editor-container {
+    position: relative;
+    width: 100%;
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    user-select: none;
+    /* Aspect ratio sätts via inline style */
+  }
+
+  .zone-box {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    transition: box-shadow 0.15s;
+    z-index: 10;
+  }
+  .zone-box.selected {
+    outline: 2px solid #60a5fa;
+    z-index: 20;
+    box-shadow: 0 0 15px rgba(96, 165, 250, 0.4);
+  }
+  .zone-box.dragging {
+    cursor: grabbing;
+    opacity: 0.8;
+  }
+
+  /* Roll-specifika färger */
+  .zone-schedulable {
+    background: rgba(59, 130, 246, 0.2);
+    border: 2px solid #3b82f6;
+  }
+  .zone-persistent {
+    background: rgba(16, 185, 129, 0.2);
+    border: 2px solid #10b981;
+  }
+
+  .zone-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    text-align: center;
+    padding: 0 4px;
+    word-break: break-all;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  .zone-badge {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .zone-schedulable .zone-badge { background: #3b82f6; color: white; }
+  .zone-persistent .zone-badge { background: #10b981; color: white; }
+
+  /* Resize-handtag (rh) */
+  .rh { position: absolute; z-index: 25; background: transparent; }
+  .zone-box:hover .rh { background: rgba(255, 255, 255, 0.2); }
+  .rh:hover { background: #60a5fa !important; }
+
+  .rh-n  { top: 0; left: 8px; right: 8px; height: 6px; cursor: n-resize; }
+  .rh-s  { bottom: 0; left: 8px; right: 8px; height: 6px; cursor: s-resize; }
+  .rh-e  { top: 8px; right: 0; bottom: 8px; width: 6px; cursor: e-resize; }
+  .rh-w  { top: 8px; left: 0; bottom: 8px; width: 6px; cursor: w-resize; }
+  .rh-ne { top: 0; right: 0; width: 10px; height: 10px; cursor: ne-resize; }
+  .rh-nw { top: 0; left: 0; width: 10px; height: 10px; cursor: nw-resize; }
+  .rh-se { bottom: 0; right: 0; width: 10px; height: 10px; cursor: se-resize; }
+  .rh-sw { bottom: 0; left: 0; width: 10px; height: 10px; cursor: sw-resize; }
+
+  /* Modal-overlay */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; items-center; justify-content: center;
+    background: rgba(0,0,0,0.45);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex items-center justify-between mb-6">
+  <div class="flex items-center gap-4">
+    <a href="/admin/layouts" class="text-sm text-gray-500 hover:text-gray-900">← Layouter</a>
+    <h1 class="text-2xl font-bold">{{ layout.name }}</h1>
+  </div>
+  <div class="flex gap-2">
+    <button id="open-settings" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm transition-colors">Inställningar</button>
+    <form action="/admin/layouts/{{ layout.id }}/delete" method="POST" onsubmit="return confirm('Är du säker på att du vill ta bort denna layout?')">
+      <button type="submit" class="text-sm text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded transition-colors">Ta bort</button>
+    </form>
+  </div>
+</div>
+
+<div class="flex flex-col lg:flex-row gap-6">
+  <!-- Editor (Vänster) -->
+  <div class="lg:w-2/3">
+    <div id="editor-container" style="aspect-ratio: {{ layout.aspect_ratio.replace(':', '/') }};">
+      <!-- Zoner renderas här via JS -->
+    </div>
+    <div class="mt-4">
+      <button id="add-zone" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900">+ Lägg till zon</button>
+    </div>
+  </div>
+
+  <!-- Egenskapspanel (Höger) -->
+  <div class="lg:w-1/3">
+    <div class="bg-white rounded-xl shadow p-5 sticky top-6">
+      <h2 class="font-semibold text-gray-700 mb-4">Zon-egenskaper</h2>
+      <div id="property-panel-content">
+        <p class="text-sm text-gray-400 py-8 text-center border border-dashed border-gray-100 rounded-lg">Välj en zon för att redigera den</p>
+      </div>
+
+      <div class="mt-8 pt-6 border-t border-gray-100">
+        <button id="save-zones" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+          Spara zoner
+        </button>
+        <p id="save-status" class="text-xs text-center mt-3 hidden"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Inställningsmodal -->
+<div id="settings-modal" class="hidden modal-overlay">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+    <form action="/admin/layouts/{{ layout.id }}/edit" method="POST">
+      <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="font-bold text-lg text-gray-800">Layout-inställningar</h3>
+        <button type="button" id="close-settings" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+          <input type="text" name="name" value="{{ layout.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Beskrivning</label>
+          <textarea name="description" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3">{{ layout.description or '' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Bildformat (Aspect Ratio)</label>
+          <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for value, label in aspect_ratios %}
+            <option value="{{ value }}" {% if layout.aspect_ratio == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+        <button type="button" id="cancel-settings" class="text-sm text-gray-600 hover:text-gray-900">Avbryt</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Spara ändringar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── State ───────────────────────────────────────────
+  let zones = {{ zones | tojson }};
+  let selectedId = null;
+  let isDirty = false;
+
+  const editor = document.getElementById('editor-container');
+  const propertyPanel = document.getElementById('property-panel-content');
+  const saveBtn = document.getElementById('save-zones');
+  const saveStatus = document.getElementById('save-status');
+
+  // ── Rendering ────────────────────────────────────────
+  function renderZones() {
+    // Spara undan scroll eller fokus om det behövs? Nej, rita om allt.
+    editor.innerHTML = '';
+    zones.forEach(zone => {
+      const box = document.createElement('div');
+      box.className = `zone-box zone-${zone.role} ${selectedId === zone.id ? 'selected' : ''}`;
+      box.dataset.id = zone.id;
+
+      // Position och storlek i procent
+      box.style.left = zone.x_pct + '%';
+      box.style.top = zone.y_pct + '%';
+      box.style.width = zone.w_pct + '%';
+      box.style.height = zone.h_pct + '%';
+      box.style.zIndex = zone.z_index;
+
+      box.innerHTML = `
+        <div class="zone-name">${zone.name}</div>
+        <div class="zone-badge">${zone.role}</div>
+        <!-- Resize handles -->
+        <div class="rh rh-n" data-dir="n"></div>
+        <div class="rh rh-s" data-dir="s"></div>
+        <div class="rh rh-e" data-dir="e"></div>
+        <div class="rh rh-w" data-dir="w"></div>
+        <div class="rh rh-ne" data-dir="ne"></div>
+        <div class="rh rh-nw" data-dir="nw"></div>
+        <div class="rh rh-se" data-dir="se"></div>
+        <div class="rh rh-sw" data-dir="sw"></div>
+      `;
+
+      box.addEventListener('mousedown', startDrag);
+      editor.appendChild(box);
+    });
+
+    updatePropertyPanel();
+    updateSaveButton();
+  }
+
+  function updatePropertyPanel() {
+    const zone = zones.find(z => z.id === selectedId);
+    if (!zone) {
+      propertyPanel.innerHTML = '<p class="text-sm text-gray-400 py-8 text-center border border-dashed border-gray-100 rounded-lg">Välj en zon för att redigera den</p>';
+      return;
+    }
+
+    propertyPanel.innerHTML = `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+          <input type="text" id="prop-name" value="${zone.name}" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Roll</label>
+          <select id="prop-role" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="schedulable" ${zone.role === 'schedulable' ? 'selected' : ''}>Schedulable (Innehåll roterar)</option>
+            <option value="persistent" ${zone.role === 'persistent' ? 'selected' : ''}>Persistent (Alltid synlig)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Grid kolumner</label>
+            <input type="number" id="prop-grid-cols" value="${zone.grid_cols}" min="4" max="24" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Grid rader</label>
+            <input type="number" id="prop-grid-rows" value="${zone.grid_rows}" min="4" max="24" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Z-Index (stapling)</label>
+          <input type="number" id="prop-z-index" value="${zone.z_index}" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-3 space-y-2">
+          <div class="flex justify-between text-[10px] uppercase font-bold text-gray-400">
+            <span>Position & Storlek</span>
+            <span>%</span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <div class="flex justify-between"><span>X:</span> <span class="font-mono">${zone.x_pct.toFixed(1)}</span></div>
+            <div class="flex justify-between"><span>Bredd:</span> <span class="font-mono">${zone.w_pct.toFixed(1)}</span></div>
+            <div class="flex justify-between"><span>Y:</span> <span class="font-mono">${zone.y_pct.toFixed(1)}</span></div>
+            <div class="flex justify-between"><span>Höjd:</span> <span class="font-mono">${zone.h_pct.toFixed(1)}</span></div>
+          </div>
+        </div>
+
+        <button id="delete-zone" class="w-full text-sm text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded transition-colors mt-4">
+          Ta bort zon
+        </button>
+      </div>
+    `;
+
+    // Event listeners för fält
+    document.getElementById('prop-name').oninput = e => updateZoneProp('name', e.target.value);
+    document.getElementById('prop-role').onchange = e => updateZoneProp('role', e.target.value);
+    document.getElementById('prop-grid-cols').oninput = e => updateZoneProp('grid_cols', parseInt(e.target.value) || 12);
+    document.getElementById('prop-grid-rows').oninput = e => updateZoneProp('grid_rows', parseInt(e.target.value) || 9);
+    document.getElementById('prop-z-index').oninput = e => updateZoneProp('z_index', parseInt(e.target.value) || 0);
+    document.getElementById('delete-zone').onclick = deleteSelectedZone;
+  }
+
+  function updateZoneProp(prop, val) {
+    const zone = zones.find(z => z.id === selectedId);
+    if (zone) {
+      zone[prop] = val;
+      isDirty = true;
+      // För prestanda, uppdatera bara relevanta delar av DOM om möjligt, 
+      // men rita om boxens text/stil räcker ofta.
+      const box = editor.querySelector(`[data-id="${selectedId}"]`);
+      if (box) {
+        if (prop === 'name') box.querySelector('.zone-name').textContent = val;
+        if (prop === 'role') {
+          box.className = `zone-box zone-${val} selected`;
+          box.querySelector('.zone-badge').textContent = val;
+        }
+        if (prop === 'z_index') box.style.zIndex = val;
+      }
+      updateSaveButton();
+    }
+  }
+
+  function updateSaveButton() {
+    if (isDirty) {
+      saveBtn.classList.replace('bg-blue-600', 'bg-amber-600');
+      saveBtn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-700');
+      saveBtn.textContent = 'Spara ändringar *';
+    } else {
+      saveBtn.classList.replace('bg-amber-600', 'bg-blue-600');
+      saveBtn.classList.replace('hover:bg-amber-700', 'hover:bg-blue-700');
+      saveBtn.textContent = 'Spara zoner';
+    }
+  }
+
+  // ── Interaktion ──────────────────────────────────────
+  let dragData = null;
+
+  function startDrag(e) {
+    const box = e.currentTarget;
+    const id = parseInt(box.dataset.id);
+
+    // Välj zon
+    if (selectedId !== id) {
+      selectedId = id;
+      renderZones();
+    }
+
+    const isResize = e.target.classList.contains('rh');
+    const rect = editor.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+
+    dragData = {
+      id: id,
+      isResize: isResize,
+      dir: isResize ? e.target.dataset.dir : null,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialLeft: (boxRect.left - rect.left) / rect.width * 100,
+      initialTop: (boxRect.top - rect.top) / rect.height * 100,
+      initialWidth: boxRect.width / rect.width * 100,
+      initialHeight: boxRect.height / rect.height * 100
+    };
+
+    box.classList.add('dragging');
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', stopDrag);
+  }
+
+  function onMove(e) {
+    if (!dragData) return;
+    const rect = editor.getBoundingClientRect();
+    const zone = zones.find(z => z.id === dragData.id);
+    if (!zone) return;
+
+    const dx = (e.clientX - dragData.startX) / rect.width * 100;
+    const dy = (e.clientY - dragData.startY) / rect.height * 100;
+
+    if (dragData.isResize) {
+      let nx = dragData.initialLeft;
+      let ny = dragData.initialTop;
+      let nw = dragData.initialWidth;
+      let nh = dragData.initialHeight;
+
+      if (dragData.dir.includes('e')) nw = Math.max(5, dragData.initialWidth + dx);
+      if (dragData.dir.includes('s')) nh = Math.max(5, dragData.initialHeight + dy);
+      if (dragData.dir.includes('w')) {
+        const potentialW = dragData.initialWidth - dx;
+        if (potentialW >= 5) {
+          nx = dragData.initialLeft + dx;
+          nw = potentialW;
+        }
+      }
+      if (dragData.dir.includes('n')) {
+        const potentialH = dragData.initialHeight - dy;
+        if (potentialH >= 5) {
+          ny = dragData.initialTop + dy;
+          nh = potentialH;
+        }
+      }
+
+      // Clamp
+      zone.x_pct = Math.max(0, Math.min(100 - nw, nx));
+      zone.y_pct = Math.max(0, Math.min(100 - nh, ny));
+      zone.w_pct = Math.min(100 - zone.x_pct, nw);
+      zone.h_pct = Math.min(100 - zone.y_pct, nh);
+
+    } else {
+      // Drag position
+      zone.x_pct = Math.max(0, Math.min(100 - zone.w_pct, dragData.initialLeft + dx));
+      zone.y_pct = Math.max(0, Math.min(100 - zone.h_pct, dragData.initialTop + dy));
+    }
+
+    // Uppdatera DOM direkt för flyt
+    const box = editor.querySelector(`[data-id="${zone.id}"]`);
+    if (box) {
+      box.style.left = zone.x_pct + '%';
+      box.style.top = zone.y_pct + '%';
+      box.style.width = zone.w_pct + '%';
+      box.style.height = zone.h_pct + '%';
+    }
+
+    isDirty = true;
+    updatePropertyPanel(); // För att se koordinater uppdateras live
+    updateSaveButton();
+  }
+
+  function stopDrag() {
+    if (dragData) {
+      const box = editor.querySelector(`[data-id="${dragData.id}"]`);
+      if (box) box.classList.remove('dragging');
+    }
+    dragData = null;
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', stopDrag);
+  }
+
+  // ── Actions ──────────────────────────────────────────
+  document.getElementById('add-zone').onclick = () => {
+    const newId = -(Date.now()); // Temporärt negativt ID
+    const newZone = {
+      id: newId,
+      name: "Ny zon",
+      role: "schedulable",
+      x_pct: 10, y_pct: 10, w_pct: 30, h_pct: 20,
+      grid_cols: 12, grid_rows: 9,
+      z_index: zones.length
+    };
+    zones.push(newZone);
+    selectedId = newId;
+    isDirty = true;
+    renderZones();
+  };
+
+  function deleteSelectedZone() {
+    if (!selectedId) return;
+    if (!confirm('Ta bort denna zon?')) return;
+    zones = zones.filter(z => z.id !== selectedId);
+    selectedId = null;
+    isDirty = true;
+    renderZones();
+  }
+
+  document.getElementById('save-zones').onclick = async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Sparar...';
+
+    try {
+      const payload = {
+        zones: zones.map(z => ({
+          id: z.id > 0 ? z.id : null,
+          name: z.name,
+          role: z.role,
+          x_pct: z.x_pct,
+          y_pct: z.y_pct,
+          w_pct: z.w_pct,
+          h_pct: z.h_pct,
+          grid_cols: z.grid_cols,
+          grid_rows: z.grid_rows,
+          z_index: z.z_index
+        }))
+      };
+
+      const resp = await fetch(`/admin/layouts/${ {{ layout.id }} }/zones/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await resp.json();
+      if (data.ok) {
+        saveStatus.textContent = 'Sparat!';
+        saveStatus.className = 'text-xs text-center mt-3 text-green-600';
+        saveStatus.classList.remove('hidden');
+        isDirty = false;
+        // Ladda om för att få riktiga IDn från servern
+        window.location.reload();
+      } else {
+        throw new Error(data.error || 'Okänt fel');
+      }
+    } catch (err) {
+      saveStatus.textContent = 'Fel: ' + err.message;
+      saveStatus.className = 'text-xs text-center mt-3 text-red-600';
+      saveStatus.classList.remove('hidden');
+    } finally {
+      saveBtn.disabled = false;
+      updateSaveButton();
+      setTimeout(() => saveStatus.classList.add('hidden'), 3000);
+    }
+  };
+
+  // ── Modal-logik ──────────────────────────────────────
+  const modal = document.getElementById('settings-modal');
+  const openBtn = document.getElementById('open-settings');
+  const closeBtn = document.getElementById('close-settings');
+  const cancelBtn = document.getElementById('cancel-settings');
+
+  function openModal() { modal.classList.remove('hidden'); }
+  function closeModal() { modal.classList.add('hidden'); }
+
+  openBtn.onclick = openModal;
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+  });
+
+  // Initial render
+  renderZones();
+
+  window.addEventListener('beforeunload', e => {
+    if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+})();
+</script>
+{% endblock %}

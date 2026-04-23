@@ -1,0 +1,43 @@
+{% extends "admin/base.html" %}
+{% block title %}{% if layout %}Redigera layout{% else %}Ny layout{% endif %}{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center gap-3">
+  <a href="/admin/layouts" class="text-sm text-gray-500 hover:text-gray-900">← Layouter</a>
+  <h1 class="text-2xl font-bold">{% if layout %}Redigera layout{% else %}Ny layout{% endif %}</h1>
+</div>
+
+{% if error %}
+<div class="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ error }}</div>
+{% endif %}
+
+<div class="bg-white rounded-lg shadow p-6 max-w-lg">
+  <form method="post" action="{% if layout %}/admin/layouts/{{ layout.id }}/edit{% else %}/admin/layouts/new{% endif %}" class="space-y-4">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+      <input type="text" name="name" required value="{{ layout.name if layout else '' }}"
+             class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+             placeholder="T.ex. Porträtt 3-zon">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Beskrivning</label>
+      <input type="text" name="description" value="{{ layout.description if layout else '' }}"
+             class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+             placeholder="Valfri beskrivning">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Bildformat</label>
+      <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {% for value, label in aspect_ratios %}
+        <option value="{{ value }}" {% if layout and layout.aspect_ratio == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+        {% if layout %}Spara{% else %}Skapa{% endif %}
+      </button>
+      <a href="/admin/layouts" class="text-sm text-gray-600 hover:text-gray-900 py-2">Avbryt</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
