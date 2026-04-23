@@ -18,10 +18,7 @@
   .zone-box {
     position: absolute;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
     cursor: grab;
     transition: box-shadow 0.15s;
     z-index: 10;
@@ -46,13 +43,28 @@
     border: 2px solid #10b981;
   }
 
+  /* Etikett-innehåll är absolut så det aldrig påverkar zonens storlek */
+  .zone-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
   .zone-name {
     font-size: 0.75rem;
     font-weight: 700;
     color: white;
     text-align: center;
     padding: 0 4px;
-    word-break: break-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
   }
 
@@ -111,8 +123,9 @@
     <div id="editor-container" style="aspect-ratio: {{ layout.aspect_ratio.replace(':', '/') }};">
       <!-- Zoner renderas här via JS -->
     </div>
-    <div class="mt-4">
+    <div class="mt-4 flex gap-2">
       <button id="add-zone" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900">+ Lägg till zon</button>
+      <button id="snap-toggle" class="bg-gray-700 text-white px-3 py-2 rounded text-sm hover:bg-gray-600 transition-colors">Snapping: På</button>
     </div>
   </div>
 
@@ -124,7 +137,16 @@
         <p class="text-sm text-gray-400 py-8 text-center border border-dashed border-gray-100 rounded-lg">Välj en zon för att redigera den</p>
       </div>
 
-      <div class="mt-8 pt-6 border-t border-gray-100">
+      <!-- Lagerlista -->
+      <div class="mt-6 pt-4 border-t border-gray-100">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Lager</h3>
+          <span class="text-[10px] text-gray-400">Klicka för att välja</span>
+        </div>
+        <div id="layer-list" class="space-y-1"></div>
+      </div>
+
+      <div class="mt-6 pt-6 border-t border-gray-100">
         <button id="save-zones" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
           Spara zoner
         </button>
@@ -174,6 +196,9 @@
   let zones = {{ zones | tojson }};
   let selectedId = null;
   let isDirty = false;
+  let snapEnabled = true;
+  const SNAP_SIZE = 5;
+  function snapVal(v) { return snapEnabled ? Math.round(v / SNAP_SIZE) * SNAP_SIZE : v; }
 
   const editor = document.getElementById('editor-container');
   const propertyPanel = document.getElementById('property-panel-content');
@@ -197,9 +222,10 @@
       box.style.zIndex = zone.z_index;
 
       box.innerHTML = `
-        <div class="zone-name">${zone.name}</div>
-        <div class="zone-badge">${zone.role}</div>
-        <!-- Resize handles -->
+        <div class="zone-label">
+          <div class="zone-name">${zone.name}</div>
+          <div class="zone-badge">${zone.role}</div>
+        </div>
         <div class="rh rh-n" data-dir="n"></div>
         <div class="rh rh-s" data-dir="s"></div>
         <div class="rh rh-e" data-dir="e"></div>
@@ -215,7 +241,66 @@
     });
 
     updatePropertyPanel();
+    renderLayerList();
     updateSaveButton();
+  }
+
+  function renderLayerList() {
+    const list = document.getElementById('layer-list');
+    if (!list) return;
+    // Sortera: högst z_index överst i listan
+    const sorted = [...zones].sort((a, b) => b.z_index - a.z_index);
+    list.innerHTML = '';
+    sorted.forEach(zone => {
+      const item = document.createElement('div');
+      const isSelected = zone.id === selectedId;
+      item.className = `flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs transition-colors
+        ${isSelected ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 hover:bg-gray-100 border border-transparent'}`;
+      const dot = zone.role === 'persistent' ? 'bg-emerald-500' : 'bg-blue-500';
+      item.innerHTML = `
+        <span class="w-2 h-2 rounded-full flex-shrink-0 ${dot}"></span>
+        <span class="flex-1 truncate font-medium">${zone.name}</span>
+        <div class="flex gap-0.5 ml-auto">
+          <button data-id="${zone.id}" data-dir="up"   title="Upp"   class="layer-move w-5 h-5 flex items-center justify-center rounded hover:bg-white text-gray-500 hover:text-gray-800">↑</button>
+          <button data-id="${zone.id}" data-dir="down" title="Ner"   class="layer-move w-5 h-5 flex items-center justify-center rounded hover:bg-white text-gray-500 hover:text-gray-800">↓</button>
+        </div>
+      `;
+      item.addEventListener('click', e => {
+        if (e.target.classList.contains('layer-move') || e.target.closest('.layer-move')) return;
+        selectedId = zone.id;
+        renderZones();
+      });
+      list.appendChild(item);
+    });
+
+    list.querySelectorAll('.layer-move').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.id);
+        const dir = btn.dataset.dir;
+        moveLayer(id, dir);
+      });
+    });
+  }
+
+  function moveLayer(id, dir) {
+    const zone = zones.find(z => z.id === id);
+    if (!zone) return;
+    const sorted = [...zones].sort((a, b) => a.z_index - b.z_index);
+    const idx = sorted.findIndex(z => z.id === id);
+    if (dir === 'up' && idx < sorted.length - 1) {
+      const other = sorted[idx + 1];
+      const tmp = zone.z_index;
+      zone.z_index = other.z_index;
+      other.z_index = tmp;
+    } else if (dir === 'down' && idx > 0) {
+      const other = sorted[idx - 1];
+      const tmp = zone.z_index;
+      zone.z_index = other.z_index;
+      other.z_index = tmp;
+    }
+    isDirty = true;
+    renderZones();
   }
 
   function updatePropertyPanel() {
@@ -254,15 +339,28 @@
         </div>
 
         <div class="bg-gray-50 rounded-lg p-3 space-y-2">
-          <div class="flex justify-between text-[10px] uppercase font-bold text-gray-400">
-            <span>Position & Storlek</span>
-            <span>%</span>
-          </div>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <div class="flex justify-between"><span>X:</span> <span class="font-mono">${zone.x_pct.toFixed(1)}</span></div>
-            <div class="flex justify-between"><span>Bredd:</span> <span class="font-mono">${zone.w_pct.toFixed(1)}</span></div>
-            <div class="flex justify-between"><span>Y:</span> <span class="font-mono">${zone.y_pct.toFixed(1)}</span></div>
-            <div class="flex justify-between"><span>Höjd:</span> <span class="font-mono">${zone.h_pct.toFixed(1)}</span></div>
+          <div class="text-[10px] uppercase font-bold text-gray-400 mb-2">Position & Storlek (%)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-medium text-gray-500 mb-0.5">X</label>
+              <input type="number" id="prop-x" value="${zone.x_pct.toFixed(1)}" step="0.1" min="0" max="100"
+                class="w-full border border-gray-300 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Bredd</label>
+              <input type="number" id="prop-w" value="${zone.w_pct.toFixed(1)}" step="0.1" min="1" max="100"
+                class="w-full border border-gray-300 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Y</label>
+              <input type="number" id="prop-y" value="${zone.y_pct.toFixed(1)}" step="0.1" min="0" max="100"
+                class="w-full border border-gray-300 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-medium text-gray-500 mb-0.5">Höjd</label>
+              <input type="number" id="prop-h" value="${zone.h_pct.toFixed(1)}" step="0.1" min="1" max="100"
+                class="w-full border border-gray-300 rounded px-2 py-1 text-xs font-mono focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
           </div>
         </div>
 
@@ -279,6 +377,39 @@
     document.getElementById('prop-grid-rows').oninput = e => updateZoneProp('grid_rows', parseInt(e.target.value) || 9);
     document.getElementById('prop-z-index').oninput = e => updateZoneProp('z_index', parseInt(e.target.value) || 0);
     document.getElementById('delete-zone').onclick = deleteSelectedZone;
+
+    document.getElementById('prop-x').oninput = e => applyCoordInput('x_pct', e.target.value);
+    document.getElementById('prop-y').oninput = e => applyCoordInput('y_pct', e.target.value);
+    document.getElementById('prop-w').oninput = e => applyCoordInput('w_pct', e.target.value);
+    document.getElementById('prop-h').oninput = e => applyCoordInput('h_pct', e.target.value);
+  }
+
+  function applyCoordInput(prop, rawVal) {
+    const zone = zones.find(z => z.id === selectedId);
+    if (!zone) return;
+    const val = parseFloat(rawVal);
+    if (isNaN(val)) return;
+    zone[prop] = Math.max(0, Math.min(100, val));
+    const box = editor.querySelector(`[data-id="${selectedId}"]`);
+    if (box) {
+      box.style.left = zone.x_pct + '%';
+      box.style.top = zone.y_pct + '%';
+      box.style.width = zone.w_pct + '%';
+      box.style.height = zone.h_pct + '%';
+    }
+    isDirty = true;
+    updateSaveButton();
+  }
+
+  function updateCoordDisplay(zone) {
+    const fx = document.getElementById('prop-x');
+    const fy = document.getElementById('prop-y');
+    const fw = document.getElementById('prop-w');
+    const fh = document.getElementById('prop-h');
+    if (fx) fx.value = zone.x_pct.toFixed(1);
+    if (fy) fy.value = zone.y_pct.toFixed(1);
+    if (fw) fw.value = zone.w_pct.toFixed(1);
+    if (fh) fh.value = zone.h_pct.toFixed(1);
   }
 
   function updateZoneProp(prop, val) {
@@ -362,21 +493,16 @@
       let nw = dragData.initialWidth;
       let nh = dragData.initialHeight;
 
-      if (dragData.dir.includes('e')) nw = Math.max(5, dragData.initialWidth + dx);
-      if (dragData.dir.includes('s')) nh = Math.max(5, dragData.initialHeight + dy);
+      const MIN = 1;
+      if (dragData.dir.includes('e')) nw = Math.max(MIN, snapVal(dragData.initialWidth + dx));
+      if (dragData.dir.includes('s')) nh = Math.max(MIN, snapVal(dragData.initialHeight + dy));
       if (dragData.dir.includes('w')) {
-        const potentialW = dragData.initialWidth - dx;
-        if (potentialW >= 5) {
-          nx = dragData.initialLeft + dx;
-          nw = potentialW;
-        }
+        const potentialW = snapVal(dragData.initialWidth - dx);
+        if (potentialW >= MIN) { nx = snapVal(dragData.initialLeft + dx); nw = potentialW; }
       }
       if (dragData.dir.includes('n')) {
-        const potentialH = dragData.initialHeight - dy;
-        if (potentialH >= 5) {
-          ny = dragData.initialTop + dy;
-          nh = potentialH;
-        }
+        const potentialH = snapVal(dragData.initialHeight - dy);
+        if (potentialH >= MIN) { ny = snapVal(dragData.initialTop + dy); nh = potentialH; }
       }
 
       // Clamp
@@ -387,8 +513,8 @@
 
     } else {
       // Drag position
-      zone.x_pct = Math.max(0, Math.min(100 - zone.w_pct, dragData.initialLeft + dx));
-      zone.y_pct = Math.max(0, Math.min(100 - zone.h_pct, dragData.initialTop + dy));
+      zone.x_pct = Math.max(0, Math.min(100 - zone.w_pct, snapVal(dragData.initialLeft + dx)));
+      zone.y_pct = Math.max(0, Math.min(100 - zone.h_pct, snapVal(dragData.initialTop + dy)));
     }
 
     // Uppdatera DOM direkt för flyt
@@ -401,7 +527,7 @@
     }
 
     isDirty = true;
-    updatePropertyPanel(); // För att se koordinater uppdateras live
+    updateCoordDisplay(zone);
     updateSaveButton();
   }
 
@@ -413,9 +539,19 @@
     dragData = null;
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', stopDrag);
+    renderLayerList();
   }
 
   // ── Actions ──────────────────────────────────────────
+  const snapToggleBtn = document.getElementById('snap-toggle');
+  snapToggleBtn.onclick = () => {
+    snapEnabled = !snapEnabled;
+    snapToggleBtn.textContent = 'Snapping: ' + (snapEnabled ? 'På' : 'Av');
+    snapToggleBtn.className = snapEnabled
+      ? 'bg-gray-700 text-white px-3 py-2 rounded text-sm hover:bg-gray-600 transition-colors'
+      : 'bg-gray-600 text-gray-400 px-3 py-2 rounded text-sm hover:bg-gray-500 transition-colors';
+  };
+
   document.getElementById('add-zone').onclick = () => {
     const newId = -(Date.now()); // Temporärt negativt ID
     const newZone = {
