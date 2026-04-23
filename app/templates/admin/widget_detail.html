@@ -170,6 +170,13 @@ function removeIcsUrl(btn) {
             </label>
           </div>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Online-mötesmönster (kommaseparerade, lämna tomt för standard)</label>
+          <input type="text" data-field="online_meeting_patterns"
+                 value="{{ cfg.get('online_meeting_patterns', []) | join(', ') if cfg.get('online_meeting_patterns') is iterable and cfg.get('online_meeting_patterns') is not string else cfg.get('online_meeting_patterns', '') }}"
+                 placeholder="teams, zoom, meet"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+        </div>
 
         {% elif widget.kind == 'ics_month' %}
         <div>
