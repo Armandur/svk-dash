@@ -84,10 +84,15 @@
   }
   .wc-menu-btn:hover { background: rgba(0,0,0,0.75); }
   .wc-dropdown {
-    display: none; position: absolute; top: 2.6rem; right: 6px; z-index: 10000;
+    display: none; position: fixed; z-index: 10000;
     background: #1e293b; border: 1px solid #334155; border-radius: 0.375rem;
-    min-width: 155px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); overflow: hidden;
+    min-width: 200px; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     pointer-events: auto;
+  }
+  /* Blockera hover på widgets utan öppen panel */
+  #grid-editor.has-open-panel .widget-card:not(.panel-owner) {
+    pointer-events: none;
   }
   .wc-dropdown.open { display: block; }
   .wc-dropdown a, .wc-dropdown button {
@@ -978,6 +983,14 @@ if (lyrAddBtn) {
   });
 
   // ── Trepunktsmeny ────────────────────────────────────
+  const gridEditor = document.getElementById('grid-editor');
+  function closeAllDropdowns() {
+    document.querySelectorAll('.wc-dropdown.open').forEach(d => d.classList.remove('open'));
+    if (gridEditor) {
+      gridEditor.classList.remove('has-open-panel');
+      gridEditor.querySelectorAll('.panel-owner').forEach(c => c.classList.remove('panel-owner'));
+    }
+  }
   document.addEventListener('click', e => {
     const mb = e.target.closest('.wc-menu-btn');
     if (mb) {
@@ -985,12 +998,20 @@ if (lyrAddBtn) {
       const drop = document.getElementById(mb.dataset.drop);
       if (!drop) return;
       const was = drop.classList.contains('open');
-      document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
-      if (!was) drop.classList.add('open');
+      closeAllDropdowns();
+      if (!was) {
+        const rect = mb.getBoundingClientRect();
+        drop.style.top  = (rect.bottom + 4) + 'px';
+        drop.style.right = (window.innerWidth - rect.right) + 'px';
+        drop.classList.add('open');
+        const card = mb.closest('.widget-card');
+        if (card) card.classList.add('panel-owner');
+        if (gridEditor) gridEditor.classList.add('has-open-panel');
+      }
       return;
     }
     if (e.target.closest('.wc-dropdown')) return;
-    document.querySelectorAll('.wc-dropdown.open').forEach(d=>d.classList.remove('open'));
+    closeAllDropdowns();
     if (!e.target.closest('.lyr-menu-wrap')) {
       document.querySelectorAll('.lyr-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
     }
