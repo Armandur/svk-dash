@@ -279,10 +279,6 @@
           <input type="text" name="name" value="{{ view.name }}" required class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
                  oninput="document.getElementById('view-name-header').textContent = this.value || '(namnlös)'; document.title = (this.value || '(namnlös)') + ' – Skärmar Admin'">
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Tid (s, tomt = standard)</label>
-          <input type="number" name="duration_seconds" value="{{ view.duration_seconds or '' }}" min="5" class="w-24 border border-gray-300 rounded px-3 py-1.5 text-sm">
-        </div>
         <div class="flex gap-2">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Kolumner</label>
