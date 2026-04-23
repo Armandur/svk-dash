@@ -146,7 +146,7 @@
             form.action = actionUrl;
             document.getElementById('layout-fields').classList.remove('hidden');
             document.getElementById('duration-row').style.display = 'none';
-            document.getElementById('transition-label').textContent = 'Transition (override, lämna tomt = ärv från zon)';
+            document.getElementById('transition-label').textContent = 'Transition';
             if (layoutData) {
                 const t = layoutData.transition || '';
                 document.getElementById('transition-select').value = t;
