@@ -66,8 +66,23 @@
             <a href="/admin/screens/{{ screen.id }}?sel={{ a.id }}"
                class="flex items-start gap-2 px-3 py-2.5 text-sm transition-colors border-l-2
                       {% if selected_assignment and a.id == selected_assignment.id %}border-blue-500 bg-blue-50 text-blue-700 font-semibold{% else %}border-transparent text-gray-700 hover:bg-gray-50{% endif %}">
+              {% set la_active = True %}
+              {% if a.schedule_json %}
+                {% set las = a.schedule_json %}
+                {% set lan = now_local() %}
+                {% set la_day = ["sun","mon","tue","wed","thu","fri","sat"][int(lan.strftime("%w"))] %}
+                {% set la_time = lan.strftime("%H:%M") %}
+                {% if las.time_start and la_time < las.time_start %}{% set la_active = False %}{% endif %}
+                {% if las.time_end and la_time >= las.time_end %}{% set la_active = False %}{% endif %}
+                {% if la_active %}
+                  {% if las.type == 'weekly' and la_day not in las.weekdays %}{% set la_active = False %}{% endif %}
+                  {% if las.type == 'monthly' and lan.day != las.day %}{% set la_active = False %}{% endif %}
+                  {% if las.type == 'yearly' and (lan.day != las.day or lan.month != las.month) %}{% set la_active = False %}{% endif %}
+                  {% if las.type == 'dates' and lan.strftime("%Y-%m-%d") not in las.dates %}{% set la_active = False %}{% endif %}
+                {% endif %}
+              {% endif %}
               <span class="mt-1 w-2 h-2 rounded-full flex-shrink-0
-                           {% if not a.enabled %}bg-red-400{% elif not a.schedule_json %}bg-green-400{% else %}bg-amber-400{% endif %}"></span>
+                           {% if not a.enabled %}bg-red-400{% elif la_active %}bg-green-400{% else %}border-2 border-green-400{% endif %}"></span>
               <span class="truncate leading-tight">{{ al.name if al else 'Layout #' ~ a.layout_id }}</span>
             </a>
             {% endfor %}
