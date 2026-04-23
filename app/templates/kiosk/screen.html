@@ -97,6 +97,56 @@
     .widget-slideshow.ss-fade .ss-slide { display:block; opacity:0; transition:opacity 0.8s; }
     .widget-slideshow.ss-fade .ss-slide.ss-active { opacity:1; }
 
+    /* slideshow — animerade övergångar (entering/leaving hanteras av JS) */
+    .ss-slide.ss-entering, .ss-slide.ss-leaving { display:block !important; }
+
+    /* slide — keyframes för alla riktningar */
+    @keyframes ss-from-right  { from { transform:translateX(100%);  } to { transform:translateX(0); } }
+    @keyframes ss-to-left     { from { transform:translateX(0);     } to { transform:translateX(-100%); } }
+    @keyframes ss-from-left   { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+    @keyframes ss-to-right    { from { transform:translateX(0);     } to { transform:translateX(100%); } }
+    @keyframes ss-from-bottom { from { transform:translateY(100%);  } to { transform:translateY(0); } }
+    @keyframes ss-to-top      { from { transform:translateY(0);     } to { transform:translateY(-100%); } }
+    @keyframes ss-from-top    { from { transform:translateY(-100%); } to { transform:translateY(0); } }
+    @keyframes ss-to-bottom   { from { transform:translateY(0);     } to { transform:translateY(100%); } }
+
+    .widget-slideshow.ss-slide[data-ss-dir="left"]  .ss-slide.ss-entering { animation:ss-from-right  0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="left"]  .ss-slide.ss-leaving  { animation:ss-to-left     0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="right"] .ss-slide.ss-entering { animation:ss-from-left   0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="right"] .ss-slide.ss-leaving  { animation:ss-to-right    0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="up"]    .ss-slide.ss-entering { animation:ss-from-bottom 0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="up"]    .ss-slide.ss-leaving  { animation:ss-to-top      0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="down"]  .ss-slide.ss-entering { animation:ss-from-top    0.7s ease forwards; }
+    .widget-slideshow.ss-slide[data-ss-dir="down"]  .ss-slide.ss-leaving  { animation:ss-to-bottom   0.7s ease forwards; }
+
+    /* wipe — keyframes för alla riktningar */
+    @keyframes ss-wipe-left   { from { clip-path:inset(0 100% 0 0);   } to { clip-path:inset(0 0 0 0); } }
+    @keyframes ss-wipe-right  { from { clip-path:inset(0 0 0 100%);   } to { clip-path:inset(0 0 0 0); } }
+    @keyframes ss-wipe-up     { from { clip-path:inset(0 0 100% 0);   } to { clip-path:inset(0 0 0 0); } }
+    @keyframes ss-wipe-down   { from { clip-path:inset(100% 0 0 0);   } to { clip-path:inset(0 0 0 0); } }
+
+    .widget-slideshow.ss-wipe[data-ss-dir="left"]  .ss-slide.ss-entering { animation:ss-wipe-left   0.7s ease forwards; z-index:1; }
+    .widget-slideshow.ss-wipe[data-ss-dir="right"] .ss-slide.ss-entering { animation:ss-wipe-right  0.7s ease forwards; z-index:1; }
+    .widget-slideshow.ss-wipe[data-ss-dir="up"]    .ss-slide.ss-entering { animation:ss-wipe-up     0.7s ease forwards; z-index:1; }
+    .widget-slideshow.ss-wipe[data-ss-dir="down"]  .ss-slide.ss-entering { animation:ss-wipe-down   0.7s ease forwards; z-index:1; }
+    .widget-slideshow.ss-wipe .ss-slide.ss-leaving { z-index:0; }
+
+    /* zoom */
+    @keyframes ss-zoom-in  { from { transform:scale(1.08); opacity:0; } to { transform:scale(1); opacity:1; } }
+    @keyframes ss-zoom-out { from { opacity:1; }                         to { opacity:0; } }
+    .widget-slideshow.ss-zoom .ss-slide.ss-entering { animation:ss-zoom-in  0.7s ease forwards; z-index:1; }
+    .widget-slideshow.ss-zoom .ss-slide.ss-leaving  { animation:ss-zoom-out 0.7s ease forwards; }
+
+    /* vy-övergångar */
+    body.vt-none .view { transition:none; }
+    body.vt-slide .view { transition:none; }
+    body.vt-slide .view.view-leaving,
+    body.vt-slide .view.view-entering { opacity:1; }
+    @keyframes vt-slide-in  { from { transform:translateX(100%); } to { transform:translateX(0); } }
+    @keyframes vt-slide-out { from { transform:translateX(0);    } to { transform:translateX(-100%); } }
+    body.vt-slide .view.view-entering { animation:vt-slide-in  0.6s ease forwards; }
+    body.vt-slide .view.view-leaving  { animation:vt-slide-out 0.6s ease forwards; }
+
     /* ics_schedule */
     .widget-ics-schedule { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.3em 0.4em; font-size:clamp(8px,1.5cqh,12px); }
     .isch-outer { display:grid; flex:1; min-height:0; gap:0; }
@@ -228,7 +278,7 @@
     #nav-pause { font-size: 1rem; width: 2.4rem; height: 2.4rem; }
   </style>
 </head>
-<body>
+<body class="vt-{{ screen.transition or 'fade' }}">
   <div id="offline-banner">Ingen anslutning till server</div>
 
   <div id="kiosk-nav">
@@ -255,7 +305,8 @@
   {% endfor %}
 
   <script>
-    const SCREEN_SLUG = {{ screen.slug | tojson }};
+    const SCREEN_SLUG       = {{ screen.slug | tojson }};
+    const SCREEN_TRANSITION = {{ (screen.transition or 'fade') | tojson }};
     const VIEW_COUNT  = {{ views | length }};
     const VIEWS       = [
       {% for v in views %}

@@ -76,6 +76,7 @@ async def screen_create(
     slug: str = Form(...),
     rotation_seconds: int = Form(30),
     aspect_ratio: str = Form("16:9"),
+    transition: str = Form("fade"),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
@@ -88,7 +89,8 @@ async def screen_create(
                 status_code=422,
             )
         screen = Screen(
-            name=name, slug=slug, rotation_seconds=rotation_seconds, aspect_ratio=aspect_ratio
+            name=name, slug=slug, rotation_seconds=rotation_seconds,
+            aspect_ratio=aspect_ratio, transition=transition,
         )
         db.add(screen)
         db.commit()
@@ -120,6 +122,7 @@ async def screen_edit(
     slug: str = Form(...),
     rotation_seconds: int = Form(30),
     aspect_ratio: str = Form("16:9"),
+    transition: str = Form("fade"),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
@@ -146,6 +149,7 @@ async def screen_edit(
         screen.slug = slug
         screen.rotation_seconds = rotation_seconds
         screen.aspect_ratio = aspect_ratio
+        screen.transition = transition
         screen.updated_at = datetime.utcnow()
         db.add(screen)
         db.commit()

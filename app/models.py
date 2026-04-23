@@ -10,6 +10,7 @@ class Screen(SQLModel, table=True):
     name: str
     rotation_seconds: int = 30
     aspect_ratio: str = "16:9"
+    transition: str = "fade"
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0

@@ -8,14 +8,30 @@
   let rotationPaused = false;
 
   function showView(position) {
-    document.querySelectorAll('.view').forEach(function (el) {
-      el.classList.remove('active');
-    });
-    var el = document.getElementById('view-' + position);
-    if (el) {
-      el.classList.add('active');
-      currentPosition = position;
+    var tr = (typeof SCREEN_TRANSITION !== 'undefined') ? SCREEN_TRANSITION : 'fade';
+    var nextEl = document.getElementById('view-' + position);
+    if (!nextEl) return;
+
+    if (tr === 'slide') {
+      var leavingEl = document.getElementById('view-' + currentPosition);
+      document.querySelectorAll('.view').forEach(function (el) {
+        el.classList.remove('active', 'view-entering', 'view-leaving');
+      });
+      if (leavingEl && leavingEl !== nextEl) leavingEl.classList.add('view-leaving');
+      nextEl.classList.add('view-entering', 'active');
+      var _lv = leavingEl;
+      setTimeout(function () {
+        if (_lv) _lv.classList.remove('view-leaving');
+        nextEl.classList.remove('view-entering');
+      }, 700);
+    } else {
+      document.querySelectorAll('.view').forEach(function (el) {
+        el.classList.remove('active');
+      });
+      nextEl.classList.add('active');
     }
+
+    currentPosition = position;
     if (window.__KIOSK_DEBUG) updateDebugView();
   }
 

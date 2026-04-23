@@ -2,6 +2,9 @@ import html as html_mod
 import json
 from typing import Any
 
+_VALID_TRANSITIONS = {"none", "fade", "slide", "wipe", "zoom"}
+_VALID_DIRECTIONS  = {"left", "right", "up", "down"}
+
 
 def _src(item: dict) -> str:
     if item.get("upload_path"):
@@ -23,7 +26,15 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     fit = config.get("fit", "cover")
     interval_ms = max(1000, int(float(config.get("interval", 5)) * 1000))
     transition = config.get("transition", "fade")
-    fade = transition == "fade"
+    if transition not in _VALID_TRANSITIONS:
+        transition = "fade"
+
+    direction = config.get("direction", "left")
+    if direction not in _VALID_DIRECTIONS:
+        direction = "left"
+
+    tc = f" ss-{transition}" if transition != "none" else ""
+    dir_attr = f' data-ss-dir="{direction}"' if transition in {"slide", "wipe"} else ""
 
     slides_html = "".join(
         f'<div class="ss-slide{" ss-active" if i == 0 else ""}">'
@@ -32,19 +43,36 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         for i, src in enumerate(srcs)
     )
 
-    srcs_json = json.dumps(srcs)
+    tr_json = json.dumps(transition)
 
-    return f"""<div class="widget-slideshow{"" if not fade else " ss-fade"}">
+    return f"""<div class="widget-slideshow{tc}"{dir_attr}>
 {slides_html}
 <script>(function(){{
   var el=document.currentScript.parentElement;
   var slides=el.querySelectorAll('.ss-slide');
   if(slides.length<2)return;
   var cur=0;
-  setInterval(function(){{
-    slides[cur].classList.remove('ss-active');
+  var tr={tr_json};
+  var DUR=700;
+  function goNext(){{
+    var lv=slides[cur];
     cur=(cur+1)%slides.length;
-    slides[cur].classList.add('ss-active');
-  }},{interval_ms});
+    var en=slides[cur];
+    if(tr==='none'||tr==='fade'){{
+      lv.classList.remove('ss-active');
+      en.classList.add('ss-active');
+    }}else{{
+      lv.style.display='block';
+      lv.classList.add('ss-leaving');
+      en.classList.add('ss-entering','ss-active');
+      var _lv=lv;
+      setTimeout(function(){{
+        _lv.classList.remove('ss-active','ss-leaving');
+        _lv.style.display='';
+        en.classList.remove('ss-entering');
+      }},DUR);
+    }}
+  }}
+  setInterval(goNext,{interval_ms});
 }})();</script>
 </div>"""
