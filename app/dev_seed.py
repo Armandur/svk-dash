@@ -98,46 +98,6 @@ def seed() -> None:
             media[orig_name] = mf
         db.flush()
 
-        # ── Layouts ───────────────────────────────────────────────────────────
-        l_land_split = Layout(name="Landskap 60/40", aspect_ratio="16:9")
-        l_land_full  = Layout(name="Landskap fullskärm", aspect_ratio="16:9")
-        l_land_bar   = Layout(name="Landskap huvud + sidfält", aspect_ratio="16:9")
-        l_port_full  = Layout(name="Porträtt fullskärm", aspect_ratio="9:16")
-        db.add_all([l_land_split, l_land_full, l_land_bar, l_port_full])
-        db.flush()
-
-        # Zoner
-        z_split_left = LayoutZone(
-            layout_id=l_land_split.id, name="Vänster", role="schedulable",
-            x_pct=0, y_pct=0, w_pct=60, h_pct=100, rotation_seconds=12,
-            transition="slide", transition_direction="left",
-        )
-        z_split_right = LayoutZone(
-            layout_id=l_land_split.id, name="Höger", role="schedulable",
-            x_pct=60, y_pct=0, w_pct=40, h_pct=100, rotation_seconds=10,
-            transition="fade",
-        )
-        z_full_main = LayoutZone(
-            layout_id=l_land_full.id, name="Huvud", role="schedulable",
-            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=10,
-            transition="fade",
-        )
-        z_bar_main = LayoutZone(
-            layout_id=l_land_bar.id, name="Huvud", role="schedulable",
-            x_pct=0, y_pct=0, w_pct=75, h_pct=100, rotation_seconds=12,
-            transition="slide", transition_direction="up",
-        )
-        z_bar_side = LayoutZone(
-            layout_id=l_land_bar.id, name="Sidfält", role="persistent",
-            x_pct=75, y_pct=0, w_pct=25, h_pct=100, rotation_seconds=0,
-        )
-        z_port_main = LayoutZone(
-            layout_id=l_port_full.id, name="Huvud", role="schedulable",
-            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=10,
-            transition="slide", transition_direction="up",
-        )
-        db.add_all([z_split_left, z_split_right, z_full_main,
-                    z_bar_main, z_bar_side, z_port_main])
         db.flush()
 
         # ── Widgets ───────────────────────────────────────────────────────────
@@ -290,99 +250,195 @@ def seed() -> None:
         db.flush()
 
         # ── Kanaler ───────────────────────────────────────────────────────────
-        ch_land = Channel(name="Demo landskap", aspect_ratio="16:9")
-        ch_port = Channel(name="Demo porträtt", aspect_ratio="9:16")
-        db.add_all([ch_land, ch_port])
+        ch_clock = Channel(name="Klockor",     aspect_ratio="16:9")
+        ch_media = Channel(name="Media",       aspect_ratio="16:9")
+        ch_kal   = Channel(name="Kalender",    aspect_ratio="16:9")
+        ch_lay   = Channel(name="Layout-test", aspect_ratio="16:9")
+        ch_port  = Channel(name="Porträtt",    aspect_ratio="9:16")
+        db.add_all([ch_clock, ch_media, ch_kal, ch_lay, ch_port])
         db.flush()
 
         # ── Skärmar ───────────────────────────────────────────────────────────
-        s1 = Screen(name="Skärm landskap", slug="landscape-test", channel_id=ch_land.id)
-        s2 = Screen(name="Skärm porträtt", slug="portrait-test",  channel_id=ch_port.id)
-        db.add_all([s1, s2])
+        db.add_all([
+            Screen(name="Klockor",     slug="klockor",      channel_id=ch_clock.id),
+            Screen(name="Media",       slug="media",        channel_id=ch_media.id),
+            Screen(name="Kalender",    slug="kalender",     channel_id=ch_kal.id),
+            Screen(name="Layout-test", slug="layout-test",  channel_id=ch_lay.id),
+            Screen(name="Porträtt",    slug="portratt",     channel_id=ch_port.id),
+        ])
         db.flush()
 
-        # ── Layout-tilldelningar (med transitions) ────────────────────────────
-        # duration_seconds = summan av alla vyers duration i den längsta zonen,
-        # så att alla vyer hinner visas minst en gång per layoutvarv.
-        # split: z_split_left 12+10+10+20+12+15+15          = 94 s
-        # full:  z_full_main  10+10+10+15+15+15+20+20+20   = 135 s
-        # bar:   z_bar_main   18+12+15+15                  = 60 s
-        a_split = ChannelLayoutAssignment(
-            channel_id=ch_land.id, layout_id=l_land_split.id,
-            priority=0, duration_seconds=94,
+        # ── Layouter ─────────────────────────────────────────────────────────
+        l_clock = Layout(name="Klockor – fullskärm",      aspect_ratio="16:9")
+        l_media = Layout(name="Media – fullskärm",        aspect_ratio="16:9")
+        l_kal   = Layout(name="Kalender – fullskärm",     aspect_ratio="16:9")
+        l_split = Layout(name="Landskap 60/40",           aspect_ratio="16:9")
+        l_full  = Layout(name="Landskap fullskärm",       aspect_ratio="16:9")
+        l_bar   = Layout(name="Landskap huvud+sidfält",   aspect_ratio="16:9")
+        l_port  = Layout(name="Porträtt – fullskärm",     aspect_ratio="9:16")
+        db.add_all([l_clock, l_media, l_kal, l_split, l_full, l_bar, l_port])
+        db.flush()
+
+        # ── Zoner ─────────────────────────────────────────────────────────────
+        z_clock = LayoutZone(
+            layout_id=l_clock.id, name="Huvud", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=5, transition="fade",
+        )
+        z_media = LayoutZone(
+            layout_id=l_media.id, name="Huvud", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=8, transition="fade",
+        )
+        z_kal = LayoutZone(
+            layout_id=l_kal.id, name="Huvud", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=8,
             transition="slide", transition_direction="left",
         )
-        a_full = ChannelLayoutAssignment(
-            channel_id=ch_land.id, layout_id=l_land_full.id,
-            priority=1, duration_seconds=135,
-            transition="fade",
+        z_split_left = LayoutZone(
+            layout_id=l_split.id, name="Vänster", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=60, h_pct=100, rotation_seconds=10,
+            transition="slide", transition_direction="left",
         )
-        a_bar = ChannelLayoutAssignment(
-            channel_id=ch_land.id, layout_id=l_land_bar.id,
-            priority=2, duration_seconds=60,
-            transition="slide", transition_direction="right",
+        z_split_right = LayoutZone(
+            layout_id=l_split.id, name="Höger", role="schedulable",
+            x_pct=60, y_pct=0, w_pct=40, h_pct=100, rotation_seconds=10, transition="fade",
         )
-        a_port = ChannelLayoutAssignment(
-            channel_id=ch_port.id, layout_id=l_port_full.id,
-            priority=0,
+        z_full = LayoutZone(
+            layout_id=l_full.id, name="Huvud", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=8, transition="fade",
         )
-        db.add_all([a_split, a_full, a_bar, a_port])
+        z_bar_main = LayoutZone(
+            layout_id=l_bar.id, name="Huvud", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=75, h_pct=100, rotation_seconds=8,
+            transition="slide", transition_direction="up",
+        )
+        z_bar_side = LayoutZone(
+            layout_id=l_bar.id, name="Sidfält", role="persistent",
+            x_pct=75, y_pct=0, w_pct=25, h_pct=100,
+        )
+        z_port = LayoutZone(
+            layout_id=l_port.id, name="Huvud", role="schedulable",
+            x_pct=0, y_pct=0, w_pct=100, h_pct=100, rotation_seconds=8, transition="fade",
+        )
+        db.add_all([z_clock, z_media, z_kal, z_split_left, z_split_right,
+                    z_full, z_bar_main, z_bar_side, z_port])
         db.flush()
 
-        def wl(*pairs) -> dict:
-            """Bygg layout_json från (widget, label)-par + valfria extra."""
-            widgets = []
-            for w, lbl in pairs:
-                widgets += _lbl_row(w, lbl)
-            return {"widgets": widgets}
+        # ── Layout-tilldelningar ──────────────────────────────────────────────
+        # Enkla kanaler: en layout var, ingen duration behövs
+        db.add_all([
+            ChannelLayoutAssignment(channel_id=ch_clock.id, layout_id=l_clock.id, priority=0),
+            ChannelLayoutAssignment(channel_id=ch_media.id, layout_id=l_media.id, priority=0),
+            ChannelLayoutAssignment(channel_id=ch_kal.id,   layout_id=l_kal.id,   priority=0),
+            ChannelLayoutAssignment(channel_id=ch_port.id,  layout_id=l_port.id,  priority=0),
+            # layout-test roterar mellan tre layouter
+            # split: max(3×10, 3×10) = 30 s  |  full: 3×8 = 24 s  |  bar: 16+8 = 24 s
+            ChannelLayoutAssignment(
+                channel_id=ch_lay.id, layout_id=l_split.id, priority=0, duration_seconds=30,
+                transition="slide", transition_direction="left",
+            ),
+            ChannelLayoutAssignment(
+                channel_id=ch_lay.id, layout_id=l_full.id, priority=1, duration_seconds=24,
+                transition="fade",
+            ),
+            ChannelLayoutAssignment(
+                channel_id=ch_lay.id, layout_id=l_bar.id, priority=2, duration_seconds=24,
+                transition="slide", transition_direction="right",
+            ),
+        ])
+        db.flush()
 
         def wl1(w, lbl) -> dict:
             return {"widgets": _lbl_row(w, lbl)}
 
-        # ── Vyer – 60/40-split, vänster zon (slide left, 12 s) ───────────────
-        views_split_left = [
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=0,
-                 name="Klocka tid+datum", enabled=True, duration_seconds=12,
+        # ── Vyer – klockor (5 s/vy) ───────────────────────────────────────────
+        views_clock = [
+            View(channel_id=ch_clock.id, zone_id=z_clock.id, position=0,
+                 name="Tid + datum", enabled=True,
                  layout_json=wl1(w_clock_td, lbl_clock_td)),
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=1,
-                 name="Klocka enbart tid", enabled=True, duration_seconds=10,
-                 transition="slide", transition_direction="right",
+            View(channel_id=ch_clock.id, zone_id=z_clock.id, position=1,
+                 name="Enbart tid", enabled=True,
                  layout_json=wl1(w_clock_t, lbl_clock_t)),
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=2,
-                 name="Klocka 12h AM/PM", enabled=True, duration_seconds=10,
-                 transition="fade",
+            View(channel_id=ch_clock.id, zone_id=z_clock.id, position=2,
+                 name="12h AM/PM", enabled=True,
                  layout_json=wl1(w_clock_12h, lbl_clock_12h)),
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=3,
-                 name="Bildspel", enabled=True, duration_seconds=20,
-                 transition="none",
-                 layout_json=wl1(w_slideshow, lbl_slideshow)),
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=4,
-                 name="Markdown", enabled=True, duration_seconds=12,
-                 transition="slide", transition_direction="up",
-                 layout_json=wl1(w_md, lbl_md)),
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=5,
-                 name="Kalender lista", enabled=True, duration_seconds=15,
-                 transition="fade",
-                 layout_json=wl1(w_ics_list, lbl_ics_list)),
-            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=6,
-                 name="Kalender vecka", enabled=True, duration_seconds=15,
-                 transition="slide", transition_direction="left",
-                 layout_json=wl1(w_ics_week, lbl_ics_week)),
+            View(channel_id=ch_clock.id, zone_id=z_clock.id, position=3,
+                 name="Dag + datum (stor, gradient)", enabled=True,
+                 layout_json={"widgets": [
+                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_clock_day.id,      "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
+                     {"widget_id": lbl_clock_day.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
+                 ]}),
         ]
 
-        # ── Vyer – 60/40-split, höger zon (fade, 10 s) ───────────────────────
+        # ── Vyer – media ──────────────────────────────────────────────────────
+        views_media = [
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=0,
+                 name="Bild blåbär (cover)", enabled=True, duration_seconds=8,
+                 layout_json=wl1(w_image_blabar, lbl_image_bb)),
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=1,
+                 name="Bild tall (contain)", enabled=True, duration_seconds=8,
+                 transition="fade",
+                 layout_json=wl1(w_image, lbl_image)),
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=2,
+                 name="Bildspel (3 bilder × 5 s)", enabled=True, duration_seconds=16,
+                 transition="none",
+                 layout_json=wl1(w_slideshow, lbl_slideshow)),
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=3,
+                 name="Video drone", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_drone, lbl_video_drone)),
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=4,
+                 name="Video murana", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_murana, lbl_video_murana)),
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=5,
+                 name="Video fågel", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_fagel, lbl_video_fagel)),
+        ]
+
+        # ── Vyer – kalender (8–10 s/vy) ──────────────────────────────────────
+        views_kal = [
+            View(channel_id=ch_kal.id, zone_id=z_kal.id, position=0,
+                 name="Lista", enabled=True, duration_seconds=8,
+                 layout_json=wl1(w_ics_list, lbl_ics_list)),
+            View(channel_id=ch_kal.id, zone_id=z_kal.id, position=1,
+                 name="Vecka", enabled=True, duration_seconds=8,
+                 layout_json=wl1(w_ics_week, lbl_ics_week)),
+            View(channel_id=ch_kal.id, zone_id=z_kal.id, position=2,
+                 name="Månad", enabled=True, duration_seconds=10,
+                 layout_json=wl1(w_ics_month, lbl_ics_month)),
+            View(channel_id=ch_kal.id, zone_id=z_kal.id, position=3,
+                 name="Schema", enabled=True, duration_seconds=8,
+                 layout_json=wl1(w_ics_schedule, lbl_ics_schedule)),
+        ]
+
+        # ── Vyer – layout-test: split vänster (10 s/vy) ──────────────────────
+        views_split_left = [
+            View(channel_id=ch_lay.id, zone_id=z_split_left.id, position=0,
+                 name="Klocka tid+datum", enabled=True,
+                 layout_json=wl1(w_clock_td, lbl_clock_td)),
+            View(channel_id=ch_lay.id, zone_id=z_split_left.id, position=1,
+                 name="Klocka enbart tid", enabled=True,
+                 transition="slide", transition_direction="right",
+                 layout_json=wl1(w_clock_t, lbl_clock_t)),
+            View(channel_id=ch_lay.id, zone_id=z_split_left.id, position=2,
+                 name="Markdown", enabled=True, transition="slide", transition_direction="up",
+                 layout_json=wl1(w_md, lbl_md)),
+        ]
+        # ── Vyer – layout-test: split höger (10 s/vy) ────────────────────────
         views_split_right = [
-            View(channel_id=ch_land.id, zone_id=z_split_right.id, position=0,
+            View(channel_id=ch_lay.id, zone_id=z_split_right.id, position=0,
                  name="Färgblock gradient", enabled=True,
                  layout_json=wl1(w_color_gradient, lbl_color_gr)),
-            View(channel_id=ch_land.id, zone_id=z_split_right.id, position=1,
+            View(channel_id=ch_lay.id, zone_id=z_split_right.id, position=1,
                  name="Text versaler", enabled=True,
                  layout_json={"widgets": [
                      {"widget_id": w_color_solid.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
                      {"widget_id": w_text_styled.id, "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
                      {"widget_id": lbl_text_s.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_land.id, zone_id=z_split_right.id, position=2,
+            View(channel_id=ch_lay.id, zone_id=z_split_right.id, position=2,
                  name="Text kursiv", enabled=True,
                  layout_json={"widgets": [
                      {"widget_id": w_color_gold.id,  "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
@@ -390,78 +446,44 @@ def seed() -> None:
                      {"widget_id": lbl_text_i.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
         ]
-
-        # ── Vyer – fullskärm (fade, 10 s) ────────────────────────────────────
+        # ── Vyer – layout-test: fullskärm (8 s/vy) ───────────────────────────
         views_full = [
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=0,
-                 name="Bild blåbär (cover)", enabled=True,
+            View(channel_id=ch_lay.id, zone_id=z_full.id, position=0,
+                 name="Bild blåbär", enabled=True, duration_seconds=8,
                  layout_json=wl1(w_image_blabar, lbl_image_bb)),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=1,
-                 name="Klocka dag+tid", enabled=True,
+            View(channel_id=ch_lay.id, zone_id=z_full.id, position=1,
+                 name="Klocka dag (gradient)", enabled=True, duration_seconds=8,
                  transition="slide", transition_direction="up",
                  layout_json={"widgets": [
                      {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
                      {"widget_id": w_clock_day.id,      "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
                      {"widget_id": lbl_clock_day.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=2,
-                 name="Text normal", enabled=True, transition="none",
+            View(channel_id=ch_lay.id, zone_id=z_full.id, position=2,
+                 name="Text normal", enabled=True, duration_seconds=8,
+                 transition="none",
                  layout_json={"widgets": [
-                     {"widget_id": w_color_solid.id,  "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
-                     {"widget_id": w_text_normal.id,  "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
-                     {"widget_id": lbl_text_n.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
+                     {"widget_id": w_color_solid.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_text_normal.id, "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
+                     {"widget_id": lbl_text_n.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=3,
-                 name="Kalender lista", enabled=True, duration_seconds=15,
-                 transition="fade",
-                 layout_json=wl1(w_ics_list, lbl_ics_list)),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=4,
-                 name="Kalender vecka", enabled=True, duration_seconds=15,
-                 transition="slide", transition_direction="left",
-                 layout_json=wl1(w_ics_week, lbl_ics_week)),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=5,
-                 name="Kalender månad", enabled=True, duration_seconds=15,
-                 transition="slide", transition_direction="left",
-                 layout_json=wl1(w_ics_month, lbl_ics_month)),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=6,
-                 name="Video drone", enabled=True, duration_seconds=20,
-                 transition="fade",
-                 layout_json=wl1(w_video_drone, lbl_video_drone)),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=7,
-                 name="Video murana", enabled=True, duration_seconds=20,
-                 transition="fade",
-                 layout_json=wl1(w_video_murana, lbl_video_murana)),
-            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=8,
-                 name="Video fågel", enabled=True, duration_seconds=20,
-                 transition="fade",
-                 layout_json=wl1(w_video_fagel, lbl_video_fagel)),
         ]
-
-        # ── Vyer – huvud+sidfält (slide up, 12 s) ────────────────────────────
+        # ── Vyer – layout-test: bar huvud + sidfält ───────────────────────────
         views_bar_main = [
-            View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=0,
-                 name="Bildspel", enabled=True, duration_seconds=18,
+            View(channel_id=ch_lay.id, zone_id=z_bar_main.id, position=0,
+                 name="Bildspel", enabled=True, duration_seconds=16,
                  transition="none",
                  layout_json=wl1(w_slideshow, lbl_slideshow)),
-            View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=1,
-                 name="Klocka tid+datum", enabled=True,
+            View(channel_id=ch_lay.id, zone_id=z_bar_main.id, position=1,
+                 name="Klocka (gradient)", enabled=True, duration_seconds=8,
                  layout_json={"widgets": [
                      {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
                      {"widget_id": w_clock_td.id,       "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
                      {"widget_id": lbl_clock_td.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=2,
-                 name="Kalender lista", enabled=True, duration_seconds=15,
-                 transition="fade",
-                 layout_json=wl1(w_ics_list, lbl_ics_list)),
-            View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=3,
-                 name="Kalender månad", enabled=True, duration_seconds=15,
-                 transition="slide", transition_direction="left",
-                 layout_json=wl1(w_ics_month, lbl_ics_month)),
         ]
-        # Sidfält (persistent): färgblock + centrerad text
         views_bar_side = [
-            View(channel_id=ch_land.id, zone_id=z_bar_side.id, position=0,
+            View(channel_id=ch_lay.id, zone_id=z_bar_side.id, position=0,
                  name="Sidfält – klocka", enabled=True,
                  layout_json={"widgets": [
                      {"widget_id": w_color_solid.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
@@ -471,46 +493,49 @@ def seed() -> None:
 
         # ── Vyer – porträtt ───────────────────────────────────────────────────
         views_port = [
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=0,
-                 name="Klocka tid+datum", enabled=True,
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=0,
+                 name="Klocka (gradient)", enabled=True, duration_seconds=8,
                  layout_json={"widgets": [
                      {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
                      {"widget_id": w_clock_td.id,       "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
                      {"widget_id": lbl_clock_td.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=1,
-                 name="Bild tall (contain)", enabled=True, transition="fade",
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=1,
+                 name="Bild tall (contain)", enabled=True, duration_seconds=8,
+                 transition="fade",
                  layout_json=wl1(w_image, lbl_image)),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=2,
-                 name="Bildspel", enabled=True, duration_seconds=20,
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=2,
+                 name="Bildspel", enabled=True, duration_seconds=16,
                  transition="slide", transition_direction="up",
                  layout_json=wl1(w_slideshow, lbl_slideshow)),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=3,
-                 name="Text versaler", enabled=True,
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=3,
+                 name="Text versaler (guld)", enabled=True, duration_seconds=8,
                  transition="slide", transition_direction="left",
                  layout_json={"widgets": [
                      {"widget_id": w_color_gold.id,  "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
                      {"widget_id": w_text_styled.id, "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
                      {"widget_id": lbl_text_s.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=4,
-                 name="Markdown", enabled=True, transition="none",
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=4,
+                 name="Markdown", enabled=True, duration_seconds=8,
+                 transition="none",
                  layout_json=wl1(w_md, lbl_md)),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=5,
-                 name="Kalender schema", enabled=True, duration_seconds=15,
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=5,
+                 name="Kalender schema", enabled=True, duration_seconds=8,
                  transition="fade",
                  layout_json=wl1(w_ics_schedule, lbl_ics_schedule)),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=6,
-                 name="Kalender lista", enabled=True, duration_seconds=15,
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=6,
+                 name="Kalender lista", enabled=True, duration_seconds=8,
                  transition="slide", transition_direction="up",
                  layout_json=wl1(w_ics_list, lbl_ics_list)),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=7,
+            View(channel_id=ch_port.id, zone_id=z_port.id, position=7,
                  name="Video snö (porträtt)", enabled=True, duration_seconds=20,
                  transition="fade",
                  layout_json=wl1(w_video_snow, lbl_video_snow)),
         ]
 
-        all_views = (views_split_left + views_split_right + views_full
+        all_views = (views_clock + views_media + views_kal
+                     + views_split_left + views_split_right + views_full
                      + views_bar_main + views_bar_side + views_port)
         db.add_all(all_views)
 
@@ -535,7 +560,7 @@ def seed() -> None:
 
     views_n = len(all_views)
     log.warning(
-        "DEV_SEED klar: 2 kanaler, 2 skärmar (/s/landscape-test, /s/portrait-test), "
+        "DEV_SEED klar: 5 kanaler (/s/klockor, /s/media, /s/kalender, /s/layout-test, /s/portratt), "
         "%d widgets, %d vyer, 7 mediafiler, ICS-kalender på /dev-cal.ics",
         len(all_widgets), views_n,
     )
