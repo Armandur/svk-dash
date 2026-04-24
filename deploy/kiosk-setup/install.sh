@@ -33,19 +33,28 @@ fi
 # Extrahera host för nät-ping (t.ex. 192.168.1.42 ur http://192.168.1.42:8000/s/foo)
 PING_HOST=$(echo "$SCREEN_URL" | sed 's|https\?://||; s|[:/].*||')
 
-# --- 2. Tvinga X11 (stäng av Wayland i lightdm) ---
-LIGHTDM_CONF="/etc/lightdm/lightdm.conf"
-if grep -q "^#\?WaylandEnable" "$LIGHTDM_CONF" 2>/dev/null; then
-  sudo sed -i 's/^#\?WaylandEnable.*/WaylandEnable=false/' "$LIGHTDM_CONF"
-else
-  echo "[Seat:*]" | sudo tee -a "$LIGHTDM_CONF" > /dev/null
-  echo "WaylandEnable=false" | sudo tee -a "$LIGHTDM_CONF" > /dev/null
-fi
-echo "-> Wayland avstängt"
+# --- 2. Tvinga X11, autologin och autologin-gruppen ---
+# Lägg till användaren i autologin-gruppen (krävs av lightdm)
+sudo addgroup --system autologin 2>/dev/null || true
+sudo usermod -aG autologin "$KIOSK_USER"
 
-# --- 3. Autologin för kiosk-användaren ---
-sudo raspi-config nonint do_boot_behaviour B4
-echo "-> Autologin till skrivbord aktiverat"
+# Skriv en ren lightdm.conf med ett enda [Seat:*]-block
+sudo tee /etc/lightdm/lightdm.conf > /dev/null <<LIGHTDMEOF
+[LightDM]
+
+[Seat:*]
+greeter-session=pi-greeter-labwc
+greeter-hide-users=false
+user-session=LXDE-pi
+display-setup-script=/usr/share/dispsetup.sh
+autologin-user=${KIOSK_USER}
+autologin-session=LXDE-pi
+WaylandEnable=false
+
+[XDMCPServer]
+[VNCServer]
+LIGHTDMEOF
+echo "-> lightdm.conf skriven (X11, autologin)"
 
 # --- 4. Installera chromium och unclutter om de saknas ---
 PKGS=()
