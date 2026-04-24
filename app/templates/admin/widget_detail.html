@@ -2,7 +2,8 @@
 {% block title %}{{ widget.name }}{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+<script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
 {% endblock %}
 
 {% macro color_picker(field, value, default='#000000') %}
@@ -504,30 +505,7 @@ function removeIcsUrl(btn) {
 
         {% elif widget.kind == 'markdown' %}
         <div>
-          <div class="grid grid-cols-2 mb-1">
-            <span class="text-xs text-gray-500">Markdown</span>
-            <span class="text-xs text-gray-500">Förhandsgranskning</span>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <textarea data-field="content_md" id="md-input" rows="16"
-                      class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ cfg.get('content_md', '') }}</textarea>
-            <div id="md-preview" class="bg-[#1e293b] text-white p-3 rounded-md overflow-y-auto" style="height: 352px;"></div>
-          </div>
-          <style>
-            #md-preview { font-size: 0.875rem; line-height: 1.5; }
-            #md-preview h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; }
-            #md-preview h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; }
-            #md-preview h3 { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; }
-            #md-preview ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 1em; }
-            #md-preview ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 1em; }
-            #md-preview li { line-height: 1.5; }
-            #md-preview p { margin-bottom: 1em; }
-            #md-preview code { background: #334155; padding: 0.1em 0.3em; border-radius: 0.2em; font-family: monospace; }
-            #md-preview pre { background: #0f172a; padding: 1em; border-radius: 0.4em; overflow-x: auto; margin-bottom: 1em; }
-            #md-preview pre code { background: transparent; padding: 0; }
-            #md-preview a { color: #60a5fa; text-decoration: underline; }
-            #md-preview blockquote { border-left: 4px solid #475569; padding-left: 1em; font-style: italic; color: #94a3b8; margin-bottom: 1em; }
-          </style>
+          <textarea data-field="content_md" id="md-input">{{ cfg.get('content_md', '') }}</textarea>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -1182,14 +1160,28 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !modal.classList.contains('hidden')) modal.classList.add('hidden'); });
   })();
 
-  // ── Markdown Live Preview ──────────────────────────
+  // ── EasyMDE för markdown-widget ───────────────────
   (function() {
     var inp = document.getElementById('md-input');
-    var prev = document.getElementById('md-preview');
-    if (!inp || !prev || typeof marked === 'undefined') return;
-    function update() { prev.innerHTML = marked.parse(inp.value || ''); }
-    inp.addEventListener('input', update);
-    update();
+    if (!inp || typeof EasyMDE === 'undefined') return;
+    var easyMDE = new EasyMDE({
+      element: inp,
+      spellChecker: false,
+      autosave: { enabled: false },
+      sideBySideFullscreen: false,
+      toolbar: [
+        'bold', 'italic', 'heading', '|',
+        'unordered-list', 'ordered-list', '|',
+        'link', '|',
+        'preview', 'side-by-side', '|',
+        'guide',
+      ],
+      placeholder: '## Rubrik\n\n- Punkt ett\n- Punkt två\n\n**Fet text**, *kursiv*',
+    });
+    // Synka EasyMDE-värdet till textarea löpande så att submit-hanteraren kan läsa det
+    easyMDE.codemirror.on('change', function() {
+      inp.value = easyMDE.value();
+    });
   })();
 
 </script>
