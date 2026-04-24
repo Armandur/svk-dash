@@ -755,6 +755,191 @@ function removeIcsUrl(btn) {
         })();
         </script>
 
+        {% elif widget.kind == 'video' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-2">Videokälla</label>
+          <div class="flex gap-3 mb-3">
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="vid-src-type" value="url"
+                     {% if not cfg.get('upload_path') %}checked{% endif %}
+                     class="vid-src-radio">
+              Extern URL
+            </label>
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="vid-src-type" value="upload"
+                     {% if cfg.get('upload_path') %}checked{% endif %}
+                     class="vid-src-radio">
+              Uppladdad fil
+            </label>
+          </div>
+
+          <div class="vid-url-section" {% if cfg.get('upload_path') %}style="display:none"{% endif %}>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Video-URL</label>
+            <input type="text" data-field="url" value="{{ cfg.get('url', '') }}"
+                   placeholder="https://example.com/video.mp4"
+                   class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+
+          <div class="vid-upload-section" {% if not cfg.get('upload_path') %}style="display:none"{% endif %}>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Uppladdad video</label>
+            <input type="hidden" data-field="upload_path" value="{{ cfg.get('upload_path', '') }}" id="vid-upload-path">
+            <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 text-xs font-mono truncate" id="vid-filename-display">
+              {% if cfg.get('upload_path') %}{{ cfg.get('upload_path') }}{% else %}Ingen fil vald{% endif %}
+            </div>
+            <input type="file" accept="video/*" id="vid-file-input"
+                   class="text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer">
+            <button type="button" id="vid-library-btn" class="mt-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Välj från bibliotek…</button>
+            <p class="text-xs text-gray-400 mt-1">mp4, webm — max storlek begränsas av servern</p>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="loop" {% if cfg.get('loop', True) %}checked{% endif %} class="rounded">
+            Loopa video
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="muted" {% if cfg.get('muted', True) %}checked{% endif %} class="rounded">
+            Ljudlös (Muted) — krävs för autoplay
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="controls" {% if cfg.get('controls', False) %}checked{% endif %} class="rounded">
+            Visa kontroller
+          </label>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Passning</label>
+            <select data-field="fit" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="cover" {% if cfg.get('fit', 'cover') == 'cover' %}selected{% endif %}>Cover</option>
+              <option value="contain" {% if cfg.get('fit') == 'contain' %}selected{% endif %}>Contain</option>
+              <option value="fill" {% if cfg.get('fit') == 'fill' %}selected{% endif %}>Fill</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Hörnradius (px)</label>
+            <input type="number" data-field="border_radius" value="{{ cfg.get('border_radius', 0) }}"
+                   min="0" max="500" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+        </div>
+
+        <script>
+        (function() {
+          var radios = document.querySelectorAll('.vid-src-radio');
+          var urlSec = document.querySelector('.vid-url-section');
+          var upSec = document.querySelector('.vid-upload-section');
+          radios.forEach(function(r) {
+            r.addEventListener('change', function() {
+              var isUpload = this.value === 'upload';
+              urlSec.style.display = isUpload ? 'none' : '';
+              upSec.style.display = isUpload ? '' : 'none';
+            });
+          });
+
+          var fileInput = document.getElementById('vid-file-input');
+          if (fileInput) {
+            fileInput.addEventListener('change', function() {
+              var file = this.files[0];
+              if (!file) return;
+              uploadImage(file, function(path, url) {
+                document.getElementById('vid-upload-path').value = path;
+                document.getElementById('vid-filename-display').textContent = path;
+              });
+            });
+          }
+
+          document.getElementById('vid-library-btn').addEventListener('click', function() {
+            openMediaPicker(function(url, filename) {
+              document.getElementById('vid-upload-path').value = filename;
+              document.getElementById('vid-filename-display').textContent = filename;
+              var uploadRadio = document.querySelector('[name="vid-src-type"][value="upload"]');
+              if (uploadRadio) { uploadRadio.checked = true; uploadRadio.dispatchEvent(new Event('change')); }
+            }, 'video/');
+          });
+        })();
+        </script>
+
+        {% elif widget.kind == 'pdf' %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-2">PDF-källa</label>
+          <div class="flex gap-3 mb-3">
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="pdf-src-type" value="url"
+                     {% if not cfg.get('upload_path') %}checked{% endif %}
+                     class="pdf-src-radio">
+              Extern URL
+            </label>
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="pdf-src-type" value="upload"
+                     {% if cfg.get('upload_path') %}checked{% endif %}
+                     class="pdf-src-radio">
+              Uppladdad fil
+            </label>
+          </div>
+
+          <div class="pdf-url-section" {% if cfg.get('upload_path') %}style="display:none"{% endif %}>
+            <label class="block text-xs font-medium text-gray-600 mb-1">PDF-URL</label>
+            <input type="text" data-field="url" value="{{ cfg.get('url', '') }}"
+                   placeholder="https://example.com/file.pdf"
+                   class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          </div>
+
+          <div class="pdf-upload-section" {% if not cfg.get('upload_path') %}style="display:none"{% endif %}>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Uppladdad PDF</label>
+            <input type="hidden" data-field="upload_path" value="{{ cfg.get('upload_path', '') }}" id="pdf-upload-path">
+            <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 text-xs font-mono truncate" id="pdf-filename-display">
+              {% if cfg.get('upload_path') %}{{ cfg.get('upload_path') }}{% else %}Ingen fil vald{% endif %}
+            </div>
+            <input type="file" accept="application/pdf" id="pdf-file-input"
+                   class="text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer">
+            <button type="button" id="pdf-library-btn" class="mt-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors">Välj från bibliotek…</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="toolbar" {% if cfg.get('toolbar', False) %}checked{% endif %} class="rounded">
+            Visa verktygsfält (toolbar)
+          </label>
+        </div>
+
+        <script>
+        (function() {
+          var radios = document.querySelectorAll('.pdf-src-radio');
+          var urlSec = document.querySelector('.pdf-url-section');
+          var upSec = document.querySelector('.pdf-upload-section');
+          radios.forEach(function(r) {
+            r.addEventListener('change', function() {
+              var isUpload = this.value === 'upload';
+              urlSec.style.display = isUpload ? 'none' : '';
+              upSec.style.display = isUpload ? '' : 'none';
+            });
+          });
+
+          var fileInput = document.getElementById('pdf-file-input');
+          if (fileInput) {
+            fileInput.addEventListener('change', function() {
+              var file = this.files[0];
+              if (!file) return;
+              uploadImage(file, function(path, url) {
+                document.getElementById('pdf-upload-path').value = path;
+                document.getElementById('pdf-filename-display').textContent = path;
+              });
+            });
+          }
+
+          document.getElementById('pdf-library-btn').addEventListener('click', function() {
+            openMediaPicker(function(url, filename) {
+              document.getElementById('pdf-upload-path').value = filename;
+              document.getElementById('pdf-filename-display').textContent = filename;
+              var uploadRadio = document.querySelector('[name="pdf-src-type"][value="upload"]');
+              if (uploadRadio) { uploadRadio.checked = true; uploadRadio.dispatchEvent(new Event('change')); }
+            }, 'application/pdf');
+          });
+        })();
+        </script>
+
         {% elif widget.kind == 'slideshow' %}
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Bilder</label>
@@ -1084,7 +1269,7 @@ function removeIcsUrl(btn) {
 <div id="media-picker-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:10000;background:rgba(0,0,0,0.55)">
   <div class="bg-white rounded-xl shadow-2xl flex flex-col" style="width:100%;max-width:720px;height:70vh;margin:1rem">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 flex-shrink-0">
-      <h2 class="font-semibold text-base">Välj bild från bibliotek</h2>
+      <h2 class="font-semibold text-base">Välj fil från bibliotek</h2>
       <button id="mpm-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
     </div>
     <div class="flex flex-1 min-h-0">
@@ -1225,10 +1410,19 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
     var mpmClose   = document.getElementById('mpm-close');
     var _mpmCb     = null;
     var _mpmData   = null;
+    var _mpmFilter = null;
 
     function renderFolder(folderId) {
       var files = _mpmData.files.filter(function(f) {
-        return folderId === null ? true : f.folder_id === folderId;
+        var folderMatch = folderId === null ? true : f.folder_id === folderId;
+        var typeMatch = true;
+        if (_mpmFilter) {
+          typeMatch = f.content_type && f.content_type.startsWith(_mpmFilter);
+        } else {
+          // Standard: visa bara bilder
+          typeMatch = f.content_type && f.content_type.startsWith('image/');
+        }
+        return folderMatch && typeMatch;
       });
       mpmFolders.querySelectorAll('.mpm-folder-btn').forEach(function(b) {
         var active = folderId === null ? b.dataset.fid === 'all' : String(b.dataset.fid) === String(folderId);
@@ -1238,15 +1432,24 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
       });
       mpmGrid.innerHTML = '';
       if (!files.length) {
-        mpmGrid.innerHTML = '<p class="col-span-4 text-sm text-gray-400 p-2">Inga bilder här.</p>';
+        mpmGrid.innerHTML = '<p class="col-span-4 text-sm text-gray-400 p-2">Inga filer här som matchar valet.</p>';
         return;
       }
       files.forEach(function(f) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'flex flex-col items-center gap-1 p-1 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors';
-        btn.innerHTML = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">' +
-          '<span class="text-xs text-gray-500 truncate w-full text-center px-1">' + f.original_name + '</span>';
+        
+        var isImg = f.content_type && f.content_type.startsWith('image/');
+        var icon = '📄';
+        if (f.content_type && f.content_type.startsWith('video/')) icon = '📹';
+        
+        var thumb = isImg 
+          ? '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">'
+          : '<div class="w-full aspect-square flex items-center justify-center bg-gray-50 rounded text-2xl">' + icon + '</div>';
+
+        btn.innerHTML = thumb +
+          '<span class="text-xs text-gray-500 truncate w-full text-center px-1" title="' + f.original_name + '">' + f.original_name + '</span>';
         btn.addEventListener('click', function() {
           if (_mpmCb) _mpmCb(f.url, f.filename);
           closeMpm();
@@ -1292,7 +1495,12 @@ document.getElementById('widget-form').addEventListener('submit', function(e) {
         });
     }
 
-    function openMpm(cb) { _mpmCb = cb; loadMedia(); mpm.classList.remove('hidden'); }
+    function openMpm(cb, typeFilter) { 
+      _mpmCb = cb; 
+      _mpmFilter = typeFilter || null;
+      loadMedia(); 
+      mpm.classList.remove('hidden'); 
+    }
     function closeMpm() { mpm.classList.add('hidden'); }
 
     mpmClose.addEventListener('click', closeMpm);

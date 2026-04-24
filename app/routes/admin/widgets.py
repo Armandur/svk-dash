@@ -27,6 +27,8 @@ WIDGET_KINDS = [
     ("ics_week", "ICS-kalender (vecka)"),
     ("ics_schedule", "ICS-kalender (schema/block)"),
     ("image", "Bild"),
+    ("video", "Video"),
+    ("pdf", "PDF"),
     ("slideshow", "Bildspel"),
     ("markdown", "Markdown/text"),
     ("iframe", "Iframe"),
@@ -45,7 +47,7 @@ _WIDGET_CATEGORIES: list[tuple[str, list[tuple[str, str]]]] = [
             for k in ("ics_list", "ics_month", "ics_week", "ics_schedule")
         ],
     ),
-    ("Media", [(k, _WIDGET_KIND_LABELS[k]) for k in ("image", "slideshow")]),
+    ("Media", [(k, _WIDGET_KIND_LABELS[k]) for k in ("image", "video", "pdf", "slideshow")]),
     ("Innehåll", [(k, _WIDGET_KIND_LABELS[k]) for k in ("markdown", "iframe", "raw_html")]),
     ("Övrigt", [(k, _WIDGET_KIND_LABELS[k]) for k in ("clock", "debug")]),
 ]
@@ -347,6 +349,9 @@ _ALLOWED_IMAGE_TYPES = {
     "image/gif": ".gif",
     "image/webp": ".webp",
     "image/svg+xml": ".svg",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "application/pdf": ".pdf",
 }
 
 
@@ -356,7 +361,7 @@ async def upload_image(file: UploadFile = File(...)):
     ext = _ALLOWED_IMAGE_TYPES.get(content_type)
     if not ext:
         return JSONResponse(
-            {"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400
+            {"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg, mp4, webm, pdf."}, status_code=400
         )
     data = await file.read()
     filename = uuid.uuid4().hex + ext

@@ -38,9 +38,11 @@ def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) ->
         ics_week,
         image,
         markdown,
+        pdf,
         raw_html,
         slideshow,
         text,
+        video,
     )
 
     renderers: dict[str, WidgetRenderer] = {
@@ -51,6 +53,8 @@ def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) ->
         "text": text,
         "color_block": color_block,
         "image": image,
+        "video": video,
+        "pdf": pdf,
         "slideshow": slideshow,
         "ics_list": ics_list,
         "ics_month": ics_month,

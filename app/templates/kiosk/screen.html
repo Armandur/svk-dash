@@ -101,6 +101,13 @@
     .widget-slideshow.ss-fade > .ss-slide { display:block; opacity:0; transition:opacity 0.8s; }
     .widget-slideshow.ss-fade > .ss-slide.ss-active { opacity:1; }
 
+    /* video / pdf */
+    .widget-video { width:100%; height:100%; overflow:hidden; position:relative; }
+    .widget-video video { width:100%; height:100%; display:block; }
+    .widget-video.vid-empty { display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-size:0.85rem; }
+    .widget-pdf { width:100%; height:100%; overflow:hidden; }
+    .widget-pdf.pdf-empty { display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-size:0.85rem; }
+
     /* slideshow — animerade övergångar (entering/leaving hanteras av JS) */
     .ss-slide.ss-entering, .ss-slide.ss-leaving { display:block !important; }
 

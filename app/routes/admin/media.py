@@ -24,6 +24,9 @@ _ALLOWED_TYPES = {
     "image/gif": ".gif",
     "image/webp": ".webp",
     "image/svg+xml": ".svg",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "application/pdf": ".pdf",
 }
 
 
@@ -351,6 +354,7 @@ async def media_picker(request: Request):
                     "url": f"/uploads/{f.filename}",
                     "original_name": f.original_name,
                     "folder_id": f.folder_id,
+                    "content_type": f.content_type,
                 }
                 for f in files
             ],
