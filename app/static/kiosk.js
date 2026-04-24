@@ -64,6 +64,11 @@
         scheduleZone(zone.id);
       }
     });
+
+    // Pausa alla videos; showZoneView startar dem när vyn visas
+    document.querySelectorAll('.zone-view video').forEach(function(v) {
+      v.pause(); v.currentTime = 0;
+    });
   }
 
   function stopAllZones() {
@@ -180,6 +185,13 @@
 
   // --- Zon-logik ---
 
+  function pauseVideosIn(el) {
+    el.querySelectorAll('video').forEach(function(v) { v.pause(); v.currentTime = 0; });
+  }
+  function playVideosIn(el) {
+    el.querySelectorAll('video').forEach(function(v) { v.currentTime = 0; v.play().catch(function(){}); });
+  }
+
   function showZoneView(zoneId, idx) {
     if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
     const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
@@ -196,6 +208,8 @@
     const nextView = views[state.currentIdx];
     const nextEl = document.getElementById('z' + zoneId + '-v' + nextView.position);
     if (!nextEl) return;
+
+    playVideosIn(nextEl);
 
     const transition = nextView.transition || zone.transition || 'fade';
     const transitionDir = nextView.transition_direction || zone.transition_direction || 'left';
@@ -234,6 +248,7 @@
           leavingEl.style.transitionDuration = '';
           void leavingEl.offsetHeight;
           leavingEl.classList.remove('view-leaving');
+          if (leavingEl) pauseVideosIn(leavingEl);
           requestAnimationFrame(function() { leavingEl.style.removeProperty('transition'); });
         }
         nextEl.classList.remove('view-entering');
@@ -243,10 +258,7 @@
     } else if (transition === 'none') {
       zone.views.forEach(v => {
         const el = document.getElementById('z' + zoneId + '-v' + v.position);
-        if (el) {
-          el.classList.remove('active');
-          el.style.opacity = '0';
-        }
+        if (el) { el.classList.remove('active'); el.style.opacity = '0'; pauseVideosIn(el); }
       });
       nextEl.classList.add('active');
       nextEl.style.opacity = '1';
@@ -260,7 +272,7 @@
       zone.views.forEach((v) => {
         if (v.position !== nextView.position) {
           const el = document.getElementById('z' + zoneId + '-v' + v.position);
-          if (el) el.style.opacity = '0';
+          if (el) { el.style.opacity = '0'; pauseVideosIn(el); }
         }
       });
     }
