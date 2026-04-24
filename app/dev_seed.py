@@ -109,8 +109,6 @@ def seed() -> None:
             media[orig_name] = mf
         db.flush()
 
-        db.flush()
-
         # ── Widgets ───────────────────────────────────────────────────────────
 
         # Klocka/datum – tre varianter
@@ -258,6 +256,15 @@ def seed() -> None:
         ]
         db.add_all(all_widgets)
         db.flush()
+
+        # Konvertera PDF till bilder
+        from app.routes.admin.media import _convert_pdf_to_images, PDF_PAGES_DIR
+        import os as _os
+        _os.makedirs(PDF_PAGES_DIR, exist_ok=True)
+        for uuid_name, orig_name in _SEED_PDFS:
+            pdf_path = _os.path.join(_UPLOADS, uuid_name)
+            if _os.path.exists(pdf_path):
+                _convert_pdf_to_images(pdf_path, uuid_name[:-4])
 
         # ── IcsCache – förpopulera med dagens kalenderdata ────────────────────
         _ics_raw = generate_ics()

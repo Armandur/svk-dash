@@ -128,8 +128,12 @@
 
       <!-- 2: miniatyr -->
       <div class="col-thumb">
+        {% if f.content_type == 'application/pdf' %}
+        <img src="/pdf-pages/{{ f.filename[:-4] }}-p001.png" alt="PDF" onerror="this.outerHTML='<div class=&quot;w-full h-full flex items-center justify-center bg-gray-50 text-xs text-gray-400 font-bold&quot;>PDF</div>'">
+        {% else %}
         <img src="/uploads/{{ f.filename }}" alt="{{ f.original_name }}"
              onerror="this.style.display='none'">
+        {% endif %}
       </div>
 
       <!-- 3: namn + (i gridvy: storlek + knappar) -->

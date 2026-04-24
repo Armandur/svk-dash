@@ -12,6 +12,8 @@ ENV UV_SYSTEM_PYTHON=1 \
 COPY pyproject.toml .
 RUN uv sync --no-dev --no-install-project
 
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils && rm -rf /var/lib/apt/lists/*
+
 COPY . .
 
 RUN adduser --disabled-password --no-create-home skarmar

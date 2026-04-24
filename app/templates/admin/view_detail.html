@@ -1512,8 +1512,23 @@ if (lyrAddBtn) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'flex flex-col items-center gap-1 p-1 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors';
-        btn.innerHTML = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">' +
-          '<span class="text-xs text-gray-500 truncate w-full text-center px-1">' + f.original_name + '</span>';
+        
+        var isImg = f.content_type && f.content_type.startsWith('image/');
+        var isPdf = f.content_type === 'application/pdf';
+        var thumb;
+        if (isImg) {
+          thumb = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">';
+        } else if (isPdf) {
+          var uuidStem = f.filename.split('.')[0];
+          thumb = '<img src="/pdf-pages/' + uuidStem + '-p001.png" alt="PDF" class="w-full aspect-square object-contain bg-gray-50 rounded" onerror="this.outerHTML=\'<div class=&quot;w-full aspect-square flex items-center justify-center bg-gray-50 rounded text-xs font-bold text-gray-400&quot;>PDF</div>\'">';
+        } else {
+          var icon = '📄';
+          if (f.content_type && f.content_type.startsWith('video/')) icon = '📹';
+          thumb = '<div class="w-full aspect-square flex items-center justify-center bg-gray-50 rounded text-2xl">' + icon + '</div>';
+        }
+
+        btn.innerHTML = thumb +
+          '<span class="text-xs text-gray-500 truncate w-full text-center px-1" title="' + f.original_name + '">' + f.original_name + '</span>';
         btn.addEventListener('click', function() {
           if (_mpmCb) _mpmCb(f.url, f.filename, f.id, f.original_name);
           closeMpm();

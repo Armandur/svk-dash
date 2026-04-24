@@ -18,6 +18,7 @@ from app.services.screen_monitor import start_monitor_loop
 
 logging.basicConfig(level=logging.INFO)
 os.makedirs("data/uploads", exist_ok=True)
+os.makedirs("data/pdf_pages", exist_ok=True)
 
 
 @asynccontextmanager
@@ -54,6 +55,7 @@ if os.getenv("DEV_SEED", "").lower() in ("1", "true", "yes"):
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
+app.mount("/pdf-pages", StaticFiles(directory="data/pdf_pages"), name="pdf_pages")
 
 
 @app.exception_handler(NotAuthenticatedError)

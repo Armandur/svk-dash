@@ -1,5 +1,8 @@
 import copy
 import json
+import logging
+import os
+import subprocess
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +31,29 @@ _ALLOWED_TYPES = {
     "video/webm": ".webm",
     "application/pdf": ".pdf",
 }
+
+PDF_PAGES_DIR = "data/pdf_pages"
+
+
+def _convert_pdf_to_images(pdf_path: str, uuid_stem: str) -> int:
+    """Konverterar PDF till PNG-sidor via pdftoppm. Returnerar antal sidor, 0 vid fel."""
+    import glob as _glob
+    prefix = os.path.join(PDF_PAGES_DIR, uuid_stem)
+    for old in _glob.glob(prefix + "-p*.png"):
+        os.unlink(old)
+    tmp_prefix = prefix + "-tmp"
+    try:
+        subprocess.run(
+            ["pdftoppm", "-r", "150", "-png", pdf_path, tmp_prefix],
+            check=True, capture_output=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logging.getLogger(__name__).warning("pdftoppm misslyckades for %s", pdf_path)
+        return 0
+    raw = sorted(_glob.glob(tmp_prefix + "-*.png"))
+    for i, src in enumerate(raw, 1):
+        os.rename(src, f"{prefix}-p{i:03d}.png")
+    return len(raw)
 
 
 def _breadcrumbs(folder_id: int | None, folders_by_id: dict) -> list[dict]:
@@ -204,6 +230,11 @@ async def media_upload(file: UploadFile = File(...), folder_id: str = Form("")):
     filename = uuid.uuid4().hex + ext
     dest = Path(UPLOADS_DIR) / filename
     dest.write_bytes(data)
+
+    if content_type == "application/pdf":
+        uuid_stem = filename[:-4]
+        _convert_pdf_to_images(str(dest), uuid_stem)
+
     with get_session() as db:
         mf = MediaFile(
             filename=filename,
@@ -238,6 +269,11 @@ async def media_replace(file_id: int, file: UploadFile = File(...)):
         data = await file.read()
         dest = Path(UPLOADS_DIR) / mf.filename
         dest.write_bytes(data)
+
+        if content_type == "application/pdf":
+            uuid_stem = mf.filename[:-4]
+            _convert_pdf_to_images(str(dest), uuid_stem)
+
         mf.original_name = file.filename or mf.original_name
         mf.content_type = content_type
         mf.size_bytes = len(data)
@@ -259,6 +295,16 @@ async def media_delete(request: Request, file_id: int):
         path = Path(UPLOADS_DIR) / filename
         if path.exists():
             path.unlink()
+
+        if filename.endswith(".pdf"):
+            import glob as _glob
+            uuid_stem = filename[:-4]
+            for pg in _glob.glob(os.path.join(PDF_PAGES_DIR, uuid_stem + "-p*.png")):
+                try:
+                    os.unlink(pg)
+                except OSError:
+                    pass
+
         _purge_file_from_db(db, filename, file_id)
         db.delete(mf)
         db.commit()
