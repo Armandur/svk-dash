@@ -82,12 +82,14 @@ Vanliga värden för `hdmi_mode` (med `hdmi_group=2`):
 
 ## Videouppspelning
 
-**På RPi 4B med 1 GB RAM är rotation mellan flera videor en återvänds-
-gränd.** Efter att ha testat ett stort antal kombinationer landade
-slutsatsen i att V4L2-hårdvarudekodern (`bcm2835-codec-decode` på
-`/dev/video10`) bara stödjer **en aktiv H.264-ström åt gången**, och
-kan inte växla mellan strömmar utan att antingen krascha GPU-processen
-eller lämna osynliga video-ytor.
+**På RPi 4B (testat med 2 GB-modellen) under Trixie är rotation mellan
+flera videor en återvändsgränd.** Efter att ha testat ett stort antal
+kombinationer landade slutsatsen i att V4L2-hårdvarudekodern
+(`bcm2835-codec-decode` på `/dev/video10`) bara stödjer **en aktiv
+H.264-ström åt gången** i kombination med Chromium 147 + Mesa V3D på
+Trixie, och kan inte växla mellan strömmar utan att antingen krascha
+GPU-processen eller lämna osynliga video-ytor. Problemet är inte
+minnesbrist — testet gjordes på 2 GB RAM.
 
 ### Vad som testats (och varför inget fungerade helt)
 
@@ -110,14 +112,13 @@ mönster i båda.
 
 ### Slutsats
 
-- **För kiosker med videorotation på RPi 4B 1 GB: kör mjukvarudekod.**
+- **För kiosker med videorotation på RPi 4B under Trixie: kör mjukvarudekod.**
   Det är default i projektet (inga flaggor i `/etc/chromium.d/`).
   Videorna laggar på 1080p men kraschar inte.
-- **RPi 4B med 2+ GB RAM kan klara hwaccel** — inte verifierat här,
-  men V3D-minnestrycket är sannolikt det som triggar krascherna, och
-  det är mer tillgängligt på större modeller. Är det relevant: börja
-  med endast `--enable-features=AcceleratedVideoDecodeLinuxGL` och
-  `--ignore-gpu-blocklist` i `/etc/chromium.d/`.
+- **Bookworm kan uppföra sig annorlunda** — ej testat i detta projekt.
+  Tidigare iterationer av Chromium/Mesa på Bookworm rapporterade
+  fungerande V4L2-hwdecode. Om du måste ha hwaccel: prova Bookworm
+  64-bit istället för Trixie, eller RPi 5.
 
 ### Knep för att minska laggen vid mjukvarudekod
 
