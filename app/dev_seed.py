@@ -330,6 +330,14 @@ def seed() -> None:
                  name="Markdown", enabled=True, duration_seconds=12,
                  transition="slide", transition_direction="up",
                  layout_json=wl1(w_md, lbl_md)),
+            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=5,
+                 name="Kalender lista", enabled=True, duration_seconds=15,
+                 transition="fade",
+                 layout_json=wl1(w_ics_list, lbl_ics_list)),
+            View(channel_id=ch_land.id, zone_id=z_split_left.id, position=6,
+                 name="Kalender vecka", enabled=True, duration_seconds=15,
+                 transition="slide", transition_direction="left",
+                 layout_json=wl1(w_ics_week, lbl_ics_week)),
         ]
 
         # ── Vyer – 60/40-split, höger zon (fade, 10 s) ───────────────────────
@@ -400,6 +408,14 @@ def seed() -> None:
                      {"widget_id": w_clock_td.id,       "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
                      {"widget_id": lbl_clock_td.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
+            View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=2,
+                 name="Kalender lista", enabled=True, duration_seconds=15,
+                 transition="fade",
+                 layout_json=wl1(w_ics_list, lbl_ics_list)),
+            View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=3,
+                 name="Kalender månad", enabled=True, duration_seconds=15,
+                 transition="slide", transition_direction="left",
+                 layout_json=wl1(w_ics_month, lbl_ics_month)),
         ]
         # Sidfält (persistent): färgblock + centrerad text
         views_bar_side = [
