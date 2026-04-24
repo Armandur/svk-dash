@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Bootstrap-script för skarmar-kiosk på Raspberry Pi OS Bookworm Desktop (X11)
+# Bootstrap-script för skarmar-kiosk på Raspberry Pi OS Bookworm Desktop
 # Kör som pi-användaren: bash install.sh
 set -euo pipefail
 
 KIOSK_USER="${SUDO_USER:-$(whoami)}"
 KIOSK_ENV="/etc/skarmar/kiosk.env"
-AUTOSTART_DIR="/home/${KIOSK_USER}/.config/lxsession/LXDE-pi"
-AUTOSTART_FILE="${AUTOSTART_DIR}/autostart"
 
 # --- 1. Fråga efter skärm-URL ---
 if [[ -f "$KIOSK_ENV" ]]; then
@@ -30,33 +28,38 @@ if [[ -z "${SCREEN_URL:-}" ]]; then
   exit 1
 fi
 
-# Extrahera host för nät-ping (t.ex. 192.168.1.42 ur http://192.168.1.42:8000/s/foo)
+# --- 2. Fråga om pekskärm ---
+read -rp "Har Pi:n en pekskärm? (j/n): " TOUCH_ANSWER
+TOUCH_FLAG=""
+if [[ "${TOUCH_ANSWER,,}" == "j" ]]; then
+  TOUCH_FLAG="  --touch-events=enabled \\"$'\n'
+fi
+
+# --- 3. Identifiera Pi-modell och sätt prestandaflaggor ---
+PI_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "unknown")
+echo "-> Hårdvara: $PI_MODEL"
+
+VAAPI_FLAGS=""
+GPU_MEM=128
+if echo "$PI_MODEL" | grep -q "Raspberry Pi 4\|Raspberry Pi 5"; then
+  # RPi 4/5: VA-API fungerar, 64-bit OS rekommenderas
+  VAAPI_FLAGS="  --enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL \\"$'\n'"  --use-gl=egl \\"$'\n'"  --ignore-gpu-blocklist \\"$'\n'
+  GPU_MEM=256
+fi
+
+# --- 4. GPU-minne ---
+BOOT_CONFIG="/boot/firmware/config.txt"
+if ! grep -q "^gpu_mem=" "$BOOT_CONFIG" 2>/dev/null; then
+  echo "gpu_mem=${GPU_MEM}" | sudo tee -a "$BOOT_CONFIG" > /dev/null
+else
+  sudo sed -i "s/^gpu_mem=.*/gpu_mem=${GPU_MEM}/" "$BOOT_CONFIG"
+fi
+echo "-> gpu_mem=${GPU_MEM} i $BOOT_CONFIG"
+
+# Extrahera host för nät-ping
 PING_HOST=$(echo "$SCREEN_URL" | sed 's|https\?://||; s|[:/].*||')
 
-# --- 2. Tvinga X11, autologin och autologin-gruppen ---
-# Lägg till användaren i autologin-gruppen (krävs av lightdm)
-sudo addgroup --system autologin 2>/dev/null || true
-sudo usermod -aG autologin "$KIOSK_USER"
-
-# Skriv en ren lightdm.conf med ett enda [Seat:*]-block
-sudo tee /etc/lightdm/lightdm.conf > /dev/null <<LIGHTDMEOF
-[LightDM]
-
-[Seat:*]
-greeter-session=pi-greeter-labwc
-greeter-hide-users=false
-user-session=LXDE-pi
-display-setup-script=/usr/share/dispsetup.sh
-autologin-user=${KIOSK_USER}
-autologin-session=LXDE-pi
-WaylandEnable=false
-
-[XDMCPServer]
-[VNCServer]
-LIGHTDMEOF
-echo "-> lightdm.conf skriven (X11, autologin)"
-
-# --- 4. Installera chromium och unclutter om de saknas ---
+# --- 5. Installera paket ---
 PKGS=()
 command -v chromium-browser &>/dev/null || PKGS+=(chromium-browser)
 command -v unclutter &>/dev/null        || PKGS+=(unclutter)
@@ -65,50 +68,61 @@ if [[ ${#PKGS[@]} -gt 0 ]]; then
   sudo apt-get install -y "${PKGS[@]}"
 fi
 
-# --- 5. Skapa autostart ---
-mkdir -p "$AUTOSTART_DIR"
-cat > "$AUTOSTART_FILE" <<'AUTOSTART'
-@lxpanel --profile LXDE-pi
-@pcmanfm --desktop --profile LXDE-pi
-@xset s off
-@xset -dpms
-@xset s noblank
-@unclutter -idle 1 -root
-@/usr/local/bin/skarmar-kiosk-launch
-AUTOSTART
-echo "-> Autostart skriven: $AUTOSTART_FILE"
+# --- 6. Autologin via getty på tty1 (kringgår lightdm) ---
+sudo mkdir -p /etc/systemd/system/getty@tty1.service.d/
+sudo tee /etc/systemd/system/getty@tty1.service.d/autologin.conf > /dev/null <<UNIT
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin ${KIOSK_USER} --noclear %I \$TERM
+UNIT
 
-# --- 6. Skapa start-wrapper ---
+# Starta X automatiskt vid inloggning på tty1
+cat > "/home/${KIOSK_USER}/.bash_profile" <<'PROFILE'
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    exec startx -- -nocursor
+fi
+PROFILE
+
+# xinitrc: skärmsläckare av, dölj muspekare, starta kiosk
+cat > "/home/${KIOSK_USER}/.xinitrc" <<'XINITRC'
+#!/bin/bash
+xset s off
+xset -dpms
+xset s noblank
+unclutter -idle 1 -root &
+exec /usr/local/bin/skarmar-kiosk-launch
+XINITRC
+chmod +x "/home/${KIOSK_USER}/.xinitrc"
+
+# Stäng av lightdm så den inte konkurrerar
+sudo systemctl disable lightdm 2>/dev/null || true
+echo "-> Autologin via getty konfigurerat"
+
+# --- 7. Skapa launcher ---
 sudo tee /usr/local/bin/skarmar-kiosk-launch > /dev/null <<LAUNCHER
 #!/usr/bin/env bash
 source /etc/skarmar/kiosk.env
 
 PING_HOST="${PING_HOST}"
 
-# Vänta på nätverket — pinga servern direkt (max 60s)
+# Vänta på nätverket (max 60s)
 for i in \$(seq 1 12); do
-  if ping -c1 -W2 "\${PING_HOST}" &>/dev/null; then
-    break
-  fi
+  if ping -c1 -W2 "\${PING_HOST}" &>/dev/null; then break; fi
   sleep 5
 done
 
-# Försök synka NTP — hoppa över om det tar för lång tid (inget internet nödvändigt)
+# Försök synka NTP, hoppa över om det tar för lång tid
 for i in \$(seq 1 6); do
-  if timedatectl show --property=NTPSynchronized --value 2>/dev/null | grep -q yes; then
-    break
-  fi
+  if timedatectl show --property=NTPSynchronized --value 2>/dev/null | grep -q yes; then break; fi
   sleep 5
 done
 
-# Rensa eventuell krasch-flagga
 rm -f /home/"\$(whoami)"/.config/chromium/SingletonLock
 
 exec chromium-browser \\
   --kiosk \\
   --app="\${SCREEN_URL}" \\
-  --touch-events=enabled \\
-  --noerrdialogs \\
+${TOUCH_FLAG}${VAAPI_FLAGS}  --noerrdialogs \\
   --disable-infobars \\
   --disable-features=Translate,TranslateUI,OverscrollHistoryNavigation,HardwareMediaKeyHandling \\
   --disable-session-crashed-bubble \\
@@ -120,14 +134,14 @@ LAUNCHER
 sudo chmod +x /usr/local/bin/skarmar-kiosk-launch
 echo "-> Launcher skriven: /usr/local/bin/skarmar-kiosk-launch"
 
-# --- 7. Chromium managed policy: stäng av translate ---
+# --- 8. Chromium managed policy: stäng av translate ---
 sudo mkdir -p /etc/chromium/policies/managed
 sudo tee /etc/chromium/policies/managed/kiosk.json > /dev/null <<'POLICY'
 {
   "TranslateEnabled": false
 }
 POLICY
-echo "-> Chromium policy skriven: TranslateEnabled=false"
+echo "-> Chromium policy: TranslateEnabled=false"
 
 echo ""
 echo "Klar! Starta om Pi:n för att aktivera kiosk-läget:"
