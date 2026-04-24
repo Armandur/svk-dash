@@ -120,14 +120,14 @@ LAUNCHER
 sudo chmod +x /usr/local/bin/skarmar-kiosk-launch
 echo "-> Launcher skriven: /usr/local/bin/skarmar-kiosk-launch"
 
-# --- 7. Chromium-inställningar: stäng av translate ---
-PREF_DIR="/home/${KIOSK_USER}/.config/chromium/Default"
-mkdir -p "$PREF_DIR"
-PREF_FILE="${PREF_DIR}/Preferences"
-if [ ! -f "$PREF_FILE" ]; then
-  echo '{"translate":{"enabled":false},"translate_blocked_languages":["sv"]}' > "$PREF_FILE"
-fi
-echo "-> Chromium translate avstängt"
+# --- 7. Chromium managed policy: stäng av translate ---
+sudo mkdir -p /etc/chromium/policies/managed
+sudo tee /etc/chromium/policies/managed/kiosk.json > /dev/null <<'POLICY'
+{
+  "TranslateEnabled": false
+}
+POLICY
+echo "-> Chromium policy skriven: TranslateEnabled=false"
 
 echo ""
 echo "Klar! Starta om Pi:n för att aktivera kiosk-läget:"
