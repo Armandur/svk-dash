@@ -1,0 +1,39 @@
+{% extends "admin/base.html" %}
+{% block title %}Kanaler{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Kanaler</h1>
+  <a href="/admin/channels/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Ny kanal</a>
+</div>
+
+{% if channels %}
+<div class="space-y-3">
+  {% for channel in channels %}
+  <div class="bg-white rounded-lg shadow p-5 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+        </svg>
+      </div>
+      <div>
+        <div class="font-medium text-sm">{{ channel.name }}</div>
+        {% if channel.description %}
+        <div class="text-xs text-gray-400 mt-0.5">{{ channel.description }}</div>
+        {% endif %}
+        <div class="text-xs text-gray-400 mt-0.5">
+          {{ screen_counts.get(channel.id, 0) }} kopplad{% if screen_counts.get(channel.id, 0) != 1 %}e{% endif %} skärm{% if screen_counts.get(channel.id, 0) != 1 %}ar{% endif %}
+        </div>
+      </div>
+    </div>
+    <a href="/admin/channels/{{ channel.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors font-medium">Öppna kanal</a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow p-12 text-center">
+  <p class="text-gray-400 mb-4">Inga kanaler skapade ännu.</p>
+  <a href="/admin/channels/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">+ Skapa din första kanal</a>
+</div>
+{% endif %}
+{% endblock %}

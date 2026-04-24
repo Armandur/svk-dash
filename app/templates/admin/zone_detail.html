@@ -1,5 +1,5 @@
 {% extends "admin/base.html" %}
-{% block title %}{{ zone.name }} – {{ screen.name }}{% endblock %}
+{% block title %}{{ zone.name }} – {{ channel.name }}{% endblock %}
 {% block content %}
 
 {# ── Zon-preview-makro ────────────────────────────────────────────── #}
@@ -40,9 +40,9 @@
 </div>
 {% endmacro %}
 <div class="mb-6 flex items-center gap-2 flex-wrap">
-  <a href="/admin/" class="text-sm text-gray-500 hover:text-gray-900">← Skärmar</a>
+  <a href="/admin/channels" class="text-sm text-gray-500 hover:text-gray-900">← Kanaler</a>
   <span class="text-gray-300">/</span>
-  <a href="/admin/screens/{{ screen.id }}" class="text-sm text-gray-500 hover:text-gray-900">{{ screen.name }}</a>
+  <a href="/admin/channels/{{ channel.id }}" class="text-sm text-gray-500 hover:text-gray-900">{{ channel.name }}</a>
   <span class="text-gray-300">/</span>
   <h1 class="text-2xl font-bold">{{ zone.name }}</h1>
   <span class="text-xs px-2 py-0.5 rounded font-medium
@@ -136,12 +136,12 @@
             <div class="flex items-center gap-2 flex-wrap">
               <a href="/admin/views/{{ view.id }}" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded transition-colors">Redigera</a>
               <form method="post"
-                    action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/detach"
+                    action="/admin/channels/{{ channel.id }}/zones/{{ zone.id }}/views/{{ view.id }}/detach"
                     class="inline" title="Koppla loss från zon — vyn hamnar i 'Vyer utan zon'">
                 <button type="submit" class="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">Koppla loss</button>
               </form>
               <form method="post"
-                    action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/delete"
+                    action="/admin/channels/{{ channel.id }}/zones/{{ zone.id }}/views/{{ view.id }}/delete"
                     onsubmit="return confirm('Ta bort vy \'{{ view.name }}\'?')" class="inline">
                 <button type="submit" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Ta bort</button>
               </form>
@@ -150,7 +150,7 @@
 
           <!-- Schema-sammanfattning (klickbar för modal) -->
           <div class="bg-gray-50 rounded p-2 text-xs flex items-center justify-between group cursor-pointer hover:bg-gray-100 transition-colors"
-               onclick="openScheduleModal('view', {{ view.id }}, {{ (view.schedule_json or {}) | tojson }}, {enabled: {{ view.enabled | tojson }}, duration_seconds: {{ view.duration_seconds | tojson }}, transition: '{{ view.transition or '' }}', transition_direction: '{{ view.transition_direction or '' }}', transition_duration_ms: {{ view.transition_duration_ms | tojson }}}, '/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule')">
+               onclick="openScheduleModal('view', {{ view.id }}, {{ (view.schedule_json or {}) | tojson }}, {enabled: {{ view.enabled | tojson }}, duration_seconds: {{ view.duration_seconds | tojson }}, transition: '{{ view.transition or '' }}', transition_direction: '{{ view.transition_direction or '' }}', transition_duration_ms: {{ view.transition_duration_ms | tojson }}}, '/admin/channels/{{ channel.id }}/zones/{{ zone.id }}/views/{{ view.id }}/schedule')">
             <div>
               <span class="text-gray-400 font-semibold uppercase text-[9px] mr-2">Schema &amp; transition:</span>
               <span class="text-gray-700 font-medium">{{ view.schedule_json | schedule_summary }}</span>
@@ -166,7 +166,7 @@
       </div>
       {% endif %}
 
-      <form method="post" action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/views/new"
+      <form method="post" action="/admin/channels/{{ channel.id }}/zones/{{ zone.id }}/views/new"
             class="flex gap-2 items-end">
         <div class="flex-1">
           <label class="block text-xs font-medium text-gray-600 mb-1">Vy-namn</label>
@@ -202,7 +202,7 @@
       </div>
     </div>
 
-    <form method="post" action="/admin/screens/{{ screen.id }}/zones/{{ zone.id }}/settings"
+    <form method="post" action="/admin/channels/{{ channel.id }}/zones/{{ zone.id }}/settings"
           class="bg-white rounded-lg shadow p-5 space-y-3 text-sm">
       <h2 class="font-semibold text-sm mb-1">Rotation &amp; övergång</h2>
       <div>

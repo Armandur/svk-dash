@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-from . import auth, layouts, media, screens, sse_control, views, widgets
+from . import auth, channels, layouts, media, screens, sse_control, views, widgets
 
 router = APIRouter(prefix="/admin")
 router.include_router(auth.router)
+router.include_router(channels.router)
 router.include_router(screens.router)
 router.include_router(views.router)
 router.include_router(widgets.router)

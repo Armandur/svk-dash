@@ -7,13 +7,13 @@ from sqlmodel import select
 from app import sse as sse_registry
 from app.database import get_session
 from app.deps import require_admin
-from app.models import ChannelLayoutAssignment, Layout, LayoutZone, Screen, View
+from app.models import Channel, Screen
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 
 
-def _screen_status(screen: Screen, now: datetime) -> dict:
+def _screen_status(screen: Screen, channel_name: str | None, now: datetime) -> dict:
     conn_count = sse_registry.connection_count(screen.id)
     if conn_count > 0:
         status = "online"
@@ -36,6 +36,7 @@ def _screen_status(screen: Screen, now: datetime) -> dict:
 
     return {
         "screen": screen,
+        "channel_name": channel_name,
         "status": status,
         "conn_count": conn_count,
         "last_seen": last_seen_str,
@@ -46,11 +47,17 @@ def _screen_status(screen: Screen, now: datetime) -> dict:
 async def dashboard(request: Request):
     with get_session() as db:
         screens = db.exec(select(Screen).order_by(Screen.name)).all()
+        channels = {c.id: c.name for c in db.exec(select(Channel)).all()}
+        all_channels = db.exec(select(Channel).order_by(Channel.name)).all()
+        
     now = datetime.utcnow()
-    screen_statuses = [_screen_status(s, now) for s in screens]
+    screen_statuses = [_screen_status(s, channels.get(s.channel_id), now) for s in screens]
+    
     return HTMLResponse(
         templates.get_template("admin/index.html").render(
-            request=request, screen_statuses=screen_statuses
+            request=request, 
+            screen_statuses=screen_statuses,
+            all_channels=all_channels
         )
     )
 
@@ -85,98 +92,31 @@ async def screen_create(
                 ),
                 status_code=422,
             )
-        # Create a channel for the new screen
-        from app.models import Channel
-        channel = Channel(name=name)
-        db.add(channel)
-        db.commit()
-        db.refresh(channel)
         
-        screen = Screen(name=name, slug=slug, channel_id=channel.id)
+        screen = Screen(name=name, slug=slug, channel_id=None)
         db.add(screen)
         db.commit()
         db.refresh(screen)
     return RedirectResponse(f"/admin/screens/{screen.id}", status_code=302)
 
 
-def _get_screen_detail_ctx(
-    db, screen_id: int, error: str | None = None, selected_id: int | None = None
-) -> dict | None:
-    screen = db.get(Screen, screen_id)
-    if not screen:
-        return None
-
-    assignments = db.exec(
-        select(ChannelLayoutAssignment)
-        .where(ChannelLayoutAssignment.channel_id == screen.channel_id)
-        .order_by(ChannelLayoutAssignment.priority.desc())
-    ).all()
-
-    selected_assignment = None
-    if selected_id:
-        selected_assignment = next((a for a in assignments if a.id == selected_id), None)
-    if not selected_assignment and assignments:
-        selected_assignment = assignments[0]
-
-    layout = None
-    zones = []
-    if selected_assignment:
-        layout = db.get(Layout, selected_assignment.layout_id)
-        if layout:
-            zones = db.exec(
-                select(LayoutZone)
-                .where(LayoutZone.layout_id == layout.id)
-                .order_by(LayoutZone.z_index)
-            ).all()
-
-    assignment_layouts = {}
-    for a in assignments:
-        al = db.get(Layout, a.layout_id)
-        if al:
-            assignment_layouts[a.id] = al
-
-    # Vyer utan zon-tilldelning (äldre vyer eller skärm utan layout)
-    legacy_views = db.exec(
-        select(View)
-        .where(View.channel_id == screen.channel_id, View.zone_id == None)  # noqa: E711
-        .order_by(View.position)
-    ).all()
-
-    # Antal vyer per zon
-    zone_view_counts = {}
-    for zone in zones:
-        zone_view_counts[zone.id] = len(
-            db.exec(select(View).where(View.channel_id == screen.channel_id, View.zone_id == zone.id)).all()
-        )
-
-    all_layouts = db.exec(select(Layout).order_by(Layout.name)).all()
-    assigned_layout_ids = {a.layout_id for a in assignments}
-
-    return {
-        "screen": screen,
-        "assignments": assignments,
-        "selected_assignment": selected_assignment,
-        "assignment_layouts": assignment_layouts,
-        "layout": layout,
-        "zones": zones,
-        "zone_view_counts": zone_view_counts,
-        "legacy_views": legacy_views,
-        "all_layouts": all_layouts,
-        "assigned_layout_ids": assigned_layout_ids,
-        "error": error,
-        # Bakåtkompatibilitet för zone_detail-vyn
-        "assignment": selected_assignment,
-    }
-
-
 @router.get("/screens/{screen_id}", response_class=HTMLResponse)
-async def screen_detail(request: Request, screen_id: int, sel: int | None = None):
+async def screen_detail(request: Request, screen_id: int):
     with get_session() as db:
-        ctx = _get_screen_detail_ctx(db, screen_id, selected_id=sel)
-    if not ctx:
-        return HTMLResponse("Skärmen hittades inte.", status_code=404)
+        screen = db.get(Screen, screen_id)
+        if not screen:
+            return HTMLResponse("Skärmen hittades inte.", status_code=404)
+            
+        channels = db.exec(select(Channel).order_by(Channel.name)).all()
+        current_channel = db.get(Channel, screen.channel_id) if screen.channel_id else None
+        
     return HTMLResponse(
-        templates.get_template("admin/screen_detail.html").render(request=request, **ctx)
+        templates.get_template("admin/screen_detail.html").render(
+            request=request,
+            screen=screen,
+            channels=channels,
+            current_channel=current_channel
+        )
     )
 
 
@@ -186,28 +126,44 @@ async def screen_edit(
     screen_id: int,
     name: str = Form(...),
     slug: str = Form(...),
+    channel_id: str | None = Form(None),
     show_offline_banner: str | None = Form(None),
+    performance_mode: str = Form("normal"),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
         screen = db.get(Screen, screen_id)
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
+            
         conflict = db.exec(
             select(Screen).where(Screen.slug == slug, Screen.id != screen_id)
         ).first()
         if conflict:
-            ctx = _get_screen_detail_ctx(db, screen_id, error=f"Slug '{slug}' används redan.")
+            # Re-render with error
+            channels = db.exec(select(Channel).order_by(Channel.name)).all()
+            current_channel = db.get(Channel, screen.channel_id) if screen.channel_id else None
             return HTMLResponse(
-                templates.get_template("admin/screen_detail.html").render(request=request, **ctx),
+                templates.get_template("admin/screen_detail.html").render(
+                    request=request,
+                    screen=screen,
+                    channels=channels,
+                    current_channel=current_channel,
+                    error=f"Slug '{slug}' används redan."
+                ),
                 status_code=422,
             )
+            
         screen.name = name
         screen.slug = slug
+        screen.channel_id = int(channel_id) if channel_id else None
         screen.show_offline_banner = show_offline_banner is not None
+        screen.performance_mode = performance_mode
         screen.updated_at = datetime.utcnow()
         db.add(screen)
         db.commit()
+    
+    sse_registry.broadcast(screen_id, {"type": "reload"})
     return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
 
 
@@ -217,408 +173,27 @@ async def screen_delete(screen_id: int):
         screen = db.get(Screen, screen_id)
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
-        
-        # Deleting a screen doesn't necessarily delete the channel, 
-        # but in this first phase we can keep it simple.
-        # However, views and assignments are now linked to channel_id.
-        # If we want to clean up, we should probably delete the channel too.
-        channel_id = screen.channel_id
-        
-        for view in db.exec(select(View).where(View.channel_id == channel_id)).all():
-            db.delete(view)
-        for a in db.exec(
-            select(ChannelLayoutAssignment).where(ChannelLayoutAssignment.channel_id == channel_id)
-        ).all():
-            db.delete(a)
-            
         db.delete(screen)
-        
-        # Also delete the channel
-        from app.models import Channel
-        channel = db.get(Channel, channel_id)
-        if channel:
-            db.delete(channel)
-            
         db.commit()
     return RedirectResponse("/admin/screens", status_code=302)
 
 
-# ── Layout-tilldelning ────────────────────────────────────────────────────────
-
-
-@router.post("/screens/{screen_id}/layout/assign")
-async def screen_assign_layout(screen_id: int, layout_id: int = Form(...)):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        if not screen:
-            return RedirectResponse("/admin/screens", status_code=302)
-            
-        existing = db.exec(
-            select(ChannelLayoutAssignment).where(
-                ChannelLayoutAssignment.channel_id == screen.channel_id,
-                ChannelLayoutAssignment.layout_id == layout_id,
-            )
-        ).first()
-        if not existing:
-            count = len(
-                db.exec(
-                    select(ChannelLayoutAssignment).where(
-                        ChannelLayoutAssignment.channel_id == screen.channel_id
-                    )
-                ).all()
-            )
-            new_a = ChannelLayoutAssignment(
-                channel_id=screen.channel_id, layout_id=layout_id, priority=count
-            )
-            db.add(new_a)
-            db.commit()
-            db.refresh(new_a)
-            return RedirectResponse(
-                f"/admin/screens/{screen_id}?sel={new_a.id}", status_code=302
-            )
-    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/layout/{assignment_id}/remove")
-async def screen_remove_layout_assignment(screen_id: int, assignment_id: int):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        a = db.get(ChannelLayoutAssignment, assignment_id)
-        if a and screen and a.channel_id == screen.channel_id:
-            db.delete(a)
-            db.commit()
-    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/layout/{assignment_id}/schedule")
-async def screen_layout_assignment_schedule(
-    screen_id: int,
-    assignment_id: int,
-    schedule_json: str = Form(None),
-    enabled: str | None = Form(None),
-    duration_seconds: str | None = Form(None),
-    transition: str = Form("fade"),
-    transition_direction: str = Form("left"),
-    transition_duration_ms: str | None = Form(None),
+@router.post("/screens/batch-assign-channel")
+async def screen_batch_assign_channel(
+    screen_ids: list[int] = Form(...),
+    channel_id: str | None = Form(None),
 ):
+    target_channel_id = int(channel_id) if channel_id else None
     with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        a = db.get(ChannelLayoutAssignment, assignment_id)
-        if not a or not screen or a.channel_id != screen.channel_id:
-            return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-
-        if schedule_json:
-            import json
-            try:
-                a.schedule_json = json.loads(schedule_json)
-            except:
-                pass
-        else:
-            a.schedule_json = None
-
-        a.enabled = enabled is not None
-        a.duration_seconds = int(duration_seconds) if duration_seconds else None
-        a.transition = transition
-        a.transition_direction = transition_direction
-        a.transition_duration_ms = int(transition_duration_ms) if transition_duration_ms else 700
-        db.add(a)
+        for sid in screen_ids:
+            screen = db.get(Screen, sid)
+            if screen:
+                screen.channel_id = target_channel_id
+                db.add(screen)
         db.commit()
-    sse_registry.broadcast(screen_id, {"type": "reload"})
-    return RedirectResponse(f"/admin/screens/{screen_id}?sel={assignment_id}", status_code=302)
-
-
-# ── Zon-hantering ─────────────────────────────────────────────────────────────
-
-
-@router.get("/screens/{screen_id}/zones/{zone_id}", response_class=HTMLResponse)
-async def zone_detail(request: Request, screen_id: int, zone_id: int):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        zone = db.get(LayoutZone, zone_id)
-        if not screen or not zone:
-            return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-        views = db.exec(
-            select(View)
-            .where(View.channel_id == screen.channel_id, View.zone_id == zone_id)
-            .order_by(View.position)
-        ).all()
-
-        persistent_view = None
-        if zone.role == "persistent":
-            if views:
-                persistent_view = views[0]
-            else:
-                # Skapa vy automatiskt första gången
-                persistent_view = View(
-                    channel_id=screen.channel_id,
-                    zone_id=zone_id,
-                    name=zone.name,
-                    position=0,
-                    layout_json={"widgets": []},
-                )
-                db.add(persistent_view)
-                db.commit()
-                # commit() expirerar alla objekt — refresh de som används utanför sessionen
-                db.refresh(persistent_view)
-                db.refresh(zone)
-                db.refresh(screen)
-
-        assignment = db.exec(
-            select(ChannelLayoutAssignment).where(ChannelLayoutAssignment.channel_id == screen.channel_id)
-        ).first()
-        other_zones = []
-        if assignment:
-            other_zones = db.exec(
-                select(LayoutZone)
-                .where(LayoutZone.layout_id == assignment.layout_id, LayoutZone.id != zone_id)
-                .order_by(LayoutZone.z_index)
-            ).all()
-        # Hämta views igen om vi committat (persistent_view-skapande expirerar allt)
-        if persistent_view and persistent_view.id and not views:
-            views = db.exec(
-                select(View)
-                .where(View.channel_id == screen.channel_id, View.zone_id == zone_id)
-                .order_by(View.position)
-            ).all()
-
-        # Beräkna zonens aspect-ratio för preview
-        zone_aspect_css = "16 / 9"
-        if assignment:
-            layout = db.get(Layout, assignment.layout_id)
-            if layout and zone.w_pct and zone.h_pct:
-                _ASPECT = {"16:9": 16 / 9, "9:16": 9 / 16, "4:3": 4 / 3, "1:1": 1.0, "21:9": 21 / 9}
-                sr = _ASPECT.get(layout.aspect_ratio, 16 / 9)
-                zr = sr * (zone.w_pct / zone.h_pct)
-                zone_aspect_css = f"{zr:.6f} / 1"
-
-    return HTMLResponse(
-        templates.get_template("admin/zone_detail.html").render(
-            request=request,
-            screen=screen,
-            zone=zone,
-            views=views,
-            persistent_view=persistent_view,
-            other_zones=other_zones,
-            zone_aspect_css=zone_aspect_css,
-        )
-    )
-
-
-@router.post("/screens/{screen_id}/zones/{zone_id}/views/new")
-async def zone_view_create(
-    screen_id: int,
-    zone_id: int,
-    name: str = Form(...),
-    duration_seconds: str = Form(""),
-):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        if not screen:
-            return RedirectResponse("/admin/screens", status_code=302)
-            
-        existing = db.exec(
-            select(View).where(View.channel_id == screen.channel_id, View.zone_id == zone_id)
-        ).all()
-        position = len(existing)
-        dur = int(duration_seconds) if duration_seconds.strip().isdigit() else None
-        view = View(
-            channel_id=screen.channel_id,
-            zone_id=zone_id,
-            name=name,
-            position=position,
-            duration_seconds=dur,
-            layout_json={"widgets": []},
-        )
-        db.add(view)
-        db.commit()
-        db.refresh(view)
-    return RedirectResponse(f"/admin/views/{view.id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/zones/{zone_id}/settings")
-async def zone_settings(
-    screen_id: int,
-    zone_id: int,
-    rotation_seconds: int = Form(30),
-    transition: str = Form("fade"),
-    transition_direction: str = Form("left"),
-    transition_duration_ms: int = Form(700),
-):
-    with get_session() as db:
-        zone = db.get(LayoutZone, zone_id)
-        if zone and zone.layout_id:
-            zone.rotation_seconds = rotation_seconds
-            zone.transition = transition
-            zone.transition_direction = transition_direction
-            zone.transition_duration_ms = transition_duration_ms
-            db.add(zone)
-            db.commit()
-    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/delete")
-async def zone_view_delete(screen_id: int, zone_id: int, view_id: int):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        view = db.get(View, view_id)
-        if view and screen and view.channel_id == screen.channel_id:
-            db.delete(view)
-            db.commit()
-            _reorder_views(db, screen.channel_id, zone_id)
-    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/schedule")
-async def zone_view_schedule(
-    screen_id: int,
-    zone_id: int,
-    view_id: int,
-    schedule_json: str = Form(None),
-    enabled: str | None = Form(None),
-    duration_seconds: str | None = Form(None),
-    transition: str | None = Form(None),
-    transition_direction: str | None = Form(None),
-    transition_duration_ms: str | None = Form(None),
-):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        view = db.get(View, view_id)
-        if not view or not screen or view.channel_id != screen.channel_id:
-            return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
-
-        if schedule_json:
-            import json
-            try:
-                view.schedule_json = json.loads(schedule_json)
-            except:
-                pass
-        else:
-            view.schedule_json = None
-
-        view.enabled = enabled is not None
-        view.duration_seconds = int(duration_seconds) if duration_seconds else None
-        view.transition = transition if transition else None
-        view.transition_direction = transition_direction if transition_direction else None
-        view.transition_duration_ms = int(transition_duration_ms) if transition_duration_ms else None
-
-        db.add(view)
-        db.commit()
-    sse_registry.broadcast(screen_id, {"type": "reload"})
-    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
-
-
-# ── Legacy: vyer direkt under skärm (utan zon) ───────────────────────────────
-
-
-@router.post("/screens/{screen_id}/views/new")
-async def view_create(
-    screen_id: int,
-    name: str = Form(...),
-    duration_seconds: str = Form(""),
-):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        if not screen:
-            return HTMLResponse("Skärmen hittades inte.", status_code=404)
-        existing = db.exec(
-            select(View).where(View.channel_id == screen.channel_id, View.zone_id == None)  # noqa: E711
-        ).all()
-        position = len(existing)
-        dur = int(duration_seconds) if duration_seconds.strip().isdigit() else None
-        view = View(
-            channel_id=screen.channel_id,
-            name=name,
-            position=position,
-            duration_seconds=dur,
-            layout_json={"widgets": []},
-        )
-        db.add(view)
-        db.commit()
-        db.refresh(view)
-    return RedirectResponse(f"/admin/views/{view.id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/views/{view_id}/delete")
-async def view_delete(screen_id: int, view_id: int):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        view = db.get(View, view_id)
-        if not view or not screen or view.channel_id != screen.channel_id:
-            return HTMLResponse("Vyn hittades inte.", status_code=404)
-        db.delete(view)
-        db.commit()
-        _reorder_views(db, screen.channel_id, None)
-    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-
-
-# ── Flytta vy till zon (drag-and-drop + formulär) ────────────────────────────
-
-
-@router.post("/screens/{screen_id}/views/{view_id}/assign-zone")
-async def view_assign_zone(request: Request, screen_id: int, view_id: int):
-    body = await request.json()
-    zone_id = body.get("zone_id")  # int eller null
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        view = db.get(View, view_id)
-        if not view or not screen or view.channel_id != screen.channel_id:
-            return {"error": "Vy saknas"}
-        old_zone = view.zone_id
-        view.zone_id = int(zone_id) if zone_id is not None else None
-        # Lägg sist i målzonen
-        existing = db.exec(
-            select(View).where(View.channel_id == screen.channel_id, View.zone_id == view.zone_id)
-        ).all()
-        view.position = len([v for v in existing if v.id != view_id])
-        db.add(view)
-        db.commit()
-        _reorder_views(db, screen.channel_id, old_zone)
-    return {"ok": True}
-
-
-@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/detach")
-async def zone_view_detach(screen_id: int, zone_id: int, view_id: int):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        view = db.get(View, view_id)
-        if view and screen and view.channel_id == screen.channel_id and view.zone_id == zone_id:
-            view.zone_id = None
-            existing = db.exec(
-                select(View).where(View.channel_id == screen.channel_id, View.zone_id == None)  # noqa: E711
-            ).all()
-            view.position = len([v for v in existing if v.id != view_id])
-            db.add(view)
-            db.commit()
-            _reorder_views(db, screen.channel_id, zone_id)
-    return RedirectResponse(f"/admin/screens/{screen_id}", status_code=302)
-
-
-@router.post("/screens/{screen_id}/zones/{zone_id}/views/{view_id}/move")
-async def zone_view_move(
-    screen_id: int, zone_id: int, view_id: int, target_zone_id: int = Form(...)
-):
-    with get_session() as db:
-        screen = db.get(Screen, screen_id)
-        view = db.get(View, view_id)
-        if view and screen and view.channel_id == screen.channel_id and view.zone_id == zone_id:
-            view.zone_id = target_zone_id
-            existing = db.exec(
-                select(View).where(View.channel_id == screen.channel_id, View.zone_id == target_zone_id)
-            ).all()
-            view.position = len([v for v in existing if v.id != view_id])
-            db.add(view)
-            db.commit()
-            _reorder_views(db, screen.channel_id, zone_id)
-    return RedirectResponse(f"/admin/screens/{screen_id}/zones/{zone_id}", status_code=302)
-
-
-def _reorder_views(db, channel_id: int, zone_id: int | None) -> None:
-    views = db.exec(
-        select(View)
-        .where(View.channel_id == channel_id, View.zone_id == zone_id)
-        .order_by(View.position)
-    ).all()
-    for i, v in enumerate(views):
-        v.position = i
-        db.add(v)
-    db.commit()
+        
+    # Broadcast reload to all affected screens
+    for sid in screen_ids:
+        sse_registry.broadcast(sid, {"type": "reload"})
+        
+    return RedirectResponse("/admin/screens", status_code=302)
