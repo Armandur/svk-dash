@@ -11,7 +11,7 @@ from app.deps import require_admin
 from app.models import Channel, ChannelLayoutAssignment, Layout, LayoutZone, Screen, View
 from app.templating import templates
 
-router = APIRouter(prefix="/admin", dependencies=[Depends(require_admin)])
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 @router.get("/channels", response_class=HTMLResponse)

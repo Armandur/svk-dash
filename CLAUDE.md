@@ -287,6 +287,16 @@ tail -f dev.log
 
 Loggen skrivs till `dev.log`. Kontrollera alltid den filen vid startproblem.
 
+## Arbetssätt vid större ändringar
+
+När en feature är implementerad och commitad: be användaren testa de påverkade flödena
+i webbläsaren medan du kollar dev.log. Formulera en kort lista med konkreta saker att
+testa, t.ex. "skapa en kanal, lägg till en layout, öppna /s/<slug>". Gör det parallellt —
+läs dev.log medan användaren klickar. Åtgärda fel innan du förklarar något som klart.
+
+Gäller alltid efter: nya admin-sidor, databasmigrationer, refaktoreringar av routes/templates,
+ändringar som rör kiosk-rendering.
+
 ## Vanliga uppgifter
 
 **Lägga till ett nytt admin-flöde:**
