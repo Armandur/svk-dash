@@ -447,6 +447,12 @@
 }
 </style>
 
+<div id="lightbox" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.85)">
+  <button id="lightbox-close" class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-gray-300">&times;</button>
+  <div id="lightbox-content" class="max-w-5xl max-h-screen p-4 flex items-center justify-center">
+  </div>
+</div>
+
 <script>
 (function() {
   var container   = document.getElementById('media-container');
@@ -766,10 +772,4 @@
 })();
 </script>
 
-<div id="lightbox" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.85)">
-  <button id="lightbox-close" class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-gray-300">&times;</button>
-  <div id="lightbox-content" class="max-w-5xl max-h-screen p-4 flex items-center justify-center">
-    <!-- Fylls av JS -->
-  </div>
-</div>
 {% endblock %}
