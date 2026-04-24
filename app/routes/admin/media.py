@@ -197,7 +197,7 @@ async def media_upload(file: UploadFile = File(...), folder_id: str = Form("")):
     ext = _ALLOWED_TYPES.get(content_type)
     if not ext:
         return JSONResponse(
-            {"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg."}, status_code=400
+            {"error": "Filtypen stöds inte. Tillåtna: jpg, png, gif, webp, svg, mp4, webm, pdf."}, status_code=400
         )
     fid = int(folder_id) if folder_id.strip().isdigit() else None
     data = await file.read()
