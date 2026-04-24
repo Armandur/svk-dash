@@ -110,7 +110,7 @@ exec chromium-browser \\
   --touch-events=enabled \\
   --noerrdialogs \\
   --disable-infobars \\
-  --disable-features=Translate,OverscrollHistoryNavigation,HardwareMediaKeyHandling \\
+  --disable-features=Translate,TranslateUI,OverscrollHistoryNavigation,HardwareMediaKeyHandling \\
   --disable-session-crashed-bubble \\
   --disable-dev-shm-usage \\
   --check-for-update-interval=31536000 \\
@@ -119,6 +119,15 @@ LAUNCHER
 
 sudo chmod +x /usr/local/bin/skarmar-kiosk-launch
 echo "-> Launcher skriven: /usr/local/bin/skarmar-kiosk-launch"
+
+# --- 7. Chromium-inställningar: stäng av translate ---
+PREF_DIR="/home/${KIOSK_USER}/.config/chromium/Default"
+mkdir -p "$PREF_DIR"
+PREF_FILE="${PREF_DIR}/Preferences"
+if [ ! -f "$PREF_FILE" ]; then
+  echo '{"translate":{"enabled":false},"translate_blocked_languages":["sv"]}' > "$PREF_FILE"
+fi
+echo "-> Chromium translate avstängt"
 
 echo ""
 echo "Klar! Starta om Pi:n för att aktivera kiosk-läget:"
