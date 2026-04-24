@@ -30,6 +30,12 @@
         <div>
           <span class="font-medium text-sm">{{ w.name }}</span>
           <span class="ml-2 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ w.kind }}</span>
+          {% set cnt = usage_counts.get(w.id, 0) %}
+          {% if cnt > 0 %}
+          <span class="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">{{ cnt }} vy{% if cnt != 1 %}er{% endif %}</span>
+          {% else %}
+          <span class="ml-2 text-xs text-gray-400">Används ej</span>
+          {% endif %}
         </div>
         <a href="/admin/widgets/{{ w.id }}" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors">Redigera</a>
       </div>

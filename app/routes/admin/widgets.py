@@ -12,7 +12,7 @@ from sqlmodel import select
 from app.config import UPLOADS_DIR
 from app.database import get_session
 from app.deps import require_admin
-from app.models import IcsCache, MediaFile, View, Widget, WidgetRevision
+from app.models import Channel, IcsCache, MediaFile, View, Widget, WidgetRevision
 from app.routes.kiosk import broadcast_widget_updated
 from app.services.ics_fetcher import fetch_and_cache, get_ics_urls
 from app.templating import templates
@@ -51,10 +51,35 @@ _WIDGET_CATEGORIES: list[tuple[str, list[tuple[str, str]]]] = [
 ]
 
 
+def _build_usage_counts(db) -> dict[int, int]:
+    from sqlalchemy import String, cast
+    all_views = db.exec(select(View)).all()
+    counts: dict[int, int] = {}
+    for view in all_views:
+        for entry in (view.layout_json or {}).get("widgets", []):
+            wid = entry.get("widget_id")
+            if wid:
+                counts[wid] = counts.get(wid, 0) + 1
+    return counts
+
+
+def _find_widget_usages(widget_id: int, db) -> list[dict]:
+    from sqlalchemy import String, cast
+    pattern = f'%"widget_id": {widget_id}%'
+    views = db.exec(select(View).where(cast(View.layout_json, String).like(pattern))).all()
+    usages = []
+    for view in views:
+        if any(e.get("widget_id") == widget_id for e in (view.layout_json or {}).get("widgets", [])):
+            channel = db.get(Channel, view.channel_id)
+            usages.append({"view": view, "channel": channel})
+    return usages
+
+
 @router.get("/widgets", response_class=HTMLResponse)
 async def widgets_list(request: Request):
     with get_session() as db:
         widgets = db.exec(select(Widget).order_by(Widget.name)).all()
+        usage_counts = _build_usage_counts(db)
     kind_to_cat = {k: cat for cat, kinds in _WIDGET_CATEGORIES for k, _ in kinds}
     cat_buckets: dict[str, list] = {cat: [] for cat, _ in _WIDGET_CATEGORIES}
     for w in widgets:
@@ -67,6 +92,7 @@ async def widgets_list(request: Request):
             kinds=WIDGET_KINDS,
             grouped=grouped,
             categories=_WIDGET_CATEGORIES,
+            usage_counts=usage_counts,
         )
     )
 
@@ -132,6 +158,7 @@ async def widget_detail(request: Request, widget_id: int):
             if widget.kind in _ICS_KINDS
             else []
         )
+        usages = _find_widget_usages(widget_id, db)
     return HTMLResponse(
         templates.get_template("admin/widget_detail.html").render(
             request=request,
@@ -140,6 +167,7 @@ async def widget_detail(request: Request, widget_id: int):
             kinds=WIDGET_KINDS,
             config_json=json.dumps(widget.config_json, indent=2, ensure_ascii=False),
             ics_caches=ics_caches,
+            usages=usages,
         )
     )
 

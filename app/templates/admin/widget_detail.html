@@ -885,6 +885,23 @@ function removeIcsUrl(btn) {
     </div>
     {% endif %}
 
+    <!-- Används i -->
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="font-semibold text-sm mb-3">Används i</h2>
+      {% if usages %}
+        <ul class="space-y-2">
+        {% for u in usages %}
+          <li class="flex items-baseline">
+            <a href="/admin/views/{{ u.view.id }}" class="text-sm text-blue-600 hover:text-blue-800">{{ u.view.name }}</a>
+            <a href="/admin/channels/{{ u.channel.id }}" class="text-xs text-gray-500 ml-2">← {{ u.channel.name }}</a>
+          </li>
+        {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-gray-400">Används inte i någon vy.</p>
+      {% endif %}
+    </div>
+
     <!-- Revisioner -->
     {% if revisions %}
     <button id="open-revisions" class="w-full text-left bg-white rounded-lg shadow p-5 hover:bg-gray-50 transition-colors">
