@@ -415,27 +415,71 @@
 
   // --- Klocka ---
 
+  function _clockStrftime(fmt, date, tz, locale) {
+    if (!fmt) return '';
+    var parts = {};
+    try {
+      new Intl.DateTimeFormat(locale, {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+        weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      }).formatToParts(date).forEach(function(p) { parts[p.type] = p.value; });
+    } catch(e) { return fmt; }
+    var monthLong  = new Intl.DateTimeFormat(locale, {timeZone: tz, month: 'long'}).format(date);
+    var monthShort = new Intl.DateTimeFormat(locale, {timeZone: tz, month: 'short'}).format(date);
+    var wdLong     = new Intl.DateTimeFormat(locale, {timeZone: tz, weekday: 'long'}).format(date);
+    var wdShort    = new Intl.DateTimeFormat(locale, {timeZone: tz, weekday: 'short'}).format(date);
+    return fmt
+      .replace('%Y',  parts.year  || '')
+      .replace('%y',  (parts.year || '').slice(-2))
+      .replace('%m',  parts.month || '')
+      .replace('%-m', String(parseInt(parts.month || '0', 10)))
+      .replace('%d',  parts.day   || '')
+      .replace('%-d', String(parseInt(parts.day   || '0', 10)))
+      .replace('%B',  monthLong)
+      .replace('%b',  monthShort)
+      .replace('%A',  wdLong)
+      .replace('%a',  wdShort)
+      .replace('%H',  parts.hour   || '')
+      .replace('%-H', String(parseInt(parts.hour   || '0', 10)))
+      .replace('%M',  parts.minute || '')
+      .replace('%S',  parts.second || '');
+  }
+
   function tickClocks() {
     var now = new Date();
     document.querySelectorAll('[data-clock-format]').forEach(function (el) {
-      var fmt      = el.dataset.clockFormat || 'time_date';
-      var tz       = el.dataset.clockTimezone || 'Europe/Stockholm';
-      var locale   = el.dataset.clockLocale || 'sv-SE';
-      var opts     = { timeZone: tz };
-      var timeEl   = el.querySelector('.clock-time');
-      var dateEl   = el.querySelector('.clock-date');
+      var fmt         = el.dataset.clockFormat    || 'time_date';
+      var tz          = el.dataset.clockTimezone  || 'Europe/Stockholm';
+      var locale      = el.dataset.clockLocale    || 'sv-SE';
+      var showSecs    = el.dataset.clockShowSeconds !== '0';
+      var hour12      = el.dataset.clockHour12    === '1';
+      var dateFmt     = el.dataset.clockDateFormat || '';
+      var opts        = { timeZone: tz };
+      var timeEl      = el.querySelector('.clock-time');
+      var dateEl      = el.querySelector('.clock-date');
 
       if (timeEl && (fmt === 'time_only' || fmt === 'time_date' || fmt === 'day_time')) {
-        timeEl.textContent = now.toLocaleTimeString(locale, Object.assign({}, opts,
-          { hour: '2-digit', minute: '2-digit', second: fmt === 'day_time' ? undefined : '2-digit' }));
+        var timeOpts = Object.assign({}, opts, {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: hour12
+        });
+        if (showSecs && fmt !== 'day_time') {
+          timeOpts.second = '2-digit';
+        }
+        timeEl.textContent = now.toLocaleTimeString(locale, timeOpts);
       }
-      if (dateEl && (fmt === 'date_only' || fmt === 'time_date')) {
-        dateEl.textContent = now.toLocaleDateString(locale, Object.assign({}, opts,
-          { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
-      }
-      if (dateEl && fmt === 'day_time') {
-        dateEl.textContent = now.toLocaleDateString(locale, Object.assign({}, opts,
-          { weekday: 'long', day: 'numeric', month: 'long' }));
+
+      if (dateEl) {
+        if (dateFmt) {
+          dateEl.textContent = _clockStrftime(dateFmt, now, tz, locale);
+        } else if (fmt === 'date_only' || fmt === 'time_date') {
+          dateEl.textContent = now.toLocaleDateString(locale, Object.assign({}, opts,
+            { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+        } else if (fmt === 'day_time') {
+          dateEl.textContent = now.toLocaleDateString(locale, Object.assign({}, opts,
+            { weekday: 'long', day: 'numeric', month: 'long' }));
+        }
       }
     });
   }
@@ -520,6 +564,24 @@
   updateNowLines();
   setInterval(updateNowLines, 60000);
 
+  // --- Klientmetadata ---
+
+  function _sendClientMeta(clientId) {
+    var conn = navigator.connection || {};
+    fetch('/s/' + SCREEN_SLUG + '/client-meta', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        client_id: clientId,
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+        device_pixel_ratio: window.devicePixelRatio || 1,
+        timezone: (Intl && Intl.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : '') || '',
+        network_type: ''
+      })
+    }).catch(function () {});
+  }
+
   // --- SSE ---
 
   var lastEventAt = Date.now();
@@ -549,6 +611,8 @@
 
     eventSource.addEventListener('connected', function (e) {
       lastEventAt = Date.now();
+      var data = JSON.parse(e.data);
+      if (data.client_id) _sendClientMeta(data.client_id);
     });
 
     eventSource.addEventListener('keepalive', function () {

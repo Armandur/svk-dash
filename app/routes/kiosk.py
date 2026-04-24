@@ -1,9 +1,10 @@
 import asyncio
 import json
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select
 from sse_starlette.sse import EventSourceResponse
 
@@ -277,12 +278,21 @@ async def kiosk_events(request: Request, slug: str):
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
         screen_id = screen.id
 
-    q = sse_registry.register(screen_id)
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "okänd")
+    client_id = str(uuid.uuid4())
+    meta = {
+        "client_id": client_id,
+        "ip": ip,
+        "user_agent": request.headers.get("User-Agent", ""),
+        "connected_at": datetime.utcnow().isoformat(timespec="seconds"),
+    }
+    q = sse_registry.register(screen_id, meta)
     _update_heartbeat(screen_id)
 
     async def event_generator():
         try:
-            yield {"event": "connected", "data": json.dumps({"screen_id": screen_id})}
+            yield {"event": "connected", "data": json.dumps({"screen_id": screen_id, "client_id": client_id})}
             while True:
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=30)
@@ -295,6 +305,24 @@ async def kiosk_events(request: Request, slug: str):
             _update_connection_count(screen_id)
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/s/{slug}/client-meta")
+async def kiosk_client_meta(request: Request, slug: str):
+    with get_session() as db:
+        screen = db.exec(select(Screen).where(Screen.slug == slug)).first()
+        if not screen:
+            return JSONResponse({}, status_code=404)
+        screen_id = screen.id
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({}, status_code=400)
+    client_id = data.get("client_id", "")
+    if client_id:
+        extra = {k: data[k] for k in ("screen_width", "screen_height", "device_pixel_ratio", "timezone", "network_type") if k in data}
+        sse_registry.update_client_meta(screen_id, client_id, extra)
+    return JSONResponse({"ok": True})
 
 
 @router.get("/api/widget/{widget_id}/data")

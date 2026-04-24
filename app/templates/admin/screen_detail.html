@@ -32,7 +32,7 @@
       </div>
       <div class="flex items-center justify-between py-2 border-b border-gray-50">
         <span class="text-sm text-gray-500">Aktiva anslutningar</span>
-        <span class="text-sm text-gray-700">{{ screen.last_connection_count }} st</span>
+        <span id="conn-count" class="text-sm text-gray-700">{{ screen.last_connection_count }} st</span>
       </div>
       <div class="flex items-center justify-between py-2 border-b border-gray-50">
         <span class="text-sm text-gray-500">Prestandaläge</span>
@@ -42,6 +42,14 @@
         <span class="text-sm text-gray-500">Offline-banner</span>
         <span class="text-sm text-gray-700">{{ 'Ja' if screen.show_offline_banner else 'Nej' }}</span>
       </div>
+    </div>
+  </div>
+
+  <!-- Aktiva klienter -->
+  <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
+    <h2 class="font-semibold text-lg mb-3">Anslutna klienter <span id="clients-count" class="text-sm font-normal text-gray-400"></span></h2>
+    <div id="clients-list">
+      <p class="text-sm text-gray-400">Hämtar...</p>
     </div>
   </div>
 
@@ -75,4 +83,90 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var screenId = {{ screen.id }};
+  var listEl = document.getElementById('clients-list');
+  var countEl = document.getElementById('clients-count');
+  var connCountEl = document.getElementById('conn-count');
+
+  function parseUA(ua) {
+    if (!ua) return { browser: 'okänd', os: '' };
+    var browser = 'okänd', version = '', os = '';
+    // OS
+    if (/Windows NT 10/.test(ua)) os = 'Windows 10';
+    else if (/Windows NT 11/.test(ua)) os = 'Windows 11';
+    else if (/Windows/.test(ua)) os = 'Windows';
+    else if (/Android/.test(ua)) { var am = ua.match(/Android ([\d.]+)/); os = 'Android' + (am ? ' ' + am[1] : ''); }
+    else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+    else if (/aarch64|armv/.test(ua)) os = 'Linux (ARM)';
+    else if (/Linux/.test(ua)) os = 'Linux';
+    else if (/Mac OS X/.test(ua)) os = 'macOS';
+    // Webbläsare + version
+    var cm = ua.match(/(?:Chrom(?:e|ium))\/(\d+)/);
+    var fm = ua.match(/Firefox\/(\d+)/);
+    var sm = ua.match(/Version\/(\d+).*Safari/);
+    if (cm) { browser = 'Chromium'; version = cm[1]; }
+    else if (fm) { browser = 'Firefox'; version = fm[1]; }
+    else if (sm) { browser = 'Safari'; version = sm[1]; }
+    return { browser: browser + (version ? ' ' + version : ''), os: os };
+  }
+
+  function load() {
+    fetch('/admin/screens/' + screenId + '/connections')
+      .then(function(r) { return r.json(); })
+      .then(function(clients) {
+        var n = clients.length;
+        countEl.textContent = n > 0 ? '(' + n + ' st)' : '';
+        connCountEl.textContent = n + ' st';
+        if (n === 0) {
+          listEl.innerHTML = '<p class="text-sm text-gray-400">Inga aktiva anslutningar just nu.</p>';
+          return;
+        }
+        var rows = clients.map(function(c) {
+          var ua = parseUA(c.user_agent);
+          var res = c.screen_width ? c.screen_width + '×' + c.screen_height + (c.device_pixel_ratio && c.device_pixel_ratio !== 1 ? ' @' + c.device_pixel_ratio + 'x' : '') : '—';
+          return '<tr class="border-b border-gray-50 last:border-0">' +
+            '<td class="py-2.5 pr-5 text-sm font-mono text-gray-700 align-top">' + (c.ip || '—') + '</td>' +
+            '<td class="py-2.5 pr-5 text-sm text-gray-600 align-top">' + ua.browser + (ua.os ? '<br><span class="text-xs text-gray-400">' + ua.os + '</span>' : '') + '</td>' +
+            '<td class="py-2.5 pr-5 text-sm text-gray-500 align-top">' + res + '</td>' +
+            '<td class="py-2.5 pr-5 text-sm text-gray-500 align-top">' + (c.timezone || '—') + '</td>' +
+            '<td class="py-2.5 text-sm text-gray-400 align-top whitespace-nowrap">' + (c.connected_at ? c.connected_at.replace('T', ' ') : '—') + '</td>' +
+          '</tr>';
+        }).join('');
+        listEl.innerHTML = '<div class="overflow-x-auto"><table class="w-full"><thead><tr>' +
+          '<th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 pr-5">IP</th>' +
+          '<th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 pr-5">Klient</th>' +
+          '<th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 pr-5">Upplösning</th>' +
+          '<th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2 pr-5">Tidszon</th>' +
+          '<th class="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider pb-2">Ansluten</th>' +
+          '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+      })
+      .catch(function() {
+        listEl.innerHTML = '<p class="text-sm text-red-400">Kunde inte hämta anslutningar.</p>';
+      });
+  }
+
+  var pollTimer = null;
+
+  function startPolling() {
+    if (pollTimer) return;
+    load();
+    pollTimer = setInterval(load, 15000);
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) { stopPolling(); } else { startPolling(); }
+  });
+
+  startPolling();
+})();
+</script>
 {% endblock %}

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import select
 
 from app import sse as sse_registry
@@ -115,6 +115,11 @@ async def screen_detail(request: Request, screen_id: int):
             current_channel=current_channel,
         )
     )
+
+
+@router.get("/screens/{screen_id}/connections")
+async def screen_connections(request: Request, screen_id: int):
+    return JSONResponse(sse_registry.get_clients(screen_id))
 
 
 @router.get("/screens/{screen_id}/edit", response_class=HTMLResponse)

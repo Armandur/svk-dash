@@ -28,8 +28,13 @@
     .view.active { opacity: 1; }
     .view > div { min-width: 0; min-height: 0; overflow: hidden; }
 
+    /* Text-widget */
+    .widget-text { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 0.75rem; text-align: center; font-size: 5cqh; color: #fff; }
+
     /* Klocka */
-    .widget-clock { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+    .widget-clock { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; font-size: 8cqh; font-variant-numeric: tabular-nums; }
+    .widget-clock .clock-time { line-height: 1; }
+    .widget-clock .clock-date { font-size: 0.35em; margin-top: 0.2em; opacity: 0.85; }
 
     /* Markdown */
     .widget-markdown { padding: 0.5rem; overflow-y: auto; touch-action: pan-y; }
@@ -48,8 +53,6 @@
       display: flex; flex-direction: column; gap: 0;
       scrollbar-width: none;
     }
-    .widget-ics-list.ics-sm { font-size: 0.8rem; }
-    .widget-ics-list.ics-lg { font-size: 1.15rem; }
     .ics-day {
       font-size: 0.7em; font-weight: 700; letter-spacing: 0.06em;
       text-transform: uppercase; color: rgba(255,255,255,0.45);
@@ -93,6 +96,7 @@
     .widget-slideshow.ss-empty { display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-size:0.85rem; }
     .ss-slide { position:absolute; inset:0; }
     .ss-slide img { width:100%; height:100%; display:block; }
+    .ss-caption { position:absolute; bottom:0; left:0; right:0; padding:0.4em 0.75em; background:rgba(0,0,0,0.55); color:#fff; font-size:0.55em; text-align:center; pointer-events:none; }
     .ss-slide:not(.ss-active) { display:none; }
     .widget-slideshow.ss-fade .ss-slide { display:block; opacity:0; transition:opacity 0.8s; }
     .widget-slideshow.ss-fade .ss-slide.ss-active { opacity:1; }
@@ -231,8 +235,6 @@
       transform:translateY(-50%);
       pointer-events:none; z-index:11;
     }
-    .widget-ics-schedule.ics-sm { font-size:clamp(7px,1.2cqh,10px); }
-    .widget-ics-schedule.ics-lg { font-size:clamp(9px,1.9cqh,14px); }
 
     /* ics_week */
     .widget-ics-week { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.3em 0.4em; font-size:clamp(8px,1.6cqh,12px); }
@@ -251,8 +253,6 @@
     .icw-loc { color:rgba(255,255,255,0.35); font-size:0.85em; margin-left:0.2em; }
     .icw-more { font-size:0.6em; color:rgba(255,255,255,0.3); text-align:right; }
     .icw-empty { flex:1; }
-    .widget-ics-week.ics-sm { font-size:clamp(7px,1.3cqh,10px); }
-    .widget-ics-week.ics-lg { font-size:clamp(9px,2cqh,15px); }
 
     /* ics_month */
     .widget-ics-month { display:flex; flex-direction:column; height:100%; color:#fff; padding:0.4em 0.5em; font-size:clamp(8px,1.8cqh,13px); }
@@ -404,7 +404,7 @@
     const LAYOUT_ROTATION     = {{ layout_rotation | tojson }};
     const SHOW_OFFLINE_BANNER = {{ show_offline_banner | tojson }};
   </script>
-  <script src="/static/kiosk.js"></script>
+  <script src="/static/kiosk.js?v={{ static_version('app/static/kiosk.js') }}"></script>
 
   {% if show_debug %}
   <style>

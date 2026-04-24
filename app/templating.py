@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -9,7 +10,14 @@ templates = Environment(
     autoescape=select_autoescape(["html"]),
 )
 
+def _static_version(path: str) -> int:
+    try:
+        return int(os.path.getmtime(path))
+    except OSError:
+        return 0
+
 templates.globals["now_local"] = datetime.now
+templates.globals["static_version"] = _static_version
 templates.filters["tojson"] = lambda v: Markup(json.dumps(v, ensure_ascii=False))
 
 def schedule_summary(value):
