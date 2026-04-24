@@ -567,19 +567,27 @@
   // --- Klientmetadata ---
 
   function _sendClientMeta(clientId) {
-    var conn = navigator.connection || {};
-    fetch('/s/' + SCREEN_SLUG + '/client-meta', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        client_id: clientId,
-        screen_width: window.screen.width,
-        screen_height: window.screen.height,
-        device_pixel_ratio: window.devicePixelRatio || 1,
-        timezone: (Intl && Intl.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : '') || '',
-        network_type: ''
-      })
-    }).catch(function () {});
+    var meta = {
+      client_id: clientId,
+      screen_width: window.screen.width,
+      screen_height: window.screen.height,
+      device_pixel_ratio: window.devicePixelRatio || 1,
+      timezone: (Intl && Intl.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : '') || '',
+      network_type: ''
+    };
+    function doPost() {
+      fetch('/s/' + SCREEN_SLUG + '/client-meta', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(meta)
+      }).catch(function() {});
+    }
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var tid = setTimeout(function() { if (controller) controller.abort(); doPost(); }, 5000);
+    fetch('https://ifconfig.io/ip', controller ? {signal: controller.signal} : {})
+      .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
+      .then(function(ip) { clearTimeout(tid); meta.external_ip = ip.trim(); doPost(); })
+      .catch(function() { clearTimeout(tid); doPost(); });
   }
 
   // --- SSE ---

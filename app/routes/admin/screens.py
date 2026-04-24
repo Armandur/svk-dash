@@ -114,11 +114,13 @@ async def screen_detail(request: Request, screen_id: int):
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
         current_channel = db.get(Channel, screen.channel_id) if screen.channel_id else None
 
+    live_conn_count = sse_registry.connection_count(screen_id)
     return HTMLResponse(
         templates.get_template("admin/screen_detail.html").render(
             request=request,
             screen=screen,
             current_channel=current_channel,
+            live_conn_count=live_conn_count,
         )
     )
 

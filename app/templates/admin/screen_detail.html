@@ -18,9 +18,13 @@
     <div class="space-y-1">
       <div class="flex items-center justify-between py-2 border-b border-gray-50">
         <span class="text-sm text-gray-500">Status</span>
-        {% if screen.last_seen_at and (now_local() - screen.last_seen_at.replace(tzinfo=None)).total_seconds() < 90 %}
+        {% if live_conn_count > 0 %}
         <span class="flex items-center gap-1.5 text-green-600 text-sm font-medium">
           <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Online
+        </span>
+        {% elif screen.last_seen_at and (now_local() - screen.last_seen_at.replace(tzinfo=None)).total_seconds() < 900 %}
+        <span class="flex items-center gap-1.5 text-yellow-600 text-sm font-medium">
+          <span class="w-2 h-2 rounded-full bg-yellow-400"></span> Nyligen frånkopplad
         </span>
         {% else %}
         <span class="text-red-500 text-sm font-medium">Offline</span>
@@ -134,7 +138,10 @@
           var ua = parseUA(c.user_agent);
           var res = c.screen_width ? c.screen_width + '×' + c.screen_height + (c.device_pixel_ratio && c.device_pixel_ratio !== 1 ? ' @' + c.device_pixel_ratio + 'x' : '') : '—';
           return '<tr class="border-b border-gray-50 last:border-0">' +
-            '<td class="py-2.5 pr-5 text-sm font-mono text-gray-700 align-top">' + (c.ip || '—') + '</td>' +
+            '<td class="py-2.5 pr-5 text-sm font-mono text-gray-700 align-top">' +
+              (c.ip || '—') +
+              (c.external_ip ? '<br><span class="text-xs text-gray-400 font-mono">ext: ' + c.external_ip + '</span>' : '') +
+            '</td>' +
             '<td class="py-2.5 pr-5 text-sm text-gray-600 align-top">' + ua.browser + (ua.os ? '<br><span class="text-xs text-gray-400">' + ua.os + '</span>' : '') + '</td>' +
             '<td class="py-2.5 pr-5 text-sm text-gray-500 align-top">' + res + '</td>' +
             '<td class="py-2.5 pr-5 text-sm text-gray-500 align-top">' + (c.timezone || '—') + '</td>' +

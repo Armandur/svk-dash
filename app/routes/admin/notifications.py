@@ -18,9 +18,11 @@ async def list_notifications(request: Request):
         notifications = db.exec(
             select(Notification).order_by(Notification.created_at.desc())
         ).all()
-    return templates.TemplateResponse(
-        "admin/notifications.html",
-        {"request": request, "notifications": notifications},
+    return HTMLResponse(
+        templates.get_template("admin/notifications.html").render(
+            request=request,
+            notifications=notifications,
+        )
     )
 
 

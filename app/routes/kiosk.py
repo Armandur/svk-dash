@@ -320,7 +320,7 @@ async def kiosk_client_meta(request: Request, slug: str):
         return JSONResponse({}, status_code=400)
     client_id = data.get("client_id", "")
     if client_id:
-        extra = {k: data[k] for k in ("screen_width", "screen_height", "device_pixel_ratio", "timezone", "network_type") if k in data}
+        extra = {k: data[k] for k in ("screen_width", "screen_height", "device_pixel_ratio", "timezone", "network_type", "external_ip") if k in data}
         sse_registry.update_client_meta(screen_id, client_id, extra)
     return JSONResponse({"ok": True})
 
