@@ -9,6 +9,7 @@ from app import sse as sse_registry
 from app.database import get_session
 from app.deps import require_admin
 from app.models import Channel, ChannelLayoutAssignment, Layout, LayoutZone, Screen, View
+from app.routes.admin.layouts import ASPECT_RATIOS
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -35,7 +36,7 @@ async def channels_list(request: Request):
 async def channel_new(request: Request):
     return HTMLResponse(
         templates.get_template("admin/channel_form.html").render(
-            request=request, channel=None
+            request=request, channel=None, aspect_ratios=ASPECT_RATIOS
         )
     )
 
@@ -44,9 +45,10 @@ async def channel_new(request: Request):
 async def channel_create(
     name: str = Form(...),
     description: str = Form(""),
+    aspect_ratio: str = Form("16:9"),
 ):
     with get_session() as db:
-        channel = Channel(name=name, description=description)
+        channel = Channel(name=name, description=description, aspect_ratio=aspect_ratio)
         db.add(channel)
         db.commit()
         db.refresh(channel)
@@ -103,7 +105,11 @@ def _get_channel_detail_ctx(
             db.exec(select(View).where(View.channel_id == channel_id, View.zone_id == zone.id)).all()
         )
 
-    all_layouts = db.exec(select(Layout).order_by(Layout.name)).all()
+    all_layouts = db.exec(
+        select(Layout)
+        .where(Layout.aspect_ratio == channel.aspect_ratio)
+        .order_by(Layout.name)
+    ).all()
     assigned_layout_ids = {a.layout_id for a in assignments}
     
     # Skärmar som använder denna kanal
@@ -122,6 +128,7 @@ def _get_channel_detail_ctx(
         "assigned_layout_ids": assigned_layout_ids,
         "screens": screens,
         "error": error,
+        "aspect_ratios": ASPECT_RATIOS,
         # Bakåtkompatibilitet för zone_detail-vyn
         "assignment": selected_assignment,
     }
@@ -143,6 +150,7 @@ async def channel_edit(
     channel_id: int,
     name: str = Form(...),
     description: str = Form(""),
+    aspect_ratio: str = Form("16:9"),
 ):
     with get_session() as db:
         channel = db.get(Channel, channel_id)
@@ -150,6 +158,7 @@ async def channel_edit(
             return HTMLResponse("Kanalen hittades inte.", status_code=404)
         channel.name = name
         channel.description = description
+        channel.aspect_ratio = aspect_ratio
         channel.updated_at = datetime.utcnow()
         db.add(channel)
         db.commit()

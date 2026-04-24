@@ -4,6 +4,7 @@
 <div class="mb-6 flex items-center gap-3 flex-wrap">
   <a href="/admin/channels" class="text-sm text-gray-500 hover:text-gray-900">← Kanaler</a>
   <h1 class="text-2xl font-bold">{{ channel.name }}</h1>
+  <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded ml-2">{{ channel.aspect_ratio }}</span>
 </div>
 
 {% if error %}
@@ -25,6 +26,14 @@
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Beskrivning</label>
           <textarea name="description" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2">{{ channel.description }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Format</label>
+          <select name="aspect_ratio" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for value, label in aspect_ratios %}
+            <option value="{{ value }}" {% if channel.aspect_ratio == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
         </div>
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 w-full">Spara ändringar</button>
       </form>
@@ -243,7 +252,7 @@
       </form>
       {% else %}
       <div class="py-6 text-center border border-dashed border-gray-200 rounded-lg">
-        <p class="text-sm text-gray-400 mb-2">Inga layouter skapade ännu.</p>
+        <p class="text-sm text-gray-400 mb-2">Inga layouter med format {{ channel.aspect_ratio }} finns.</p>
         <a href="/admin/layouts/new" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Skapa layout</a>
       </div>
       {% endif %}

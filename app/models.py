@@ -8,6 +8,7 @@ class Channel(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     description: str = ""
+    aspect_ratio: str = "16:9"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

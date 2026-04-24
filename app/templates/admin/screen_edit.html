@@ -98,12 +98,28 @@
 (function () {
   var wrapper = document.getElementById('preview-wrapper');
   var frame   = document.getElementById('preview-frame');
+  if (!wrapper || !frame) return;
+
+  // Referensdimensioner baserade på kanalens format
+  var AR_MAP = {
+    '16:9':  [1920, 1080],
+    '9:16':  [1080, 1920],
+    '4:3':   [1280, 960],
+    '1:1':   [1080, 1080],
+    '21:9':  [2560, 1080]
+  };
+  var ar = '{{ current_channel.aspect_ratio if current_channel else "16:9" }}';
+  var dims = AR_MAP[ar] || [1920, 1080];
+  var iframeW = dims[0], iframeH = dims[1];
+
+  frame.style.width  = iframeW + 'px';
+  frame.style.height = iframeH + 'px';
 
   function scalePreview() {
     var w = wrapper.offsetWidth;
-    var scale = w / 1920;
+    var scale = w / iframeW;
     frame.style.transform = 'scale(' + scale + ')';
-    wrapper.style.height = Math.round(1080 * scale) + 'px';
+    wrapper.style.height = Math.round(iframeH * scale) + 'px';
   }
 
   scalePreview();
