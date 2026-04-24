@@ -15,8 +15,13 @@ router = APIRouter(dependencies=[Depends(require_admin)])
 
 def _screen_status(screen: Screen, channel_name: str | None, now: datetime) -> dict:
     conn_count = sse_registry.connection_count(screen.id)
+    exp = screen.expected_connections  # 0 = övervaka ej antal
+
     if conn_count > 0:
-        status = "online"
+        if exp > 0 and conn_count != exp:
+            status = "mismatch"
+        else:
+            status = "online"
     elif screen.last_seen_at and (now - screen.last_seen_at).total_seconds() < 900:
         status = "recent"
     elif screen.last_seen_at:
@@ -39,6 +44,7 @@ def _screen_status(screen: Screen, channel_name: str | None, now: datetime) -> d
         "channel_name": channel_name,
         "status": status,
         "conn_count": conn_count,
+        "expected_conn": exp,
         "last_seen": last_seen_str,
     }
 
@@ -149,6 +155,7 @@ async def screen_edit(
     name: str = Form(...),
     slug: str = Form(...),
     channel_id: str | None = Form(None),
+    expected_connections: str | None = Form(None),
     show_offline_banner: str | None = Form(None),
     performance_mode: str = Form("normal"),
 ):
@@ -178,6 +185,7 @@ async def screen_edit(
         screen.name = name
         screen.slug = slug
         screen.channel_id = int(channel_id) if channel_id else None
+        screen.expected_connections = max(0, int(expected_connections)) if expected_connections and expected_connections.isdigit() else 0
         screen.show_offline_banner = show_offline_banner is not None
         screen.performance_mode = performance_mode
         screen.updated_at = datetime.utcnow()

@@ -38,9 +38,13 @@
         <span class="text-sm text-gray-500">Prestandaläge</span>
         <span class="text-sm text-gray-700">{{ screen.performance_mode or 'normal' }}</span>
       </div>
-      <div class="flex items-center justify-between py-2">
+      <div class="flex items-center justify-between py-2 border-b border-gray-50">
         <span class="text-sm text-gray-500">Offline-banner</span>
         <span class="text-sm text-gray-700">{{ 'Ja' if screen.show_offline_banner else 'Nej' }}</span>
+      </div>
+      <div class="flex items-center justify-between py-2">
+        <span class="text-sm text-gray-500">Förväntade anslutningar</span>
+        <span class="text-sm text-gray-700">{{ screen.expected_connections }} st (0 = övervaka ej antal)</span>
       </div>
     </div>
   </div>

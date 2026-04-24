@@ -47,6 +47,9 @@
               {% if s.status == "online" %}
               <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0" title="Ansluten ({{ s.conn_count }} anslutning{{ 'ar' if s.conn_count != 1 else '' }})"></span>
               <span class="text-xs text-green-600">{{ s.conn_count }} ansl.</span>
+              {% elif s.status == "mismatch" %}
+              <span class="w-3 h-3 rounded-full bg-yellow-400 flex-shrink-0" title="Felaktigt antal anslutningar ({{ s.conn_count }} av {{ s.expected_conn }} förväntade)"></span>
+              <span class="text-xs text-yellow-600">{{ s.conn_count }}/{{ s.expected_conn }} ansl.</span>
               {% elif s.status == "recent" %}
               <span class="w-3 h-3 rounded-full bg-yellow-400 flex-shrink-0" title="Senast sedd {{ s.last_seen }}"></span>
               <span class="text-xs text-gray-500">{{ s.last_seen }}</span>

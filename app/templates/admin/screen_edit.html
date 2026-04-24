@@ -36,6 +36,14 @@
         </select>
       </div>
 
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Förväntade anslutningar</label>
+        <input type="number" name="expected_connections" value="{{ screen.expected_connections }}"
+               min="0" max="20"
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-gray-500 mt-1">Antal Pi-enheter som förväntas visa den här skärmen. 0 = övervaka inte antal anslutningar.</p>
+      </div>
+
       <div class="flex items-center gap-2">
         <input type="checkbox" name="show_offline_banner" id="show_offline_banner" value="1"
                {% if screen.show_offline_banner %}checked{% endif %}
