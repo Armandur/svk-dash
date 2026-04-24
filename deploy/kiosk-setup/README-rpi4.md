@@ -24,7 +24,7 @@ GPU-minne. Det frågar också om pekskärm — svara **n** för HDMI-setup.
 ## Steg 1 – Flasha OS
 
 Använd **Raspberry Pi Imager** och välj:
-- **OS:** Raspberry Pi OS (64-bit) – Bookworm Desktop
+- **OS:** Raspberry Pi OS (64-bit) – Trixie Desktop (eller Bookworm om det finns)
 - **Lagring:** ditt SD-kort
 
 Klicka på kugghjulet och konfigurera:
@@ -60,7 +60,11 @@ sudo reboot
 
 ## HDMI-upplösning
 
-RPi 4B läser upplösning automatiskt via HDMI EDID — brukar fungera utan
+RPi 4B har två Micro HDMI-portar. Den som sitter **närmast USB-C-strömkontakten**
+är primärporten (HDMI-1). Den andra (HDMI-2) kan ge bättre kompatibilitet
+med vissa skärmar — prova den om du inte får bild efter POST.
+
+Upplösning läses automatiskt via HDMI EDID — brukar fungera utan
 konfiguration. Om skärmen visar fel upplösning, lägg till i
 `/boot/firmware/config.txt` under `[all]`:
 
