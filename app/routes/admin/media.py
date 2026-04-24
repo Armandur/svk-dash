@@ -121,7 +121,7 @@ def _purge_file_from_db(db, filename: str, media_id: int | None = None) -> None:
         db.add(v)
 
 
-def _find_usages(filename: str, widgets: list, views: list, screens: dict) -> list[dict]:
+def _find_usages(filename: str, widgets: list, views: list, channel_to_screen: dict) -> list[dict]:
     needle = filename
     usages = []
     for w in widgets:
@@ -131,8 +131,8 @@ def _find_usages(filename: str, widgets: list, views: list, screens: dict) -> li
             )
     for v in views:
         if needle in json.dumps(v.layout_json or {}):
-            screen = screens.get(v.screen_id)
-            screen_name = screen.name if screen else "Okänd skärm"
+            screen = channel_to_screen.get(v.channel_id)
+            screen_name = screen.name if screen else f"Kanal {v.channel_id}"
             usages.append(
                 {
                     "kind": "view",
@@ -167,11 +167,12 @@ async def media_list(request: Request, folder_id: int | None = None):
             v_conds = [cast(View.layout_json, Text).like(f"%{fn}%") for fn in filenames]
             views = db.exec(select(View).where(or_(*v_conds))).all()
 
-        screens = {s.id: s for s in db.exec(select(Screen)).all()}
+        screens = db.exec(select(Screen)).all()
+        channel_to_screen = {s.channel_id: s for s in screens}
 
     crumbs = _breadcrumbs(folder_id, folders_by_id)
     files_with_usage = [
-        {"file": f, "usages": _find_usages(f.filename, widgets, views, screens)} for f in files
+        {"file": f, "usages": _find_usages(f.filename, widgets, views, channel_to_screen)} for f in files
     ]
     current_folder = folders_by_id.get(folder_id) if folder_id else None
     return HTMLResponse(

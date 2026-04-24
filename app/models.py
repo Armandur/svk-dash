@@ -4,10 +4,19 @@ from typing import Any
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
+class Channel(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    description: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Screen(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True, index=True)
     name: str
+    channel_id: int | None = Field(default=None, foreign_key="channel.id")
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0
@@ -19,7 +28,7 @@ class Screen(SQLModel, table=True):
 
 class View(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    screen_id: int = Field(foreign_key="screen.id")
+    channel_id: int = Field(foreign_key="channel.id")
     zone_id: int | None = Field(default=None, foreign_key="layoutzone.id")
     position: int
     name: str
@@ -129,11 +138,11 @@ class LayoutRevision(SQLModel, table=True):
 
 
 class ZoneWidgetPlacement(SQLModel, table=True):
-    """Widget-placering i en zon. screen_id=None → template-default; screen_id satt → skärm-override."""
+    """Widget-placering i en zon. channel_id=None → template-default; channel_id satt → kanal-override."""
 
     id: int | None = Field(default=None, primary_key=True)
     zone_id: int = Field(foreign_key="layoutzone.id")
-    screen_id: int | None = Field(default=None, foreign_key="screen.id")
+    channel_id: int | None = Field(default=None, foreign_key="channel.id")
     # Biblioteks-widget (None om inline)
     widget_id: int | None = Field(default=None, foreign_key="widget.id")
     # Inline-widget (None om biblioteks-widget)
@@ -148,11 +157,11 @@ class ZoneWidgetPlacement(SQLModel, table=True):
     config_json: Any = Field(default_factory=dict, sa_column=Column(JSON))
 
 
-class ScreenLayoutAssignment(SQLModel, table=True):
-    """Kopplar en skärm till en layout, med valfritt tidschema."""
+class ChannelLayoutAssignment(SQLModel, table=True):
+    """Kopplar en kanal till en layout, med valfritt tidschema."""
 
     id: int | None = Field(default=None, primary_key=True)
-    screen_id: int = Field(foreign_key="screen.id")
+    channel_id: int = Field(foreign_key="channel.id")
     layout_id: int = Field(foreign_key="layout.id")
     priority: int = 0
     enabled: bool = True

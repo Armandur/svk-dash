@@ -7,11 +7,11 @@ from sqlmodel import select
 from app.database import get_session
 from app.deps import require_admin
 from app.models import (
+    ChannelLayoutAssignment,
     Layout,
     LayoutRevision,
     LayoutZone,
     Screen,
-    ScreenLayoutAssignment,
     ZoneWidgetPlacement,
 )
 from app.templating import templates
@@ -43,18 +43,29 @@ async def layouts_list(request: Request):
             )
             for layout in layouts
         }
-        assignments = db.exec(select(ScreenLayoutAssignment)).all()
-        screens_by_id = {s.id: s for s in db.exec(select(Screen)).all()}
+        assignments = db.exec(select(ChannelLayoutAssignment)).all()
+        channel_ids = {a.channel_id for a in assignments}
+        screens = db.exec(select(Screen).where(Screen.channel_id.in_(channel_ids))).all()
+        channel_to_screen = {s.channel_id: s for s in screens}
+        
         screen_usages: dict[int, list[dict]] = {}
         for a in assignments:
-            screen_usages.setdefault(a.layout_id, []).append(
-                {
-                    "id": a.screen_id,
-                    "name": screens_by_id[a.screen_id].name
-                    if a.screen_id in screens_by_id
-                    else "?",
-                }
-            )
+            if a.channel_id in channel_to_screen:
+                screen = channel_to_screen[a.channel_id]
+                screen_usages.setdefault(a.layout_id, []).append(
+                    {
+                        "id": screen.id,
+                        "name": screen.name,
+                    }
+                )
+            else:
+                screen_usages.setdefault(a.layout_id, []).append(
+                    {
+                        "id": a.channel_id,
+                        "name": f"Kanal {a.channel_id}",
+                    }
+                )
+                
     return _render(
         "admin/layouts.html",
         {

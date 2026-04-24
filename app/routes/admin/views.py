@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Layout, LayoutZone, Screen, ScreenLayoutAssignment, View, Widget
+from app.models import ChannelLayoutAssignment, Layout, LayoutZone, Screen, View, Widget
 from app.templating import templates
 from app.widgets.base import render_widget
 
@@ -45,7 +45,7 @@ def _zone_aspect_css(db, view: View) -> str:
     if not zone or not zone.w_pct or not zone.h_pct:
         return "16 / 9"
     assignment = db.exec(
-        select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == view.screen_id)
+        select(ChannelLayoutAssignment).where(ChannelLayoutAssignment.channel_id == view.channel_id)
     ).first()
     if not assignment:
         return "16 / 9"
@@ -134,7 +134,10 @@ async def view_detail(request: Request, view_id: int):
         view = db.get(View, view_id)
         if not view:
             return HTMLResponse("Vyn hittades inte.", status_code=404)
-        screen = db.get(Screen, view.screen_id)
+        
+        # Hämta en skärm som använder denna kanal (för breadcrumbs och kontext)
+        screen = db.exec(select(Screen).where(Screen.channel_id == view.channel_id)).first()
+        
         layout = _migrate_layout(copy.deepcopy(view.layout_json or {"widgets": []}))
         layers = layout.get("layers", [])
         layout_entries = []
@@ -191,7 +194,7 @@ async def view_detail(request: Request, view_id: int):
         zone = db.get(LayoutZone, view.zone_id) if view.zone_id else None
         sibling_views = db.exec(
             select(View)
-            .where(View.screen_id == view.screen_id, View.zone_id == view.zone_id)
+            .where(View.channel_id == view.channel_id, View.zone_id == view.zone_id)
             .order_by(View.position)
         ).all()
     aspect_ratio_css = _zone_aspect_css(db, view)

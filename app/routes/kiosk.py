@@ -9,7 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from app import sse as sse_registry
 from app.database import get_session
-from app.models import Layout, LayoutZone, Screen, ScreenLayoutAssignment, View, Widget
+from app.models import Channel, ChannelLayoutAssignment, Layout, LayoutZone, Screen, View, Widget
 from app.templating import templates
 from app.widgets.base import render_widget
 
@@ -93,7 +93,7 @@ def _render_layout(assignment, screen, context, db):
     for zone in db_zones:
         zone_views = db.exec(
             select(View)
-            .where(View.screen_id == screen.id, View.zone_id == zone.id)
+            .where(View.channel_id == screen.channel_id, View.zone_id == zone.id)
             .order_by(View.position)
         ).all()
         views_data = [_render_view(v, context, db) for v in zone_views if v.enabled]
@@ -186,9 +186,9 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
             "version": _VERSION,
         }
 
-        # Hämta alla tilldelningar för skärmen
+        # Hämta alla tilldelningar för skärmens kanal
         assignments = db.exec(
-            select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen.id)
+            select(ChannelLayoutAssignment).where(ChannelLayoutAssignment.channel_id == screen.channel_id)
         ).all()
 
         now = datetime.now()
@@ -319,6 +319,9 @@ def broadcast_widget_updated(widget_id: int) -> None:
         for view in views:
             layout = view.layout_json or {}
             if any(w.get("widget_id") == widget_id for w in layout.get("widgets", [])):
-                screen_ids.add(view.screen_id)
+                # view.channel_id är nu källan
+                screens = db.exec(select(Screen).where(Screen.channel_id == view.channel_id)).all()
+                for screen in screens:
+                    screen_ids.add(screen.id)
     for screen_id in screen_ids:
         sse_registry.broadcast(screen_id, {"type": "widget_updated", "widget_id": widget_id})

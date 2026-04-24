@@ -6,7 +6,7 @@ from sqlmodel import select
 
 from app import sse as sse_registry
 from app.database import get_session
-from app.models import Screen, ScreenLayoutAssignment
+from app.models import ChannelLayoutAssignment, Screen
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def _is_active(schedule, now: datetime):
     return True
 
 
-def _active_assignment_id(assignments: list[ScreenLayoutAssignment], now: datetime) -> int | None:
+def _active_assignment_id(assignments: list[ChannelLayoutAssignment], now: datetime) -> int | None:
     """Väljer den mest prioriterade aktiva tilldelningen baserat på schema."""
     active = []
 
@@ -79,7 +79,7 @@ async def check_layout_schedules():
 
         for screen in screens:
             assignments = db.exec(
-                select(ScreenLayoutAssignment).where(ScreenLayoutAssignment.screen_id == screen.id)
+                select(ChannelLayoutAssignment).where(ChannelLayoutAssignment.channel_id == screen.channel_id)
             ).all()
 
             if not assignments:
