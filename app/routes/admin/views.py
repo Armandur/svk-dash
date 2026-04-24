@@ -12,6 +12,7 @@ from app.deps import require_admin
 from app.models import BrandColor, ChannelLayoutAssignment, Layout, LayoutZone, Screen, View, Widget
 from app.templating import templates
 from app.widgets.base import render_widget
+from app.config import get_setting, DEFAULT_TIMEZONE
 
 _ASPECT_CSS = {
     "16:9": "16 / 9",
@@ -68,7 +69,7 @@ _INLINE_DEFAULTS: dict[str, dict] = {
     "clock": {
         "format": "time_date",
         "size": "xl",
-        "timezone": "Europe/Stockholm",
+        "timezone": get_setting("timezone", DEFAULT_TIMEZONE),
         "locale": "sv-SE",
     },
     "text": {"text": "Text", "size": "large", "align": "center", "bold": False, "color": "#ffffff"},

@@ -1,9 +1,12 @@
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
+
+from app.config import DEFAULT_TIMEZONE, get_setting
 
 templates = Environment(
     loader=FileSystemLoader("app/templates"),
@@ -16,7 +19,15 @@ def _static_version(path: str) -> int:
     except OSError:
         return 0
 
-templates.globals["now_local"] = datetime.now
+def get_now_local():
+    tz_name = get_setting("timezone", DEFAULT_TIMEZONE)
+    try:
+        return datetime.now(ZoneInfo(tz_name)).replace(tzinfo=None)
+    except Exception:
+        # Fallback om tidszonen är ogiltig
+        return datetime.now(ZoneInfo(DEFAULT_TIMEZONE)).replace(tzinfo=None)
+
+templates.globals["now_local"] = get_now_local
 templates.globals["static_version"] = _static_version
 templates.filters["tojson"] = lambda v: Markup(json.dumps(v, ensure_ascii=False))
 

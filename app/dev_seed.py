@@ -10,6 +10,7 @@ from sqlmodel import SQLModel
 
 from app.database import engine, get_session
 from app.models import (
+    AppSetting,
     BrandColor,
     Channel,
     ChannelLayoutAssignment,
@@ -419,6 +420,11 @@ def seed() -> None:
             BrandColor(name="Halvtransparent mörk",    color="rgba(0,0,0,0.55)", position=7),
         ]
         db.add_all(palette)
+
+        # ── Inställningar ────────────────────────────────────────────────────
+        from app.config import DEFAULT_TIMEZONE
+        db.add(AppSetting(key="timezone", value=DEFAULT_TIMEZONE))
+
         db.commit()
 
     views_n = len(all_views)
