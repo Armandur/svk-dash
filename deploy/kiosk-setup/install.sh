@@ -10,11 +10,11 @@ AUTOSTART_FILE="${AUTOSTART_DIR}/autostart"
 
 # --- 1. Fråga efter skärm-URL ---
 if [[ -f "$KIOSK_ENV" ]]; then
-  echo "Befintlig konfiguration hittad: $KIOSK_ENV"
+  echo "Befintlig konfiguration hittad:"
   cat "$KIOSK_ENV"
   read -rp "Ange ny SCREEN_URL (lämna tomt för att behålla befintlig): " INPUT_URL
 else
-  read -rp "Ange SCREEN_URL (t.ex. https://skarmar.svky.se/s/kyrkan): " INPUT_URL
+  read -rp "Ange SCREEN_URL (t.ex. http://192.168.1.42:8000/s/kyrkan): " INPUT_URL
 fi
 
 if [[ -n "$INPUT_URL" ]]; then
@@ -30,6 +30,9 @@ if [[ -z "${SCREEN_URL:-}" ]]; then
   exit 1
 fi
 
+# Extrahera host för nät-ping (t.ex. 192.168.1.42 ur http://192.168.1.42:8000/s/foo)
+PING_HOST=$(echo "$SCREEN_URL" | sed 's|https\?://||; s|[:/].*||')
+
 # --- 2. Tvinga X11 (stäng av Wayland i lightdm) ---
 LIGHTDM_CONF="/etc/lightdm/lightdm.conf"
 if grep -q "^#\?WaylandEnable" "$LIGHTDM_CONF" 2>/dev/null; then
@@ -44,10 +47,13 @@ echo "-> Wayland avstängt"
 sudo raspi-config nonint do_boot_behaviour B4
 echo "-> Autologin till skrivbord aktiverat"
 
-# --- 4. Installera chromium om det saknas ---
-if ! command -v chromium-browser &>/dev/null; then
+# --- 4. Installera chromium och unclutter om de saknas ---
+PKGS=()
+command -v chromium-browser &>/dev/null || PKGS+=(chromium-browser)
+command -v unclutter &>/dev/null        || PKGS+=(unclutter)
+if [[ ${#PKGS[@]} -gt 0 ]]; then
   sudo apt-get update -qq
-  sudo apt-get install -y chromium-browser
+  sudo apt-get install -y "${PKGS[@]}"
 fi
 
 # --- 5. Skapa autostart ---
@@ -58,56 +64,52 @@ cat > "$AUTOSTART_FILE" <<'AUTOSTART'
 @xset s off
 @xset -dpms
 @xset s noblank
+@unclutter -idle 1 -root
 @/usr/local/bin/skarmar-kiosk-launch
 AUTOSTART
 echo "-> Autostart skriven: $AUTOSTART_FILE"
 
-# --- 6. Skapa start-wrapper (väntar på NTP + nät) ---
-sudo tee /usr/local/bin/skarmar-kiosk-launch > /dev/null <<'LAUNCHER'
+# --- 6. Skapa start-wrapper ---
+sudo tee /usr/local/bin/skarmar-kiosk-launch > /dev/null <<LAUNCHER
 #!/usr/bin/env bash
-# Vänta på nätverket (max 60s)
-for i in $(seq 1 12); do
-  if ping -c1 -W2 8.8.8.8 &>/dev/null; then
+source /etc/skarmar/kiosk.env
+
+PING_HOST="${PING_HOST}"
+
+# Vänta på nätverket — pinga servern direkt (max 60s)
+for i in \$(seq 1 12); do
+  if ping -c1 -W2 "\${PING_HOST}" &>/dev/null; then
     break
   fi
   sleep 5
 done
 
-# Vänta på NTP-synk (max 60s) — krävs för klocka-widgeten
-for i in $(seq 1 12); do
+# Försök synka NTP — hoppa över om det tar för lång tid (inget internet nödvändigt)
+for i in \$(seq 1 6); do
   if timedatectl show --property=NTPSynchronized --value 2>/dev/null | grep -q yes; then
     break
   fi
   sleep 5
 done
 
-# Rensa eventuell krasch-flagga från senaste session
-rm -f /home/"$(whoami)"/.config/chromium/SingletonLock
+# Rensa eventuell krasch-flagga
+rm -f /home/"\$(whoami)"/.config/chromium/SingletonLock
 
-source /etc/skarmar/kiosk.env
-
-exec chromium-browser \
-  --kiosk \
-  --app="${SCREEN_URL}" \
-  --noerrdialogs \
-  --disable-infobars \
-  --disable-features=Translate,OverscrollHistoryNavigation \
-  --disable-session-crashed-bubble \
-  --check-for-update-interval=31536000 \
+exec chromium-browser \\
+  --kiosk \\
+  --app="\${SCREEN_URL}" \\
+  --touch-events=enabled \\
+  --noerrdialogs \\
+  --disable-infobars \\
+  --disable-features=Translate,OverscrollHistoryNavigation,HardwareMediaKeyHandling \\
+  --disable-session-crashed-bubble \\
+  --disable-dev-shm-usage \\
+  --check-for-update-interval=31536000 \\
   --no-first-run
 LAUNCHER
 
 sudo chmod +x /usr/local/bin/skarmar-kiosk-launch
 echo "-> Launcher skriven: /usr/local/bin/skarmar-kiosk-launch"
-
-# --- 7. Dölj muspekaren (kräver unclutter) ---
-if ! command -v unclutter &>/dev/null; then
-  sudo apt-get install -y unclutter
-fi
-# Lägg till i autostart om det inte redan finns
-if ! grep -q unclutter "$AUTOSTART_FILE"; then
-  echo "@unclutter -idle 1 -root" >> "$AUTOSTART_FILE"
-fi
 
 echo ""
 echo "Klar! Starta om Pi:n för att aktivera kiosk-läget:"
