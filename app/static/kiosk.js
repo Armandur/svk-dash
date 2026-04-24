@@ -551,6 +551,10 @@
       lastEventAt = Date.now();
     });
 
+    eventSource.addEventListener('keepalive', function () {
+      lastEventAt = Date.now();
+    });
+
     eventSource.addEventListener('reload', function () {
       lastEventAt = Date.now();
       location.reload();

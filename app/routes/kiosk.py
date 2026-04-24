@@ -289,7 +289,7 @@ async def kiosk_events(request: Request, slug: str):
                     yield {"event": event.get("type", "message"), "data": json.dumps(event)}
                 except TimeoutError:
                     _update_heartbeat(screen_id)
-                    yield {"comment": "keepalive"}
+                    yield {"event": "keepalive", "data": ""}
         finally:
             sse_registry.unregister(screen_id, q)
             _update_connection_count(screen_id)
