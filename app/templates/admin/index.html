@@ -59,8 +59,13 @@
               {% endif %}
             </div>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <a href="/admin/screens/{{ s.screen.id }}" class="text-blue-600 hover:text-blue-900">Redigera</a>
+          <td class="px-6 py-4 whitespace-nowrap text-right">
+            <div class="flex items-center justify-end gap-2">
+              <a href="/admin/screens/{{ s.screen.id }}" title="Info &amp; diagnostik"
+                 class="text-xs text-gray-500 hover:text-gray-900 bg-gray-100 px-2 py-1 rounded font-mono">i</a>
+              <a href="/admin/screens/{{ s.screen.id }}/edit"
+                 class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors">Redigera</a>
+            </div>
           </td>
         </tr>
         {% endfor %}
