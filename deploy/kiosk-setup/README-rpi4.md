@@ -82,44 +82,39 @@ Vanliga värden för `hdmi_mode` (med `hdmi_group=2`):
 
 ## Videouppspelning
 
-På RPi 4B finns en V4L2-dekoder (`bcm2835-codec-decode` på
-`/dev/video10`). Chromium på Trixie stöder den via flaggor, men
-kombinationen **1 GB RAM + 1440p-compositing + HW-dekod** är instabil
-— GPU-processen kraschar återkommande (flera crashdumps per minut) och
-videorna flimrar. Sekventiell uppspelning med mjukvarudekod är därför
-default — videorna laggar men kraschar inte.
+**På RPi 4B med 1 GB RAM är videouppspelning en återvändsgränd.** V4L2-
+dekodern finns (`bcm2835-codec-decode` på `/dev/video10`) och Chromium
+rapporterar `video_decode: enabled` i `chrome://gpu`, men den öppnas
+aldrig av sig själv — dekodningen sker i mjukvara och videorna laggar.
+Mätt via `fuser /dev/video1[0-2]` och fd:er i gpu-processen.
 
-Om du har en RPi 4B med **2+ GB RAM** eller en **skärm på 1080p eller
-lägre**, kan du prova att aktivera V4L2-dekodern:
-
-```bash
-sudo sh -c 'cat > /etc/chromium.d/10-hwdecode' <<EOF
+Försök att tvinga fram V4L2 med dessa flaggor:
+```
 --enable-features=AcceleratedVideoDecodeLinuxGL
 --ignore-gpu-blocklist
 --use-gl=egl
-EOF
-pkill -x chromium
 ```
+gjorde att dekodern öppnades (`fuser` visade PID på `/dev/video10`),
+men GPU-processen kraschade inom sekunder — flera crashdumps per minut
+i `~/.config/chromium/Crash Reports/pending/`. Det gällde även efter
+att skärmupplösningen sänkts till 1920×1080 och videoscaling eliminerats.
+Orsaken är sannolikt att 1 GB RAM + V3D-drivrutinen inte räcker för
+kombinationen GPU-compositing + hårdvarudekod på Trixie.
 
-Verifiera att dekodern öppnas (medan en video spelar):
-```bash
-fuser /dev/video10 /dev/video11 /dev/video12 /dev/video18
-# Ska visa en PID på /dev/video10
-```
+Varianter som testats och som alla ger samma kraschmönster:
+- Med och utan `AcceleratedVideoDecodeLinuxZeroCopyGL`
+- ANGLE (`--use-angle=gles`) vs rå EGL (`--use-gl=egl`)
+- Skärm i 2560×1440 CVT respektive 1920×1080 CEA
 
-Om `fuser` visar PID i några sekunder och sedan tomt = GPU-processen
-har kraschat. Backa ut flaggorna igen:
-```bash
-sudo rm /etc/chromium.d/10-hwdecode
-pkill -x chromium
-```
+**Slutsats:** mjukvarudekodning är det enda stabila alternativet på
+RPi 4B 1 GB. Acceptera lagg, eller byt till en RPi 4B med 2+ GB RAM
+(där V4L2-vägen rapporteras fungera — ej verifierat i detta projekt).
 
-### Tips: håll skärmupplösningen ≤ videons upplösning
-
-Video som upscalas i realtid (1080p → 1440p/4K) kostar extra på
-V3D-GPU:n. Använd skärmens native-upplösning och se till att videorna
-i mediebiblioteket är ≤ den upplösningen. H.264 main/high profile
-@ 1920×1080 är max som V4L2-dekodern stöder.
+Knep som kan hjälpa marginellt vid mjukvarudekodning:
+- Transcoda videorna till 720p + låg bitrate (~1.5 Mbps) så mjukvaru-
+  dekodern hinner med. `ffmpeg -i in.mp4 -vf scale=-2:720 -c:v libx264 -b:v 1.5M -movflags +faststart out.mp4`
+- Ha bara en video per vy och rotera mellan dem (samtidiga videor
+  tävlar om samma enda GPU-dekodning-pipeline)
 
 ---
 
