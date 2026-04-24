@@ -583,8 +583,8 @@
       }).catch(function() {});
     }
     var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var tid = setTimeout(function() { if (controller) controller.abort(); doPost(); }, 5000);
-    fetch('https://ifconfig.io/ip', controller ? {signal: controller.signal} : {})
+    var tid = setTimeout(function() { if (controller) controller.abort(); doPost(); }, 8000);
+    fetch('https://api.ipify.org', controller ? {signal: controller.signal} : {})
       .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
       .then(function(ip) { clearTimeout(tid); meta.external_ip = ip.trim(); doPost(); })
       .catch(function() { clearTimeout(tid); doPost(); });
