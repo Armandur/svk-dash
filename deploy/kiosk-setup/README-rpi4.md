@@ -82,39 +82,52 @@ Vanliga värden för `hdmi_mode` (med `hdmi_group=2`):
 
 ## Videouppspelning
 
-**På RPi 4B med 1 GB RAM är videouppspelning en återvändsgränd.** V4L2-
-dekodern finns (`bcm2835-codec-decode` på `/dev/video10`) och Chromium
-rapporterar `video_decode: enabled` i `chrome://gpu`, men den öppnas
-aldrig av sig själv — dekodningen sker i mjukvara och videorna laggar.
-Mätt via `fuser /dev/video1[0-2]` och fd:er i gpu-processen.
+**På RPi 4B med 1 GB RAM är rotation mellan flera videor en återvänds-
+gränd.** Efter att ha testat ett stort antal kombinationer landade
+slutsatsen i att V4L2-hårdvarudekodern (`bcm2835-codec-decode` på
+`/dev/video10`) bara stödjer **en aktiv H.264-ström åt gången**, och
+kan inte växla mellan strömmar utan att antingen krascha GPU-processen
+eller lämna osynliga video-ytor.
 
-Försök att tvinga fram V4L2 med dessa flaggor:
-```
---enable-features=AcceleratedVideoDecodeLinuxGL
---ignore-gpu-blocklist
---use-gl=egl
-```
-gjorde att dekodern öppnades (`fuser` visade PID på `/dev/video10`),
-men GPU-processen kraschade inom sekunder — flera crashdumps per minut
-i `~/.config/chromium/Crash Reports/pending/`. Det gällde även efter
-att skärmupplösningen sänkts till 1920×1080 och videoscaling eliminerats.
-Orsaken är sannolikt att 1 GB RAM + V3D-drivrutinen inte räcker för
-kombinationen GPU-compositing + hårdvarudekod på Trixie.
+### Vad som testats (och varför inget fungerade helt)
 
-Varianter som testats och som alla ger samma kraschmönster:
-- Med och utan `AcceleratedVideoDecodeLinuxZeroCopyGL`
-- ANGLE (`--use-angle=gles`) vs rå EGL (`--use-gl=egl`)
-- Skärm i 2560×1440 CVT respektive 1920×1080 CEA
+Med hwaccel-flaggor påslagna (`/etc/chromium.d/10-hwdecode` med
+`--enable-features=AcceleratedVideoDecodeLinuxGL`, `--ignore-gpu-blocklist`,
+`--use-gl=egl`) öppnas V4L2-dekodern, men:
 
-**Slutsats:** mjukvarudekodning är det enda stabila alternativet på
-RPi 4B 1 GB. Acceptera lagg, eller byt till en RPi 4B med 2+ GB RAM
-(där V4L2-vägen rapporteras fungera — ej verifierat i detta projekt).
+| Rotationsstrategi | Resultat |
+|---|---|
+| `v.src = ''` + `v.load()` vid pause + återsatt `src` vid play | GPU-processen kraschar 3+ gånger/min |
+| Statisk `src` + lata init (`data-src` → `src` första gången) | Samma kraschmönster, drone/fågel blir vita mellan krascher |
+| Statisk `src` + `autoplay`, opacity styr synlighet | 0 krascher, men bara en video spelar (V4L2 tar första som vinner race), övriga vita |
+| Statisk `src`, inget `autoplay`, JS styr `play()/pause()` | 0 krascher, men bara senaste `play()`-ade videon spelar |
+| Samma + `preload="none"` | Samma mönster, flimmer mellan vyer |
+| Samma + `v.load()` innan `v.play()` i rotation | Kraschar igen (load → V4L2 teardown) |
 
-Knep som kan hjälpa marginellt vid mjukvarudekodning:
-- Transcoda videorna till 720p + låg bitrate (~1.5 Mbps) så mjukvaru-
-  dekodern hinner med. `ffmpeg -i in.mp4 -vf scale=-2:720 -c:v libx264 -b:v 1.5M -movflags +faststart out.mp4`
-- Ha bara en video per vy och rotera mellan dem (samtidiga videor
-  tävlar om samma enda GPU-dekodning-pipeline)
+Allt testat både i 2560×1440 CVT och 1920×1080 CEA, med de tre
+drone/murana/fågel-videorna och 720p-varianter (1.5 Mbps). Samma
+mönster i båda.
+
+### Slutsats
+
+- **För kiosker med videorotation på RPi 4B 1 GB: kör mjukvarudekod.**
+  Det är default i projektet (inga flaggor i `/etc/chromium.d/`).
+  Videorna laggar på 1080p men kraschar inte.
+- **RPi 4B med 2+ GB RAM kan klara hwaccel** — inte verifierat här,
+  men V3D-minnestrycket är sannolikt det som triggar krascherna, och
+  det är mer tillgängligt på större modeller. Är det relevant: börja
+  med endast `--enable-features=AcceleratedVideoDecodeLinuxGL` och
+  `--ignore-gpu-blocklist` i `/etc/chromium.d/`.
+
+### Knep för att minska laggen vid mjukvarudekod
+
+- Transcoda videorna till 720p @ ~1.5 Mbps:
+  ```bash
+  ffmpeg -i in.mp4 -vf scale=-2:720 -c:v libx264 -b:v 1.5M \
+      -movflags +faststart out.mp4
+  ```
+- Ha bara *en* video per vy och rotera mellan vyerna (samtidiga
+  videor i DOM tävlar om samma dekod-pipeline).
 
 ---
 
