@@ -13,6 +13,26 @@
   <button id="open-upload" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 transition-colors">+ Ladda upp</button>
 </div>
 
+<div class="flex items-center gap-2 mb-3 flex-wrap px-1">
+  <!-- Sökning -->
+  <input type="text" id="media-search" placeholder="Sök filnamn…"
+         class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
+  <!-- Typfilter -->
+  <div class="flex gap-1">
+    <button class="type-filter-btn active px-2.5 py-1 rounded text-xs font-medium bg-blue-600 text-white" data-type="all">Alla</button>
+    <button class="type-filter-btn px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-type="image">Bilder</button>
+    <button class="type-filter-btn px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-type="video">Video</button>
+    <button class="type-filter-btn px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-type="pdf">PDF</button>
+  </div>
+  <!-- Sortering -->
+  <div class="flex items-center gap-1 ml-auto">
+    <span class="text-xs text-gray-500">Sortera:</span>
+    <button class="sort-btn active text-xs px-2 py-1 rounded bg-blue-50 text-blue-700" data-sort="date" data-dir="desc">Datum ↓</button>
+    <button class="sort-btn text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200" data-sort="name" data-dir="asc">Namn</button>
+    <button class="sort-btn text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200" data-sort="size" data-dir="desc">Storlek</button>
+  </div>
+</div>
+
 <!-- Ny mapp-formulär -->
 <div id="folder-form-wrap" class="hidden mb-3">
   <form method="post" action="/admin/media/folders/new" class="flex items-center gap-2">
@@ -68,11 +88,12 @@
 
   <!-- Kolumnrubriker (listvy) -->
   <div id="list-header" class="hidden border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none"
-       style="display:none;grid-template-columns:32px 48px 1fr 90px 180px 220px;align-items:center;">
+       style="display:none;grid-template-columns:32px 48px 1fr 90px 100px 180px 220px;align-items:center;">
     <span class="px-2 py-2"></span>
     <span class="py-2"></span>
     <span class="px-3 py-2">Namn</span>
     <span class="px-3 py-2">Storlek</span>
+    <span class="px-3 py-2">Uppladdad</span>
     <span class="px-3 py-2">Används</span>
     <span class="px-3 py-2">Åtgärder</span>
   </div>
@@ -118,7 +139,13 @@
         5. .col-usage   — användning
         6. .col-actions — åtgärdsknappar
     -->
-    <div class="media-card" data-file-id="{{ f.id }}">
+    <div class="media-card" 
+         data-file-id="{{ f.id }}"
+         data-name="{{ f.original_name | lower }}"
+         data-size="{{ f.size_bytes }}"
+         data-date="{{ f.created_at.isoformat() }}"
+         data-type="{{ 'image' if f.content_type.startswith('image/') else ('video' if f.content_type.startswith('video/') else ('pdf' if f.content_type == 'application/pdf' else 'other') ) }}"
+         title="Uppladdad: {{ f.created_at.strftime('%Y-%m-%d %H:%M') }}">
 
       <!-- 1: bockruta -->
       <div class="col-check">
@@ -127,8 +154,11 @@
       </div>
 
       <!-- 2: miniatyr -->
-      <div class="col-thumb">
-        {% if f.content_type == 'application/pdf' %}
+      <div class="col-thumb" data-url="/uploads/{{ f.filename }}" data-ctype="{{ f.content_type }}" data-fname="{{ f.filename }}">
+        {% if f.content_type.startswith('video/') %}
+        <img src="/video-thumbs/{{ f.filename.rsplit('.', 1)[0] }}.jpg" alt="video"
+             onerror="this.outerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gray-100 text-2xl\'>📹</div>'">
+        {% elif f.content_type == 'application/pdf' %}
         <img src="/pdf-pages/{{ f.filename[:-4] }}-p001.png" alt="PDF" onerror="this.outerHTML='<div class=&quot;w-full h-full flex items-center justify-center bg-gray-50 text-xs text-gray-400 font-bold&quot;>PDF</div>'">
         {% else %}
         <img src="/uploads/{{ f.filename }}" alt="{{ f.original_name }}"
@@ -139,7 +169,8 @@
       <!-- 3: namn + (i gridvy: storlek + knappar) -->
       <div class="col-name">
         <p class="media-name" title="{{ f.original_name }}">{{ f.original_name }}</p>
-        <p class="grid-only media-meta">{{ (f.size_bytes / 1024) | round(1) }} KB
+        <p class="grid-only media-meta">
+          <span title="{{ f.size_bytes }} bytes">{{ f.size_bytes | human_size }}</span>
           {% if usages %}
           <button type="button" class="usage-badge usage-grid-toggle"
                   data-usages="{{ usages | tojson | forceescape }}">{{ usages | length }} användning{% if usages | length != 1 %}ar{% endif %} ▾</button>
@@ -154,9 +185,16 @@
       </div>
 
       <!-- 4: storlek (listvy) -->
-      <div class="col-size list-only">{{ (f.size_bytes / 1024) | round(1) }} KB</div>
+      <div class="col-size list-only">
+        <span title="{{ f.size_bytes }} bytes">{{ f.size_bytes | human_size }}</span>
+      </div>
 
-      <!-- 5: användning (listvy) -->
+      <!-- 5: datum (listvy) -->
+      <div class="col-date list-only text-gray-500" style="font-size:0.75rem; padding:0.5rem 0.75rem;">
+        {{ f.created_at.strftime('%-d %b %Y') }}
+      </div>
+
+      <!-- 6: användning (listvy) -->
       <div class="col-usage list-only">
         {% if usages %}
         <button type="button" class="usage-toggle">
@@ -172,7 +210,7 @@
         {% else %}<span class="none">–</span>{% endif %}
       </div>
 
-      <!-- 6: åtgärder (listvy) -->
+      <!-- 7: åtgärder (listvy) -->
       <div class="col-actions list-only">
         <button type="button" class="copy-url-btn" data-url="/uploads/{{ f.filename }}">URL</button>
         <button type="button" class="replace-btn" data-id="{{ f.id }}">Ersätt</button>
@@ -188,15 +226,6 @@
 </div>
 
 <ul id="usage-popup" style="display:none;position:fixed;z-index:10000;background:white;border:1px solid #e5e7eb;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:160px;padding:4px 0;list-style:none;margin:0;"></ul>
-
-<!-- Förhandsgranskningsmodal -->
-<div id="preview-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:10000;background:rgba(0,0,0,0.8)">
-  <div class="relative flex flex-col items-center" style="max-width:90vw;max-height:90vh">
-    <button id="preview-close" class="absolute -top-8 right-0 text-white/70 hover:text-white text-3xl leading-none">&times;</button>
-    <img id="preview-img" src="" alt="" class="rounded-lg shadow-2xl object-contain" style="max-width:90vw;max-height:80vh">
-    <p id="preview-name" class="mt-3 text-white/80 text-sm"></p>
-  </div>
-</div>
 
 <!-- Uppladdningsmodal -->
 <div id="upload-modal" class="hidden fixed inset-0 flex items-center justify-center" style="z-index:9999;background:rgba(0,0,0,0.45)">
@@ -365,7 +394,7 @@
 .media-grid.list-view .media-card {
   position: static;
   display: grid;
-  grid-template-columns: 32px 48px 1fr 90px 180px 220px;
+  grid-template-columns: 32px 48px 1fr 90px 100px 180px 220px;
   align-items: center;
   border-radius: 0 !important;
   border: none !important;
@@ -430,6 +459,111 @@
   var batchIds    = document.getElementById('batch-ids');
   var batchAction = document.getElementById('batch-action');
   var batchFId    = document.getElementById('batch-folder-id');
+
+  var cards = Array.from(container.querySelectorAll('.media-card'));
+  var activeType = 'all';
+  var activeSort = 'date';
+  var activeDir = 'desc';
+  var searchVal = '';
+
+  function applyAll() {
+    // Filter
+    cards.forEach(function(c) {
+      var nameMatch = !searchVal || c.dataset.name.includes(searchVal.toLowerCase());
+      var typeMatch = activeType === 'all' || c.dataset.type === activeType;
+      c.style.display = (nameMatch && typeMatch) ? '' : 'none';
+    });
+    // Sort
+    var visible = cards.filter(function(c) { return c.style.display !== 'none'; });
+    visible.sort(function(a, b) {
+      var va = a.dataset[activeSort] || '';
+      var vb = b.dataset[activeSort] || '';
+      if (activeSort === 'size') { va = parseInt(va) || 0; vb = parseInt(vb) || 0; }
+      var cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return activeDir === 'asc' ? cmp : -cmp;
+    });
+    visible.forEach(function(c) { container.appendChild(c); });
+  }
+
+  // Sökning
+  var mediaSearch = document.getElementById('media-search');
+  if (mediaSearch) {
+    mediaSearch.addEventListener('input', function() {
+      searchVal = this.value;
+      applyAll();
+    });
+  }
+
+  // Typfilter
+  document.querySelectorAll('.type-filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.type-filter-btn').forEach(function(b) {
+        b.className = b.className.replace('bg-blue-600 text-white', 'bg-gray-100 text-gray-700 hover:bg-gray-200');
+        b.classList.remove('active');
+      });
+      this.className = this.className.replace('bg-gray-100 text-gray-700 hover:bg-gray-200', 'bg-blue-600 text-white');
+      this.classList.add('active');
+      activeType = this.dataset.type;
+      applyAll();
+    });
+  });
+
+  // Sortering
+  document.querySelectorAll('.sort-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (activeSort === this.dataset.sort) {
+        activeDir = activeDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        activeSort = this.dataset.sort;
+        activeDir = this.dataset.dir;
+      }
+      document.querySelectorAll('.sort-btn').forEach(function(b) {
+        b.classList.remove('active', 'bg-blue-50', 'text-blue-700');
+        b.classList.add('bg-gray-100', 'text-gray-600');
+        b.textContent = b.textContent.replace(/ [↑↓]$/, '');
+      });
+      var arrow = activeDir === 'asc' ? ' ↑' : ' ↓';
+      var labels = { date: 'Datum', name: 'Namn', size: 'Storlek' };
+      this.textContent = (labels[activeSort] || activeSort) + arrow;
+      this.classList.add('active', 'bg-blue-50', 'text-blue-700');
+      this.classList.remove('bg-gray-100', 'text-gray-600');
+      applyAll();
+    });
+  });
+
+  // Lightbox
+  var lb = document.getElementById('lightbox');
+  var lbContent = document.getElementById('lightbox-content');
+  function openLightbox(url, ctype, fname) {
+    var html;
+    if (ctype && ctype.startsWith('video/')) {
+      html = '<video src="' + url + '" controls autoplay class="max-h-screen" style="max-height:85vh;max-width:90vw;"></video>';
+    } else if (ctype === 'application/pdf') {
+      var stem = fname.split('.')[0];
+      html = '<img src="/pdf-pages/' + stem + '-p001.png" style="max-height:85vh;max-width:90vw;">';
+    } else {
+      html = '<img src="' + url + '" style="max-height:85vh;max-width:90vw;object-fit:contain;">';
+    }
+    lbContent.innerHTML = html;
+    lb.classList.remove('hidden');
+  }
+  function closeLightbox() {
+    lb.classList.add('hidden');
+    lbContent.innerHTML = '';
+  }
+  var lbClose = document.getElementById('lightbox-close');
+  if (lbClose) lbClose.addEventListener('click', closeLightbox);
+  if (lb) {
+    lb.addEventListener('click', function(e) { if (e.target === lb) closeLightbox(); });
+  }
+
+  container.addEventListener('click', function(e) {
+    var thumb = e.target.closest('.col-thumb');
+    if (!thumb) return;
+    var card = thumb.closest('.media-card');
+    if (!card) return;
+    openLightbox(thumb.dataset.url, thumb.dataset.ctype, thumb.dataset.fname);
+  });
 
   // ── Vy-toggle ──────────────────────────────────────
   function setView(v) {
@@ -622,28 +756,20 @@
   document.getElementById('delete-cancel').addEventListener('click', function() { deleteModal.classList.add('hidden'); });
   deleteModal.addEventListener('click', function(e) { if (e.target === deleteModal) deleteModal.classList.add('hidden'); });
 
-  // ── Förhandsgranskning ─────────────────────────────
-  var previewModal = document.getElementById('preview-modal');
-  var previewImg   = document.getElementById('preview-img');
-  var previewName  = document.getElementById('preview-name');
-  document.addEventListener('click', function(e) {
-    var thumb = e.target.closest('.col-thumb');
-    if (!thumb) return;
-    var img = thumb.querySelector('img');
-    if (!img || !img.src) return;
-    var card = thumb.closest('.media-card');
-    var name = card ? (card.querySelector('.media-name') || {}).textContent || '' : '';
-    previewImg.src = img.src;
-    previewName.textContent = name.trim();
-    previewModal.classList.remove('hidden');
-  });
-  document.getElementById('preview-close').addEventListener('click', function() { previewModal.classList.add('hidden'); });
-  previewModal.addEventListener('click', function(e) { if (e.target === previewModal) previewModal.classList.add('hidden'); });
-
   document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
-    closeUpload(); moveModal.classList.add('hidden'); deleteModal.classList.add('hidden'); previewModal.classList.add('hidden');
+    closeUpload(); 
+    if (moveModal) moveModal.classList.add('hidden'); 
+    if (deleteModal) deleteModal.classList.add('hidden'); 
+    closeLightbox();
   });
 })();
 </script>
+
+<div id="lightbox" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.85)">
+  <button id="lightbox-close" class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-gray-300">&times;</button>
+  <div id="lightbox-content" class="max-w-5xl max-h-screen p-4 flex items-center justify-center">
+    <!-- Fylls av JS -->
+  </div>
+</div>
 {% endblock %}

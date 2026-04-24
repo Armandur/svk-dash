@@ -31,6 +31,19 @@ templates.globals["now_local"] = get_now_local
 templates.globals["static_version"] = _static_version
 templates.filters["tojson"] = lambda v: Markup(json.dumps(v, ensure_ascii=False))
 
+
+def _human_size(size_bytes: int) -> str:
+    if size_bytes >= 1_073_741_824:
+        return f"{size_bytes / 1_073_741_824:.1f} GB"
+    if size_bytes >= 1_048_576:
+        return f"{size_bytes / 1_048_576:.1f} MB"
+    if size_bytes >= 1_024:
+        return f"{size_bytes / 1_024:.1f} KB"
+    return f"{size_bytes} B"
+
+
+templates.filters["human_size"] = _human_size
+
 def schedule_summary(value):
     if not value:
         return "Visa alltid"

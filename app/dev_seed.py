@@ -258,13 +258,21 @@ def seed() -> None:
         db.flush()
 
         # Konvertera PDF till bilder
-        from app.routes.admin.media import _convert_pdf_to_images, PDF_PAGES_DIR
+        from app.routes.admin.media import (
+            _convert_pdf_to_images, PDF_PAGES_DIR,
+            _generate_video_thumbnail, VIDEO_THUMBS_DIR,
+        )
         import os as _os
         _os.makedirs(PDF_PAGES_DIR, exist_ok=True)
+        _os.makedirs(VIDEO_THUMBS_DIR, exist_ok=True)
         for uuid_name, orig_name in _SEED_PDFS:
             pdf_path = _os.path.join(_UPLOADS, uuid_name)
             if _os.path.exists(pdf_path):
                 _convert_pdf_to_images(pdf_path, uuid_name[:-4])
+        for uuid_name, orig_name in _SEED_VIDEOS:
+            vid_path = _os.path.join(_UPLOADS, uuid_name)
+            if _os.path.exists(vid_path):
+                _generate_video_thumbnail(vid_path, uuid_name.rsplit(".", 1)[0])
 
         # ── IcsCache – förpopulera med dagens kalenderdata ────────────────────
         _ics_raw = generate_ics()

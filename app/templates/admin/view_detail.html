@@ -1515,16 +1515,18 @@ if (lyrAddBtn) {
         
         var isImg = f.content_type && f.content_type.startsWith('image/');
         var isPdf = f.content_type === 'application/pdf';
+        var isVid = f.content_type && f.content_type.startsWith('video/');
         var thumb;
         if (isImg) {
           thumb = '<img src="' + f.url + '" alt="" class="w-full aspect-square object-contain bg-gray-50 rounded">';
         } else if (isPdf) {
           var uuidStem = f.filename.split('.')[0];
           thumb = '<img src="/pdf-pages/' + uuidStem + '-p001.png" alt="PDF" class="w-full aspect-square object-contain bg-gray-50 rounded" onerror="this.outerHTML=\'<div class=&quot;w-full aspect-square flex items-center justify-center bg-gray-50 rounded text-xs font-bold text-gray-400&quot;>PDF</div>\'">';
+        } else if (isVid) {
+          var uuidStem = f.filename.split('.')[0];
+          thumb = '<img src="/video-thumbs/' + uuidStem + '.jpg" alt="video" class="w-full aspect-square object-cover bg-gray-100 rounded" onerror="this.outerHTML=\'<div class=&quot;w-full aspect-square flex items-center justify-center bg-gray-100 rounded text-2xl&quot;>📹</div>\'">';
         } else {
-          var icon = '📄';
-          if (f.content_type && f.content_type.startsWith('video/')) icon = '📹';
-          thumb = '<div class="w-full aspect-square flex items-center justify-center bg-gray-50 rounded text-2xl">' + icon + '</div>';
+          thumb = '<div class="w-full aspect-square flex items-center justify-center bg-gray-50 rounded text-2xl">📄</div>';
         }
 
         btn.innerHTML = thumb +

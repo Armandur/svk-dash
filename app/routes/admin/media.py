@@ -56,6 +56,36 @@ def _convert_pdf_to_images(pdf_path: str, uuid_stem: str) -> int:
     return len(raw)
 
 
+VIDEO_THUMBS_DIR = "data/video_thumbs"
+
+
+def _generate_video_thumbnail(video_path: str, uuid_stem: str) -> bool:
+    """Extraherar en frame (~1 s in) som JPG-thumbnail. Returnerar True vid lyckat."""
+    out = os.path.join(VIDEO_THUMBS_DIR, uuid_stem + ".jpg")
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                video_path,
+                "-ss",
+                "1",
+                "-vframes",
+                "1",
+                "-vf",
+                "scale=320:-1",
+                out,
+            ],
+            check=True,
+            capture_output=True,
+        )
+        return os.path.exists(out)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logging.getLogger(__name__).warning("ffmpeg misslyckades for %s", video_path)
+        return False
+
+
 def _breadcrumbs(folder_id: int | None, folders_by_id: dict) -> list[dict]:
     """Bygg brödsmulsstig från rot till aktuell mapps förälder (ej aktuell mapp själv)."""
     current = folders_by_id.get(folder_id) if folder_id else None
@@ -235,6 +265,10 @@ async def media_upload(file: UploadFile = File(...), folder_id: str = Form("")):
         uuid_stem = filename[:-4]
         _convert_pdf_to_images(str(dest), uuid_stem)
 
+    if content_type in ("video/mp4", "video/webm"):
+        uuid_stem = filename.rsplit(".", 1)[0]
+        _generate_video_thumbnail(str(dest), uuid_stem)
+
     with get_session() as db:
         mf = MediaFile(
             filename=filename,
@@ -274,6 +308,10 @@ async def media_replace(file_id: int, file: UploadFile = File(...)):
             uuid_stem = mf.filename[:-4]
             _convert_pdf_to_images(str(dest), uuid_stem)
 
+        if content_type in ("video/mp4", "video/webm"):
+            uuid_stem = mf.filename.rsplit(".", 1)[0]
+            _generate_video_thumbnail(str(dest), uuid_stem)
+
         mf.original_name = file.filename or mf.original_name
         mf.content_type = content_type
         mf.size_bytes = len(data)
@@ -302,6 +340,15 @@ async def media_delete(request: Request, file_id: int):
             for pg in _glob.glob(os.path.join(PDF_PAGES_DIR, uuid_stem + "-p*.png")):
                 try:
                     os.unlink(pg)
+                except OSError:
+                    pass
+
+        if filename.endswith((".mp4", ".webm")):
+            uuid_stem = filename.rsplit(".", 1)[0]
+            thumb = os.path.join(VIDEO_THUMBS_DIR, uuid_stem + ".jpg")
+            if os.path.exists(thumb):
+                try:
+                    os.unlink(thumb)
                 except OSError:
                     pass
 
