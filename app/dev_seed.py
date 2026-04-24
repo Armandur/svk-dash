@@ -8,12 +8,15 @@ import secrets
 from sqlmodel import SQLModel
 
 from app.database import engine, get_session
+import os
+
 from app.models import (
     BrandColor,
     Channel,
     ChannelLayoutAssignment,
     Layout,
     LayoutZone,
+    MediaFile,
     Screen,
     View,
     Widget,
@@ -60,6 +63,23 @@ def seed() -> None:
         db.add_all([z_land_full, z_land_left, z_land_right, z_port_full])
         db.flush()
 
+        # ── Mediafiler (pekar på redan uppladdade filer på disk) ─────────────
+        _uploads = "data/uploads"
+        _media = [
+            ("965e2a37f00246c4a624aa8162d43cd9.jpg", "tall.jpg"),
+            ("161892b4d3134a0da1fa4c77b762a1b1.jpg", "blabar.jpg"),
+            ("2e2a9ce34b544eee910e997b59e0052a.jpg", "talt20.jpg"),
+        ]
+        media_objs = {}
+        for uuid_name, orig_name in _media:
+            path = os.path.join(_uploads, uuid_name)
+            size = os.path.getsize(path) if os.path.exists(path) else 0
+            mf = MediaFile(filename=uuid_name, original_name=orig_name,
+                           content_type="image/jpeg", size_bytes=size)
+            db.add(mf)
+            media_objs[orig_name] = mf
+        db.flush()
+
         # ── Widgets ───────────────────────────────────────────────────────────
         w_clock = Widget(
             name="Klocka",
@@ -97,7 +117,33 @@ def seed() -> None:
             },
             edit_token=secrets.token_urlsafe(32),
         )
-        db.add_all([w_clock, w_bg, w_md, w_text])
+        w_image = Widget(
+            name="Tallbild (porträtt)",
+            kind="image",
+            config_json={
+                "source": "upload",
+                "filename": media_objs["tall.jpg"].filename,
+                "object_fit": "contain",
+                "border_radius": 0,
+            },
+            edit_token=secrets.token_urlsafe(32),
+        )
+        w_slideshow = Widget(
+            name="Bildspel naturfoto",
+            kind="slideshow",
+            config_json={
+                "images": [
+                    {"filename": media_objs["tall.jpg"].filename,    "caption": "Tall – porträttformat"},
+                    {"filename": media_objs["blabar.jpg"].filename,  "caption": "Blåbär"},
+                    {"filename": media_objs["talt20.jpg"].filename,  "caption": "Talt 20"},
+                ],
+                "interval": 5,
+                "transition": "fade",
+                "object_fit": "cover",
+            },
+            edit_token=secrets.token_urlsafe(32),
+        )
+        db.add_all([w_clock, w_bg, w_md, w_text, w_image, w_slideshow])
         db.flush()
 
         # ── Kanaler ───────────────────────────────────────────────────────────
@@ -154,7 +200,17 @@ def seed() -> None:
             name="Info", enabled=True,
             layout_json={"widgets": [{"widget_id": w_md.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0}]},
         )
-        db.add_all([v1, v2, v3, v4, v5])
+        v6 = View(
+            channel_id=ch_land.id, zone_id=z_land_left.id, position=2,
+            name="Bildspel", enabled=True,
+            layout_json={"widgets": [{"widget_id": w_slideshow.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0}]},
+        )
+        v7 = View(
+            channel_id=ch_port.id, zone_id=z_port_full.id, position=2,
+            name="Tallbild", enabled=True,
+            layout_json={"widgets": [{"widget_id": w_image.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0}]},
+        )
+        db.add_all([v1, v2, v3, v4, v5, v6, v7])
 
         # ── Varumärkesfärger ─────────────────────────────────────────────────
         palette = [
@@ -170,4 +226,4 @@ def seed() -> None:
         db.add_all(palette)
         db.commit()
 
-    log.warning("DEV_SEED klar: 2 kanaler, 2 skärmar (/s/first, /s/second), 4 widgets, 8 varumärkesfärger")
+    log.warning("DEV_SEED klar: 2 kanaler, 2 skärmar (/s/first, /s/second), 6 widgets, 3 mediafiler, 8 varumärkesfärger")
