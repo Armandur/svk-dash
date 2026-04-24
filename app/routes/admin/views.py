@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.deps import require_admin
-from app.models import ChannelLayoutAssignment, Layout, LayoutZone, Screen, View, Widget
+from app.models import BrandColor, ChannelLayoutAssignment, Layout, LayoutZone, Screen, View, Widget
 from app.templating import templates
 from app.widgets.base import render_widget
 
@@ -78,7 +78,7 @@ _INLINE_DEFAULTS: dict[str, dict] = {
 }
 
 _INLINE_LABELS: dict[str, str] = {
-    "clock": "Klocka",
+    "clock": "Klocka/datum",
     "text": "Text",
     "color_block": "Färgblock",
     "image": "Bild",
@@ -191,6 +191,7 @@ async def view_detail(request: Request, view_id: int):
         for w in all_widgets:
             cat_buckets.setdefault(_kind_to_cat.get(w.kind, "Övrigt"), []).append(w)
         widget_categories = [(cat, cat_buckets.get(cat, [])) for cat, _ in _WIDGET_CATEGORIES]
+        brand_colors = db.exec(select(BrandColor).order_by(BrandColor.position, BrandColor.id)).all()
         zone = db.get(LayoutZone, view.zone_id) if view.zone_id else None
         sibling_views = db.exec(
             select(View)
@@ -223,6 +224,7 @@ async def view_detail(request: Request, view_id: int):
             next_view=next_view,
             view_index=cur_idx,
             view_count=len(sibling_views),
+            brand_colors=brand_colors,
         )
     )
 

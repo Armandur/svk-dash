@@ -12,7 +12,7 @@ from sqlmodel import select
 from app.config import UPLOADS_DIR
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Channel, IcsCache, MediaFile, View, Widget, WidgetRevision
+from app.models import BrandColor, Channel, IcsCache, MediaFile, View, Widget, WidgetRevision
 from app.routes.kiosk import broadcast_widget_updated
 from app.services.ics_fetcher import fetch_and_cache, get_ics_urls
 from app.templating import templates
@@ -159,6 +159,7 @@ async def widget_detail(request: Request, widget_id: int):
             else []
         )
         usages = _find_widget_usages(widget_id, db)
+        brand_colors = db.exec(select(BrandColor).order_by(BrandColor.position, BrandColor.id)).all()
     return HTMLResponse(
         templates.get_template("admin/widget_detail.html").render(
             request=request,
@@ -168,6 +169,7 @@ async def widget_detail(request: Request, widget_id: int):
             config_json=json.dumps(widget.config_json, indent=2, ensure_ascii=False),
             ics_caches=ics_caches,
             usages=usages,
+            brand_colors=brand_colors,
         )
     )
 
@@ -202,6 +204,7 @@ async def widget_edit(
                 .order_by(WidgetRevision.saved_at.desc())
                 .limit(20)
             ).all()
+            brand_colors = db.exec(select(BrandColor).order_by(BrandColor.position, BrandColor.id)).all()
         return HTMLResponse(
             templates.get_template("admin/widget_detail.html").render(
                 request=request,
@@ -210,6 +213,7 @@ async def widget_edit(
                 kinds=WIDGET_KINDS,
                 config_json=config_json,
                 error="Ogiltig JSON i konfiguration.",
+                brand_colors=brand_colors,
             ),
             status_code=422,
         )

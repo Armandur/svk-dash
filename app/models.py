@@ -172,3 +172,11 @@ class ChannelLayoutAssignment(SQLModel, table=True):
     transition_direction: str = "left"
     transition_duration_ms: int = 700
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BrandColor(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    color: str  # hex (#rrggbb) eller rgba(r,g,b,a)
+    position: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)

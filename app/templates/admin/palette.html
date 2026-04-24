@@ -1,0 +1,158 @@
+{% extends "admin/base.html" %}
+{% block title %}Färgpalett{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Färgpalett</h1>
+    <p class="text-sm text-gray-500">Definiera namngivna färger för användning i widgetar och vyer.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Lista över befintliga färger -->
+    <div class="lg:col-span-2 space-y-4">
+        <div class="bg-white rounded-xl shadow overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Färg</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Namn</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Värde</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Åtgärd</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100" id="palette-list">
+                    {% for color in colors %}
+                    <tr class="hover:bg-gray-50 group" data-id="{{ color.id }}">
+                        <td class="px-6 py-4">
+                            <div class="w-8 h-8 rounded border border-gray-200 shadow-sm" style="background-color: {{ color.color }}"></div>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                            <span class="name-display">{{ color.name }}</span>
+                            <form method="post" action="/admin/palette/{{ color.id }}/rename" class="name-edit hidden flex items-center gap-1">
+                                <input type="text" name="name" value="{{ color.name }}"
+                                       class="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-40">
+                                <button type="submit" class="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded">Spara</button>
+                                <button type="button" class="cancel-rename text-xs text-gray-500 hover:text-gray-900 bg-gray-100 px-2 py-1 rounded">Avbryt</button>
+                            </form>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500 font-mono">{{ color.color }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button type="button" class="rename-btn text-xs text-gray-500 hover:text-gray-900 bg-gray-100 px-2 py-1 rounded">Byt namn</button>
+                                <form method="post" action="/admin/palette/{{ color.id }}/delete" onsubmit="return confirm('Vill du verkligen radera denna färg?')">
+                                    <button type="submit" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Radera</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-gray-400 text-sm">
+                            Inga färger definierade ännu.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Lägg till ny färg -->
+    <div>
+        <div class="bg-white rounded-xl shadow p-6">
+            <h2 class="font-semibold text-sm mb-4">Lägg till färg</h2>
+            <form method="post" action="/admin/palette/add" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+                    <input type="text" name="name" required
+                           class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="T.ex. Kyrkblå">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Färg</label>
+                    <div class="flex items-center gap-3">
+                        <span id="palette-pickr-anchor" style="display:inline-block"></span>
+                        <input type="text" id="palette-color-value" name="color" required maxlength="40"
+                               class="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="#rrggbb eller rgba(...)">
+                    </div>
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors">
+                        Lägg till
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var valueInput = document.getElementById('palette-color-value');
+
+    var pickr = Pickr.create({
+        el: '#palette-pickr-anchor',
+        theme: 'nano',
+        default: '#1e3a5f',
+        defaultRepresentation: 'RGBA',
+        components: {
+            preview: true,
+            opacity: true,
+            hue: true,
+            interaction: {
+                hex: true,
+                rgba: true,
+                input: true,
+                save: true,
+                cancel: true
+            }
+        }
+    });
+
+    function colorToCss(color) {
+        if (!color) return '';
+        var rgba = color.toRGBA();
+        var alpha = Math.round(rgba[3] * 100);
+        var r = Math.round(rgba[0]), g = Math.round(rgba[1]), b = Math.round(rgba[2]);
+        if (alpha >= 100) {
+            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + rgba[3].toFixed(2) + ')';
+    }
+
+    pickr.on('save', function(color, instance) {
+        if (color) valueInput.value = colorToCss(color);
+        instance.hide();
+    });
+
+    pickr.on('cancel', function(instance) {
+        instance.hide();
+    });
+
+    // Inline namnbyte
+    document.querySelectorAll('.rename-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var row = btn.closest('tr');
+            row.querySelector('.name-display').classList.add('hidden');
+            var editForm = row.querySelector('.name-edit');
+            editForm.classList.remove('hidden');
+            editForm.querySelector('input[name=name]').focus();
+        });
+    });
+
+    document.querySelectorAll('.cancel-rename').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var row = btn.closest('tr');
+            row.querySelector('.name-display').classList.remove('hidden');
+            row.querySelector('.name-edit').classList.add('hidden');
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -4,15 +4,15 @@
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
 <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
 {% endblock %}
 
 {% macro color_picker(field, value, default='#000000') %}
 {%- set v = value if value else default -%}
-<div class="color-picker-wrap flex items-center gap-1.5">
-  <input type="color" class="color-swatch h-8 w-8 rounded border border-gray-300 cursor-pointer p-0.5 flex-shrink-0" value="{{ v }}">
-  <input type="text" data-field="{{ field }}" value="{{ v }}"
-         class="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm font-mono"
-         maxlength="7" placeholder="#rrggbb">
+<div class="color-picker-wrap flex items-center gap-2 flex-wrap">
+  <span class="pickr-anchor" style="display:inline-block"></span>
+  <input type="text" data-field="{{ field }}" value="{{ v }}" style="display:none">
 </div>
 {% endmacro %}
 
@@ -92,12 +92,21 @@ function removeIcsUrl(btn) {
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
-          <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-            <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
-            <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
-            <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
-          </select>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Tidszon</label>
+          <input type="text" data-field="timezone" value="{{ cfg.get('timezone', 'Europe/Stockholm') }}"
+                 placeholder="Europe/Stockholm"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+        </div>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" data-field="show_time"
+                 {% if cfg.get('show_time', True) %}checked{% endif %} class="rounded">
+          Visa klocktider för händelser
+        </label>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Text när inga händelser (tomt = dölj)</label>
+          <input type="text" data-field="no_events_text" value="{{ cfg.get('no_events_text', '') }}"
+                 placeholder="Inga kommande händelser"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
         </div>
         <div class="flex flex-col gap-2">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -298,14 +307,6 @@ function removeIcsUrl(btn) {
                    min="1" max="50" placeholder="–" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
           </div>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
-          <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-            <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
-            <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
-            <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
-          </select>
-        </div>
         <div class="flex flex-col gap-2">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" data-field="start_on_monday"
@@ -439,14 +440,6 @@ function removeIcsUrl(btn) {
                    min="1" max="24" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
           </div>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
-          <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-            <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
-            <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
-            <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
-          </select>
-        </div>
         <div class="flex flex-col gap-2">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" data-field="show_location"
@@ -507,45 +500,17 @@ function removeIcsUrl(btn) {
         <div>
           <textarea data-field="content_md" id="md-input">{{ cfg.get('content_md', '') }}</textarea>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Textstorlek</label>
-            <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              <option value="small" {% if cfg.get('font_size') == 'small' %}selected{% endif %}>Liten</option>
-              <option value="normal" {% if cfg.get('font_size', 'normal') == 'normal' %}selected{% endif %}>Normal</option>
-              <option value="large" {% if cfg.get('font_size') == 'large' %}selected{% endif %}>Stor</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Justering</label>
-            <select data-field="alignment" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              <option value="left" {% if cfg.get('alignment', 'left') == 'left' %}selected{% endif %}>Vänster</option>
-              <option value="center" {% if cfg.get('alignment') == 'center' %}selected{% endif %}>Centrerad</option>
-              <option value="right" {% if cfg.get('alignment') == 'right' %}selected{% endif %}>Höger</option>
-            </select>
-          </div>
-        </div>
+
 
         {% elif widget.kind == 'clock' %}
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Format</label>
-            <select data-field="format" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              <option value="time_only" {% if cfg.get('format') == 'time_only' %}selected{% endif %}>Tid</option>
-              <option value="date_only" {% if cfg.get('format') == 'date_only' %}selected{% endif %}>Datum</option>
-              <option value="time_date" {% if cfg.get('format', 'time_date') == 'time_date' %}selected{% endif %}>Tid + datum</option>
-              <option value="day_time" {% if cfg.get('format') == 'day_time' %}selected{% endif %}>Dag + tid</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Storlek</label>
-            <select data-field="size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              <option value="sm" {% if cfg.get('size') == 'sm' %}selected{% endif %}>Liten</option>
-              <option value="md" {% if cfg.get('size') == 'md' %}selected{% endif %}>Medium</option>
-              <option value="lg" {% if cfg.get('size') == 'lg' %}selected{% endif %}>Stor</option>
-              <option value="xl" {% if cfg.get('size', 'xl') == 'xl' %}selected{% endif %}>Extra stor</option>
-            </select>
-          </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Format</label>
+          <select data-field="format" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            <option value="time_only" {% if cfg.get('format') == 'time_only' %}selected{% endif %}>Tid</option>
+            <option value="date_only" {% if cfg.get('format') == 'date_only' %}selected{% endif %}>Datum</option>
+            <option value="time_date" {% if cfg.get('format', 'time_date') == 'time_date' %}selected{% endif %}>Tid + datum</option>
+            <option value="day_time" {% if cfg.get('format') == 'day_time' %}selected{% endif %}>Dag + tid</option>
+          </select>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -558,6 +523,43 @@ function removeIcsUrl(btn) {
             <input type="text" data-field="locale" value="{{ cfg.get('locale', 'sv-SE') }}"
                    class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
           </div>
+        </div>
+        <div class="flex flex-wrap gap-4">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="show_seconds"
+                   {% if cfg.get('show_seconds', True) %}checked{% endif %} class="rounded">
+            Visa sekunder
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="hour12"
+                   {% if cfg.get('hour12', False) %}checked{% endif %} class="rounded">
+            12-timmarsformat (AM/PM)
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Datumformat (tomt = automatiskt)</label>
+          <input type="text" data-field="date_format" value="{{ cfg.get('date_format', '') }}"
+                 placeholder="t.ex. %-d %B %Y"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
+          <details class="mt-2">
+            <summary class="text-xs text-blue-500 cursor-pointer hover:text-blue-700 select-none">Datumkoder – visa hjälp</summary>
+            <div class="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-xs font-mono space-y-2">
+              <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-gray-700">
+                <span><span class="text-blue-600 font-bold">%A</span> = Fredag &nbsp;<span class="text-blue-600 font-bold">%a</span> = Fre</span>
+                <span><span class="text-blue-600 font-bold">%d</span> = 24 &nbsp;<span class="text-blue-600 font-bold">%-d</span> = 24 (ingen nolla)</span>
+                <span><span class="text-blue-600 font-bold">%B</span> = april &nbsp;<span class="text-blue-600 font-bold">%b</span> = apr</span>
+                <span><span class="text-blue-600 font-bold">%m</span> = 04 &nbsp;<span class="text-blue-600 font-bold">%-m</span> = 4 (ingen nolla)</span>
+                <span><span class="text-blue-600 font-bold">%Y</span> = 2026 &nbsp;<span class="text-blue-600 font-bold">%y</span> = 26</span>
+                <span><span class="text-blue-600 font-bold">%H</span> = 14 &nbsp;<span class="text-blue-600 font-bold">%M</span> = 05</span>
+              </div>
+              <div class="pt-1 border-t border-gray-200 text-gray-500 space-y-0.5">
+                <div>%-d %B %Y &nbsp;→&nbsp; "24 april 2026"</div>
+                <div>%A %-d %B &nbsp;→&nbsp; "Fredag 24 april"</div>
+                <div>%Y-%m-%d &nbsp;→&nbsp; "2026-04-24"</div>
+                <div>%A &nbsp;→&nbsp; "Fredag"</div>
+              </div>
+            </div>
+          </details>
         </div>
 
         {% elif widget.kind == 'raw_html' %}
@@ -578,49 +580,69 @@ function removeIcsUrl(btn) {
           <textarea data-field="text" rows="4"
                     class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">{{ cfg.get('text', '') }}</textarea>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Storlek</label>
-            <select data-field="size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              <option value="small" {% if cfg.get('size') == 'small' %}selected{% endif %}>Liten</option>
-              <option value="normal" {% if cfg.get('size') == 'normal' %}selected{% endif %}>Normal</option>
-              <option value="large" {% if cfg.get('size', 'large') == 'large' %}selected{% endif %}>Stor</option>
-              <option value="xl" {% if cfg.get('size') == 'xl' %}selected{% endif %}>Extra stor</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Justering</label>
-            <select data-field="align" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              <option value="left" {% if cfg.get('align') == 'left' %}selected{% endif %}>Vänster</option>
-              <option value="center" {% if cfg.get('align', 'center') == 'center' %}selected{% endif %}>Centrerad</option>
-              <option value="right" {% if cfg.get('align') == 'right' %}selected{% endif %}>Höger</option>
-            </select>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-wrap gap-4">
           <label class="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" data-field="bold"
                    {% if cfg.get('bold', false) %}checked{% endif %} class="rounded">
             Fetstil
           </label>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Textfärg</label>
-            {{ color_picker('color', cfg.get('color', '#ffffff'), '#ffffff') }}
-          </div>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="italic"
+                   {% if cfg.get('italic', False) %}checked{% endif %} class="rounded">
+            Kursiv
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" data-field="uppercase"
+                   {% if cfg.get('uppercase', False) %}checked{% endif %} class="rounded">
+            VERSALER
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Bokstavsavstånd (t.ex. 0.1em, 2px)</label>
+          <input type="text" data-field="letter_spacing" value="{{ cfg.get('letter_spacing', '') }}"
+                 placeholder="t.ex. 0.15em"
+                 class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">
         </div>
 
         {% elif widget.kind == 'color_block' %}
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Färg</label>
-            {{ color_picker('color', cfg.get('color', '#1e3a5f'), '#1e3a5f') }}
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Hörnradius (px)</label>
-            <input type="number" data-field="border_radius" value="{{ cfg.get('border_radius', 0) }}"
-                   min="0" max="200" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Hörnradius (px)</label>
+          <input type="number" data-field="border_radius" value="{{ cfg.get('border_radius', 0) }}"
+                 min="0" max="200" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
+            <input type="checkbox" data-field="use_gradient" id="cb-gradient"
+                   {% if cfg.get('use_gradient', False) %}checked{% endif %} class="rounded">
+            Använd gradient
+          </label>
+          <div id="gradient-fields" {% if not cfg.get('use_gradient') %}style="display:none"{% endif %} class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Startfärg</label>
+                {{ color_picker('gradient_start', cfg.get('gradient_start', '#1e3a5f'), '#1e3a5f') }}
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Slutfärg</label>
+                {{ color_picker('gradient_end', cfg.get('gradient_end', '#000000'), '#000000') }}
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Vinkel (grader — 0 = uppåt, 90 = höger, 180 = nedåt)</label>
+              <input type="number" data-field="gradient_angle" value="{{ cfg.get('gradient_angle', 180) }}"
+                     min="0" max="360" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            </div>
           </div>
         </div>
+        <script>
+        (function() {
+          var cb = document.getElementById('cb-gradient');
+          var fields = document.getElementById('gradient-fields');
+          if (cb && fields) {
+            cb.addEventListener('change', function() { fields.style.display = this.checked ? '' : 'none'; });
+          }
+        })();
+        </script>
 
         {% elif widget.kind == 'image' %}
         <div>
@@ -673,6 +695,23 @@ function removeIcsUrl(btn) {
             <option value="contain" {% if cfg.get('fit') == 'contain' %}selected{% endif %}>Contain (hela bilden, letterbox)</option>
             <option value="fill" {% if cfg.get('fit') == 'fill' %}selected{% endif %}>Fill (sträck)</option>
           </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Hörnradius (px)</label>
+            <input type="number" data-field="border_radius" value="{{ cfg.get('border_radius', 0) }}"
+                   min="0" max="500" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Bildposition (vid Contain)</label>
+            <select data-field="object_position" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="center" {% if cfg.get('object_position', 'center') == 'center' %}selected{% endif %}>Centrerad</option>
+              <option value="top" {% if cfg.get('object_position') == 'top' %}selected{% endif %}>Överkant</option>
+              <option value="bottom" {% if cfg.get('object_position') == 'bottom' %}selected{% endif %}>Nederkant</option>
+              <option value="left" {% if cfg.get('object_position') == 'left' %}selected{% endif %}>Vänster</option>
+              <option value="right" {% if cfg.get('object_position') == 'right' %}selected{% endif %}>Höger</option>
+            </select>
+          </div>
         </div>
 
         <script>
@@ -780,15 +819,26 @@ function removeIcsUrl(btn) {
               var src = img.url || (img.upload_path ? '/uploads/' + img.upload_path : '');
               var label = img.url || img.upload_path || '';
               var row = document.createElement('div');
-              row.className = 'flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1.5';
+              row.className = 'bg-gray-50 border border-gray-200 rounded px-2 py-1.5';
               row.innerHTML =
+                '<div class="flex items-center gap-2">' +
                 (src ? '<img src="' + src + '" class="h-8 w-12 object-cover rounded flex-shrink-0">' : '<div class="h-8 w-12 bg-gray-200 rounded flex-shrink-0"></div>') +
                 '<span class="flex-1 text-xs text-gray-600 truncate">' + label + '</span>' +
-                '<button type="button" class="text-red-400 hover:text-red-600 text-xs flex-shrink-0" data-idx="' + idx + '">✕</button>';
-              row.querySelector('button').addEventListener('click', function() {
+                '<button type="button" class="ss-remove text-red-400 hover:text-red-600 text-xs flex-shrink-0" data-idx="' + idx + '">✕</button>' +
+                '</div>' +
+                '<input type="text" class="ss-caption-input w-full border border-gray-200 rounded px-2 py-0.5 text-xs text-gray-500 mt-1" ' +
+                'placeholder="Bildtext (valfritt)" value="' + (img.caption || '').replace(/"/g, '&quot;') + '" data-idx="' + idx + '">';
+
+              row.querySelector('.ss-remove').addEventListener('click', function() {
                 images.splice(+this.dataset.idx, 1);
                 renderList();
               });
+
+              row.querySelector('.ss-caption-input').addEventListener('input', function() {
+                images[+this.dataset.idx].caption = this.value;
+                hidden.value = JSON.stringify(images);
+              });
+
               listEl.appendChild(row);
             });
             hidden.value = JSON.stringify(images);
@@ -836,7 +886,7 @@ function removeIcsUrl(btn) {
         </script>
 
         {% elif widget.kind == 'debug' %}
-        <p class="text-sm text-gray-400 italic">Debug-widget har ingen konfiguration.</p>
+        <p class="text-sm text-gray-400 italic">Ingen widget-specifik konfiguration.</p>
 
         {% else %}
         <div>
@@ -845,6 +895,50 @@ function removeIcsUrl(btn) {
                     class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono">{{ config_json }}</textarea>
         </div>
         {% endif %}
+
+        <div class="border-t border-gray-100 pt-4 mt-4">
+          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Utseende</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Textfärg</label>
+              {{ color_picker('text_color', cfg.get('text_color', '#ffffff'), '#ffffff') }}
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Bakgrundsfärg</label>
+              {{ color_picker('bg_color', cfg.get('bg_color', ''), '') }}
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Teckenstorlek</label>
+              {% set fs_val = cfg.get('font_size', '') %}
+              <select data-field="font_size" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                {% if fs_val and fs_val not in ['', '2cqh', '4cqh', '6cqh', '8cqh', '11cqh'] %}
+                <option value="{{ fs_val }}" selected>Anpassad ({{ fs_val }})</option>
+                {% endif %}
+                <option value="" {% if fs_val == '' %}selected{% endif %}>Standard</option>
+                <option value="2cqh" {% if fs_val == '2cqh' %}selected{% endif %}>Liten</option>
+                <option value="4cqh" {% if fs_val == '4cqh' %}selected{% endif %}>Normal</option>
+                <option value="6cqh" {% if fs_val == '6cqh' %}selected{% endif %}>Stor</option>
+                <option value="8cqh" {% if fs_val == '8cqh' %}selected{% endif %}>Mycket stor</option>
+                <option value="11cqh" {% if fs_val == '11cqh' %}selected{% endif %}>Enorm</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Justering</label>
+              <select data-field="text_align" class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                <option value="" {% if not cfg.get('text_align') %}selected{% endif %}>Standard</option>
+                <option value="left" {% if cfg.get('text_align') == 'left' %}selected{% endif %}>Vänster</option>
+                <option value="center" {% if cfg.get('text_align') == 'center' %}selected{% endif %}>Centrerad</option>
+                <option value="right" {% if cfg.get('text_align') == 'right' %}selected{% endif %}>Höger</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Inre luft (px)</label>
+              <input type="number" data-field="padding" value="{{ cfg.get('padding', '') }}"
+                     placeholder="standard"
+                     class="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+            </div>
+          </div>
+        </div>
 
         {% if widget.kind not in ('debug', 'raw_html') %}
         <div>
@@ -1004,16 +1098,76 @@ function removeIcsUrl(btn) {
 </div>
 
 <script>
-// Color picker sync: swatch ↔ hex input
-document.querySelectorAll('.color-picker-wrap').forEach(function(wrap) {
-  var swatch = wrap.querySelector('.color-swatch');
-  var hex = wrap.querySelector('[data-field]');
-  if (!swatch || !hex) return;
-  swatch.addEventListener('input', function() { hex.value = this.value; });
-  hex.addEventListener('input', function() {
-    if (/^#[0-9a-fA-F]{6}$/.test(this.value)) swatch.value = this.value;
+window.BRAND_PALETTE = {{ brand_colors | map(attribute='color') | list | tojson }};
+
+(function() {
+  function _hexToRgb(hex) {
+    var m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    return m ? {r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16)} : {r:0,g:0,b:0};
+  }
+  function _rgbToHex(r, g, b) {
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  function _parseColorDefault(val) {
+    // Returnerar en giltig CSS-sträng som Pickr accepterar som default
+    if (!val) return "#000000";
+    if (val.startsWith('rgba') || val.startsWith('#')) return val;
+    return "#000000";
+  }
+  function _colorToField(color) {
+    // Omvandlar Pickr-color-objekt till CSS-sträng för lagring
+    if (!color) return "";
+    var rgba = color.toRGBA();
+    var alpha = Math.round(rgba[3] * 100);
+    if (alpha <= 0) return "";
+    if (alpha >= 100) {
+      return _rgbToHex(Math.round(rgba[0]), Math.round(rgba[1]), Math.round(rgba[2]));
+    }
+    return "rgba(" + Math.round(rgba[0]) + "," + Math.round(rgba[1]) + "," + Math.round(rgba[2]) + "," + rgba[3].toFixed(2) + ")";
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.color-picker-wrap').forEach(function(wrap) {
+      var anchor = wrap.querySelector('.pickr-anchor');
+      var field = wrap.querySelector('[data-field]');
+      if (!anchor || !field) return;
+
+      var initialColor = _parseColorDefault(field.value);
+
+      var pickr = Pickr.create({
+        el: anchor,
+        theme: 'nano',
+        default: initialColor,
+        defaultRepresentation: 'RGBA',
+        components: {
+          preview: true,
+          opacity: true,
+          hue: true,
+          interaction: {
+            hex: true,
+            rgba: true,
+            input: true,
+            save: true,
+            cancel: true
+          }
+        },
+        swatches: window.BRAND_PALETTE || []
+      });
+
+      pickr.on('save', function(color, instance) {
+        field.value = _colorToField(color);
+        instance.hide();
+      });
+
+      pickr.on('cancel', function(instance) {
+        instance.hide();
+      });
+    });
   });
-});
+})();
+</script>
+
+<script>
 
 function uploadImage(file, callback) {
   var fd = new FormData();

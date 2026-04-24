@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.database import init_db
 from app.deps import NotAuthenticatedError
 from app.routes.admin import router as admin_router
 from app.routes.edit import router as edit_router
@@ -21,6 +22,11 @@ os.makedirs("data/uploads", exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if os.getenv("DEV_SEED", "").lower() in ("1", "true", "yes"):
+        from app.dev_seed import seed
+        seed()
+    else:
+        init_db()
     tasks = [
         asyncio.create_task(start_refresh_loop()),
         asyncio.create_task(start_monitor_loop()),

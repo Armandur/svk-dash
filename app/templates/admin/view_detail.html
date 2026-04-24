@@ -237,6 +237,8 @@
   .lyr-item.layer-dragging { opacity:0.4; }
   .lyr-widget-item.layer-dragging { opacity:0.4; }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -430,10 +432,9 @@
                 <div>
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Färg</div>
                   <div style="display:flex;align-items:center;gap:4px">
-                    <input type="color" class="icfg-field icfg-color-swatch" data-cfg-key="color" value="{{ entry.config.get('color', '#ffffff') }}" style="width:26px;height:26px;border:none;background:none;cursor:pointer;padding:0;flex-shrink:0">
-                    <input type="text" class="icfg-color-hex" maxlength="7" value="{{ entry.config.get('color', '#ffffff') }}" style="width:62px;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px;font-family:monospace">
-                  </div>
-                </div>
+                    <span class="pickr-icfg-anchor" style="display:inline-block"></span>
+                    <input type="text" class="icfg-field icfg-color-swatch" data-cfg-key="color" value="{{ entry.config.get('color', '#ffffff') }}" style="display:none">
+                  </div>                </div>
                 <div style="margin-top:14px">
                   <label style="font-size:0.65rem;color:#94a3b8;cursor:pointer">
                     <input type="checkbox" class="icfg-field" data-cfg-key="bold"{% if entry.config.get('bold', False) %} checked{% endif %} style="margin-right:3px">Fet stil
@@ -445,10 +446,9 @@
                 <div>
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Färg</div>
                   <div style="display:flex;align-items:center;gap:4px">
-                    <input type="color" class="icfg-field icfg-color-swatch" data-cfg-key="color" value="{{ entry.config.get('color', '#1e3a5f') }}" style="width:26px;height:26px;border:none;background:none;cursor:pointer;padding:0;flex-shrink:0">
-                    <input type="text" class="icfg-color-hex" maxlength="7" value="{{ entry.config.get('color', '#1e3a5f') }}" style="width:62px;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px;font-family:monospace">
-                  </div>
-                </div>
+                    <span class="pickr-icfg-anchor" style="display:inline-block"></span>
+                    <input type="text" class="icfg-field icfg-color-swatch" data-cfg-key="color" value="{{ entry.config.get('color', '#1e3a5f') }}" style="display:none">
+                  </div>                </div>
                 <div style="flex:1">
                   <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:2px">Rundning (px)</div>
                   <input type="number" class="icfg-field" data-cfg-key="border_radius" data-cfg-type="number" value="{{ entry.config.get('border_radius', 0) }}" min="0" max="200" style="width:100%;font-size:0.72rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:3px;padding:2px 4px">
@@ -799,6 +799,7 @@
     gridEl.querySelectorAll('.widget-card').forEach(applyCard);
   });
   renderLayerPanel();
+  reapplyZIndices();
 
   var gridColInput = document.querySelector('input[name="grid_cols"]');
   var gridRowInput = document.querySelector('input[name="grid_rows"]');
@@ -1583,17 +1584,59 @@ if (lyrAddBtn) {
 
   // Initialisering
   renderLayerPanel();
+  reapplyZIndices();
 
-  // ── Färgpicker-sync ────────────────────────────────
-  document.querySelectorAll('.icfg-color-swatch').forEach(function(swatch) {
-    var wrap = swatch.parentElement;
-    var hexInput = wrap.querySelector('.icfg-color-hex');
-    if (!hexInput) return;
-    swatch.addEventListener('input', function() { hexInput.value = this.value; });
-    hexInput.addEventListener('input', function() {
-      if (/^#[0-9a-fA-F]{6}$/.test(this.value)) swatch.value = this.value;
+  // ── Pickr för inline widget-färger ─────────────────
+  (function() {
+    var viewPalette = {{ brand_colors | map(attribute='color') | list | tojson }};
+
+    function _colorToHex(color) {
+      if (!color) return '#000000';
+      var rgba = color.toRGBA();
+      var r = Math.round(rgba[0]), g = Math.round(rgba[1]), b = Math.round(rgba[2]);
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    document.querySelectorAll('.pickr-icfg-anchor').forEach(function(anchor) {
+      var wrap = anchor.parentElement;
+      var hidden = wrap.querySelector('.icfg-color-swatch');
+      if (!anchor || !hidden) return;
+
+      var initialVal = hidden.value || '#ffffff';
+
+      var pickr = Pickr.create({
+        el: anchor,
+        theme: 'nano',
+        default: initialVal,
+        defaultRepresentation: 'HEX',
+        components: {
+          preview: true,
+          opacity: false,
+          hue: true,
+          interaction: {
+            hex: true,
+            input: true,
+            save: true,
+            cancel: true
+          }
+        },
+        swatches: viewPalette
+      });
+
+      pickr.on('save', function(color, instance) {
+        if (color) {
+          var hex = _colorToHex(color);
+          hidden.value = hex;
+          hidden.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        instance.hide();
+      });
+
+      pickr.on('cancel', function(instance) {
+        instance.hide();
+      });
     });
-  });
+  })();
 })();
 </script>
 
