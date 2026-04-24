@@ -61,11 +61,18 @@ PING_HOST=$(echo "$SCREEN_URL" | sed 's|https\?://||; s|[:/].*||')
 
 # --- 5. Installera paket ---
 PKGS=()
-command -v chromium-browser &>/dev/null || PKGS+=(chromium-browser)
-command -v unclutter &>/dev/null        || PKGS+=(unclutter)
+# Trixie: paketet heter "chromium", Bookworm: "chromium-browser"
+if ! command -v chromium-browser &>/dev/null && ! command -v chromium &>/dev/null; then
+  apt-cache show chromium &>/dev/null && PKGS+=(chromium) || PKGS+=(chromium-browser)
+fi
+command -v unclutter &>/dev/null || PKGS+=(unclutter)
 if [[ ${#PKGS[@]} -gt 0 ]]; then
   sudo apt-get update -qq
   sudo apt-get install -y "${PKGS[@]}"
+fi
+# Normalisera: skapa alias om bara "chromium" finns
+if command -v chromium &>/dev/null && ! command -v chromium-browser &>/dev/null; then
+  sudo ln -sf "$(command -v chromium)" /usr/local/bin/chromium-browser
 fi
 
 # --- 6. Autologin via getty på tty1 (kringgår lightdm) ---

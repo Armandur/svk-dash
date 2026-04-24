@@ -12,9 +12,8 @@ och utan pekskärm.
 | OS | 32-bit Bookworm Desktop | **64-bit** Bookworm Desktop |
 | Pekskärm | `--touch-events=enabled` | Utan |
 | Skärmrotation | `lcd_rotate` i config.txt | `display_rotate` eller HDMI-inställningar |
-| Video (1080p) | Laggar (mjukvarudekodning) | Fungerar (VA-API, hardware-decoding) |
+| Video (1080p) | Laggar (mjukvarudekodning) | Laggar (se nedan) |
 | `gpu_mem` | 128 | **256** |
-| Vaapi-flaggor | Ingen effekt | Aktiva |
 
 `install.sh` detekterar automatiskt RPi 4B och sätter rätt flaggor och
 GPU-minne. Det frågar också om pekskärm — svara **n** för HDMI-setup.
@@ -81,6 +80,49 @@ Vanliga värden för `hdmi_mode` (med `hdmi_group=2`):
 
 ---
 
+## Videouppspelning
+
+På RPi 4B finns en V4L2-dekoder (`bcm2835-codec-decode` på
+`/dev/video10`). Chromium på Trixie stöder den via flaggor, men
+kombinationen **1 GB RAM + 1440p-compositing + HW-dekod** är instabil
+— GPU-processen kraschar återkommande (flera crashdumps per minut) och
+videorna flimrar. Sekventiell uppspelning med mjukvarudekod är därför
+default — videorna laggar men kraschar inte.
+
+Om du har en RPi 4B med **2+ GB RAM** eller en **skärm på 1080p eller
+lägre**, kan du prova att aktivera V4L2-dekodern:
+
+```bash
+sudo sh -c 'cat > /etc/chromium.d/10-hwdecode' <<EOF
+--enable-features=AcceleratedVideoDecodeLinuxGL
+--ignore-gpu-blocklist
+--use-gl=egl
+EOF
+pkill -x chromium
+```
+
+Verifiera att dekodern öppnas (medan en video spelar):
+```bash
+fuser /dev/video10 /dev/video11 /dev/video12 /dev/video18
+# Ska visa en PID på /dev/video10
+```
+
+Om `fuser` visar PID i några sekunder och sedan tomt = GPU-processen
+har kraschat. Backa ut flaggorna igen:
+```bash
+sudo rm /etc/chromium.d/10-hwdecode
+pkill -x chromium
+```
+
+### Tips: håll skärmupplösningen ≤ videons upplösning
+
+Video som upscalas i realtid (1080p → 1440p/4K) kostar extra på
+V3D-GPU:n. Använd skärmens native-upplösning och se till att videorna
+i mediebiblioteket är ≤ den upplösningen. H.264 main/high profile
+@ 1920×1080 är max som V4L2-dekodern stöder.
+
+---
+
 ## Byta skärm-URL efteråt
 
 ```bash
@@ -97,9 +139,11 @@ sudo reboot
 DISPLAY=:0 /usr/local/bin/skarmar-kiosk-launch &
 ```
 
-**Kontrollera att VA-API används:**
+**Kontrollera att hårdvarudekodning används:**
 Öppna `chrome://gpu` i adressfältet och sök efter
-`Video Decode: Hardware accelerated`.
+`Video Decode: Hardware accelerated`. På RPi 4B är statusen oftast
+`enabled`, men dekodern öppnas inte per automatik — se avsnittet
+"Videouppspelning" nedan.
 
 **Fel upplösning:**
 ```bash
