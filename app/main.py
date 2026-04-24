@@ -48,6 +48,10 @@ app.include_router(admin_router)
 app.include_router(edit_router)
 app.include_router(kiosk_router)
 
+if os.getenv("DEV_SEED", "").lower() in ("1", "true", "yes"):
+    from app.routes.dev_cal import router as dev_cal_router
+    app.include_router(dev_cal_router)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
 

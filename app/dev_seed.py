@@ -14,6 +14,7 @@ from app.models import (
     BrandColor,
     Channel,
     ChannelLayoutAssignment,
+    IcsCache,
     Layout,
     LayoutZone,
     MediaFile,
@@ -21,6 +22,7 @@ from app.models import (
     View,
     Widget,
 )
+from app.routes.dev_cal import DEV_CAL_URL, generate_ics
 
 log = logging.getLogger(__name__)
 
@@ -210,6 +212,16 @@ def seed() -> None:
             "font_size": "1.8cqh", "text_color": "#ffffff", "text_align": "left",
         })
 
+        # ICS-kalenderwidgets
+        _ics_cfg = {"ics_url": DEV_CAL_URL, "timezone": "Europe/Stockholm"}
+        w_ics_list = _widget("Kalender – lista", "ics_list", {
+            **_ics_cfg, "days_ahead": 14, "show_location": True,
+            "group_by_day": True, "show_time": True,
+        })
+        w_ics_week = _widget("Kalender – vecka", "ics_week", {**_ics_cfg})
+        w_ics_month = _widget("Kalender – månad", "ics_month", {**_ics_cfg})
+        w_ics_schedule = _widget("Kalender – schema", "ics_schedule", {**_ics_cfg})
+
         # Etiketter (overlay-text i varje vy)
         lbl_clock_td  = _label("Klocka – tid+datum")
         lbl_clock_t   = _label("Klocka – enbart tid (sekunder dolda)")
@@ -223,20 +235,32 @@ def seed() -> None:
         lbl_color_gd  = _label("Färgblock – gradient guld→blå")
         lbl_image     = _label("Bildwidget – contain, hörnradius 12px")
         lbl_image_bb  = _label("Bildwidget – blåbär, cover")
-        lbl_slideshow = _label("Bildspel – slide-transition, 5s/bild")
-        lbl_md        = _label("Markdown-widget")
+        lbl_slideshow   = _label("Bildspel – slide-transition, 5s/bild")
+        lbl_md          = _label("Markdown-widget")
+        lbl_ics_list    = _label("Kalender – lista (14 dagar)")
+        lbl_ics_week    = _label("Kalender – veckoöversikt")
+        lbl_ics_month   = _label("Kalender – månadsvy")
+        lbl_ics_schedule = _label("Kalender – dagens schema")
 
         all_widgets = [
             w_clock_td, w_clock_t, w_clock_12h, w_clock_day,
             w_text_normal, w_text_styled, w_text_italic,
             w_color_solid, w_color_gradient, w_color_gold,
             w_image, w_image_blabar, w_slideshow, w_md,
+            w_ics_list, w_ics_week, w_ics_month, w_ics_schedule,
             lbl_clock_td, lbl_clock_t, lbl_clock_12h, lbl_clock_day,
             lbl_text_n, lbl_text_s, lbl_text_i,
             lbl_color_sol, lbl_color_gr, lbl_color_gd,
             lbl_image, lbl_image_bb, lbl_slideshow, lbl_md,
+            lbl_ics_list, lbl_ics_week, lbl_ics_month, lbl_ics_schedule,
         ]
         db.add_all(all_widgets)
+        db.flush()
+
+        # ── IcsCache – förpopulera med dagens kalenderdata ────────────────────
+        _ics_raw = generate_ics()
+        for _w in [w_ics_list, w_ics_week, w_ics_month, w_ics_schedule]:
+            db.add(IcsCache(widget_id=_w.id, source_url=DEV_CAL_URL, raw_ics=_ics_raw))
         db.flush()
 
         # ── Kanaler ───────────────────────────────────────────────────────────
@@ -349,6 +373,18 @@ def seed() -> None:
                      {"widget_id": w_text_normal.id,  "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
                      {"widget_id": lbl_text_n.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
+            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=3,
+                 name="Kalender lista", enabled=True, duration_seconds=15,
+                 transition="fade",
+                 layout_json=wl1(w_ics_list, lbl_ics_list)),
+            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=4,
+                 name="Kalender vecka", enabled=True, duration_seconds=15,
+                 transition="slide", transition_direction="left",
+                 layout_json=wl1(w_ics_week, lbl_ics_week)),
+            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=5,
+                 name="Kalender månad", enabled=True, duration_seconds=15,
+                 transition="slide", transition_direction="left",
+                 layout_json=wl1(w_ics_month, lbl_ics_month)),
         ]
 
         # ── Vyer – huvud+sidfält (slide up, 12 s) ────────────────────────────
@@ -402,6 +438,14 @@ def seed() -> None:
             View(channel_id=ch_port.id, zone_id=z_port_main.id, position=4,
                  name="Markdown", enabled=True, transition="none",
                  layout_json=wl1(w_md, lbl_md)),
+            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=5,
+                 name="Kalender schema", enabled=True, duration_seconds=15,
+                 transition="fade",
+                 layout_json=wl1(w_ics_schedule, lbl_ics_schedule)),
+            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=6,
+                 name="Kalender lista", enabled=True, duration_seconds=15,
+                 transition="slide", transition_direction="up",
+                 layout_json=wl1(w_ics_list, lbl_ics_list)),
         ]
 
         all_views = (views_split_left + views_split_right + views_full
@@ -430,6 +474,6 @@ def seed() -> None:
     views_n = len(all_views)
     log.warning(
         "DEV_SEED klar: 2 kanaler, 2 skärmar (/s/landscape-test, /s/portrait-test), "
-        "%d widgets, %d vyer, 3 mediafiler, 8 varumärkesfärger",
+        "%d widgets, %d vyer, 3 mediafiler, ICS-kalender på /dev-cal.ics",
         len(all_widgets), views_n,
     )
