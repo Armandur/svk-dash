@@ -276,20 +276,24 @@ def seed() -> None:
         db.flush()
 
         # ── Layout-tilldelningar (med transitions) ────────────────────────────
-        # Landskap: 60/40-split är primär, fullskärm roterar in efter 25 s
+        # duration_seconds = summan av alla vyers duration i den längsta zonen,
+        # så att alla vyer hinner visas minst en gång per layoutvarv.
+        # split: z_split_left 12+10+10+20+12+15+15 = 94 s
+        # full:  z_full_main  10+10+10+15+15+15    = 75 s
+        # bar:   z_bar_main   18+12+15+15          = 60 s
         a_split = ChannelLayoutAssignment(
             channel_id=ch_land.id, layout_id=l_land_split.id,
-            priority=0, duration_seconds=25,
+            priority=0, duration_seconds=94,
             transition="slide", transition_direction="left",
         )
         a_full = ChannelLayoutAssignment(
             channel_id=ch_land.id, layout_id=l_land_full.id,
-            priority=1, duration_seconds=20,
+            priority=1, duration_seconds=75,
             transition="fade",
         )
         a_bar = ChannelLayoutAssignment(
             channel_id=ch_land.id, layout_id=l_land_bar.id,
-            priority=2, duration_seconds=20,
+            priority=2, duration_seconds=60,
             transition="slide", transition_direction="right",
         )
         a_port = ChannelLayoutAssignment(
