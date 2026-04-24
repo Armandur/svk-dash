@@ -55,10 +55,10 @@ def _label(text: str) -> Widget:
 
 
 def _lbl_row(wid: Widget, label: Widget) -> list[dict]:
-    """Placera widget fullskärm (z=0) + etikett i nederkanten (z=10)."""
+    """Placera widget fullskärm (z_index=0) + etikett i sista raden (z_index=10)."""
     return [
-        {"widget_id": wid.id,   "x": 0, "y": 0,  "w": 100, "h": 100, "z": 0},
-        {"widget_id": label.id, "x": 0, "y": 88, "w": 100, "h": 12,  "z": 10},
+        {"widget_id": wid.id,   "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+        {"widget_id": label.id, "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
     ]
 
 
@@ -153,7 +153,7 @@ def seed() -> None:
             "text_color": "#ffffff", "text_align": "center",
         })
         w_text_styled = _widget("Text – fet+versaler+spatiering", "text", {
-            "text": "Svenska kyrkan", "font_size": "5cqh",
+            "text": "Välkommen hit", "font_size": "5cqh",
             "text_color": "#c8a85a", "text_align": "center",
             "bold": True, "uppercase": True, "letter_spacing": "0.2em",
         })
@@ -245,8 +245,8 @@ def seed() -> None:
         db.flush()
 
         # ── Skärmar ───────────────────────────────────────────────────────────
-        s1 = Screen(name="Skärm landskap", slug="first",  channel_id=ch_land.id)
-        s2 = Screen(name="Skärm porträtt", slug="second", channel_id=ch_port.id)
+        s1 = Screen(name="Skärm landskap", slug="landscape-test", channel_id=ch_land.id)
+        s2 = Screen(name="Skärm porträtt", slug="portrait-test",  channel_id=ch_port.id)
         db.add_all([s1, s2])
         db.flush()
 
@@ -315,16 +315,16 @@ def seed() -> None:
             View(channel_id=ch_land.id, zone_id=z_split_right.id, position=1,
                  name="Text versaler", enabled=True,
                  layout_json={"widgets": [
-                     {"widget_id": w_color_solid.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_text_styled.id, "x": 0, "y": 35, "w": 100, "h": 30, "z": 1},
-                     {"widget_id": lbl_text_s.id,    "x": 0, "y": 88, "w": 100, "h": 12, "z": 10},
+                     {"widget_id": w_color_solid.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_text_styled.id, "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
+                     {"widget_id": lbl_text_s.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
             View(channel_id=ch_land.id, zone_id=z_split_right.id, position=2,
                  name="Text kursiv", enabled=True,
                  layout_json={"widgets": [
-                     {"widget_id": w_color_gold.id,  "x": 0, "y": 0, "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_text_italic.id, "x": 0, "y": 35, "w": 100, "h": 30, "z": 1},
-                     {"widget_id": lbl_text_i.id,    "x": 0, "y": 88, "w": 100, "h": 12, "z": 10},
+                     {"widget_id": w_color_gold.id,  "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_text_italic.id, "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
+                     {"widget_id": lbl_text_i.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
         ]
 
@@ -337,16 +337,16 @@ def seed() -> None:
                  name="Klocka dag+tid", enabled=True,
                  transition="slide", transition_direction="up",
                  layout_json={"widgets": [
-                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_clock_day.id,      "x": 0, "y": 20, "w": 100, "h": 60, "z": 1},
-                     {"widget_id": lbl_clock_day.id,    "x": 0, "y": 88, "w": 100, "h": 12, "z": 10},
+                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_clock_day.id,      "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
+                     {"widget_id": lbl_clock_day.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
             View(channel_id=ch_land.id, zone_id=z_full_main.id, position=2,
                  name="Text normal", enabled=True, transition="none",
                  layout_json={"widgets": [
-                     {"widget_id": w_color_solid.id,  "x": 0, "y": 0,  "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_text_normal.id,  "x": 0, "y": 40, "w": 100, "h": 20,  "z": 1},
-                     {"widget_id": lbl_text_n.id,     "x": 0, "y": 88, "w": 100, "h": 12,  "z": 10},
+                     {"widget_id": w_color_solid.id,  "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_text_normal.id,  "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
+                     {"widget_id": lbl_text_n.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
         ]
 
@@ -359,9 +359,9 @@ def seed() -> None:
             View(channel_id=ch_land.id, zone_id=z_bar_main.id, position=1,
                  name="Klocka tid+datum", enabled=True,
                  layout_json={"widgets": [
-                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_clock_td.id,       "x": 0, "y": 15, "w": 100, "h": 70, "z": 1},
-                     {"widget_id": lbl_clock_td.id,     "x": 0, "y": 88, "w": 100, "h": 12, "z": 10},
+                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_clock_td.id,       "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
+                     {"widget_id": lbl_clock_td.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
         ]
         # Sidfält (persistent): färgblock + centrerad text
@@ -369,8 +369,8 @@ def seed() -> None:
             View(channel_id=ch_land.id, zone_id=z_bar_side.id, position=0,
                  name="Sidfält – klocka", enabled=True,
                  layout_json={"widgets": [
-                     {"widget_id": w_color_solid.id, "x": 0, "y": 0,  "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_clock_t.id,     "x": 0, "y": 30, "w": 100, "h": 40,  "z": 1},
+                     {"widget_id": w_color_solid.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_clock_t.id,     "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
                  ]}),
         ]
 
@@ -379,22 +379,26 @@ def seed() -> None:
             View(channel_id=ch_port.id, zone_id=z_port_main.id, position=0,
                  name="Klocka tid+datum", enabled=True,
                  layout_json={"widgets": [
-                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_clock_td.id,       "x": 0, "y": 20, "w": 100, "h": 60, "z": 1},
-                     {"widget_id": lbl_clock_td.id,     "x": 0, "y": 88, "w": 100, "h": 12, "z": 10},
+                     {"widget_id": w_color_gradient.id, "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_clock_td.id,       "x": 0, "y": 2, "w": 12, "h": 5, "z_index": 1},
+                     {"widget_id": lbl_clock_td.id,     "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
             View(channel_id=ch_port.id, zone_id=z_port_main.id, position=1,
                  name="Bild tall (contain)", enabled=True, transition="fade",
                  layout_json=wl1(w_image, lbl_image)),
             View(channel_id=ch_port.id, zone_id=z_port_main.id, position=2,
+                 name="Bildspel", enabled=True, duration_seconds=20,
+                 transition="slide", transition_direction="up",
+                 layout_json=wl1(w_slideshow, lbl_slideshow)),
+            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=3,
                  name="Text versaler", enabled=True,
                  transition="slide", transition_direction="left",
                  layout_json={"widgets": [
-                     {"widget_id": w_color_gold.id,  "x": 0, "y": 0,  "w": 100, "h": 100, "z": 0},
-                     {"widget_id": w_text_styled.id, "x": 0, "y": 40, "w": 100, "h": 20,  "z": 1},
-                     {"widget_id": lbl_text_s.id,    "x": 0, "y": 88, "w": 100, "h": 12,  "z": 10},
+                     {"widget_id": w_color_gold.id,  "x": 0, "y": 0, "w": 12, "h": 9, "z_index": 0},
+                     {"widget_id": w_text_styled.id, "x": 0, "y": 3, "w": 12, "h": 3, "z_index": 1},
+                     {"widget_id": lbl_text_s.id,    "x": 0, "y": 8, "w": 12, "h": 1, "z_index": 10},
                  ]}),
-            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=3,
+            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=4,
                  name="Markdown", enabled=True, transition="none",
                  layout_json=wl1(w_md, lbl_md)),
         ]
@@ -419,7 +423,7 @@ def seed() -> None:
 
     views_n = len(all_views)
     log.warning(
-        "DEV_SEED klar: 2 kanaler, 2 skärmar (/s/first, /s/second), "
+        "DEV_SEED klar: 2 kanaler, 2 skärmar (/s/landscape-test, /s/portrait-test), "
         "%d widgets, %d vyer, 3 mediafiler, 8 varumärkesfärger",
         len(all_widgets), views_n,
     )
