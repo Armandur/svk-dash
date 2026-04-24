@@ -5,6 +5,30 @@ Testat på **Raspberry Pi 3B** med officiell **RPi Touch Display** och
 
 ---
 
+## Känd begränsning: video på RPi 3B
+
+RPi 3B (32-bit ARM, VideoCore IV) saknar VA-API-stöd i modern Chromium.
+**Video i 1080p laggar** även med `gpu_mem=128` och Vaapi-flaggor — det
+faller alltid tillbaka till mjukvarudekodning på Cortex-A53.
+
+Fungerar bra på RPi 3B:
+- Klocka, kalender, markdown, bilder, bildspel
+
+Funkar inte smidigt:
+- MP4-video i 1080p (lagg)
+- MP4-video i 720p (möjligt men känsligt för bitrate)
+
+För videotung kiosk: använd **RPi 4 eller 5** som har fungerande
+hardware-decoding i Chromium.
+
+Workaround om du ändå vill köra video: konvertera till 480p på servern:
+```bash
+ffmpeg -i original.mp4 -vf scale=854:480 -c:v libx264 -preset fast -crf 28 -an output_480p.mp4
+```
+RPi Touch Display är 800×480 native — ingen synlig kvalitetsförlust.
+
+---
+
 ## Steg 1 – Flasha OS
 
 Använd **Raspberry Pi Imager** och välj:
@@ -15,14 +39,14 @@ Klicka på kugghjulet och konfigurera:
 - Hostname (t.ex. `kiosk-kyrkan`)
 - Aktivera SSH
 - Användare: `pi` + lösenord
-- Wifi om du inte använder ethernet (Ethernet rekommenderas)
+- Ethernet rekommenderas framför WiFi
 
 ---
 
 ## Steg 2 – Skapa en skärm i admin
 
 Gå till `http://192.168.1.42:8000/admin/screens` och skapa en ny skärm.
-Notera slugen (t.ex. `kyrkan`). URL:en du ska använda är:
+Notera slugen (t.ex. `kyrkan`). Kiosk-URL:en blir:
 
 ```
 http://192.168.1.42:8000/s/kyrkan
@@ -32,21 +56,13 @@ http://192.168.1.42:8000/s/kyrkan
 
 ## Steg 3 – Installera kiosk
 
-SSH:a in till Pi:n och kör:
+Kopiera `install.sh` till Pi:n och kör:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/.../install.sh | bash
-# — eller kopiera filen manuellt och kör:
+scp install.sh pi@<pi-ip>:~/
+ssh pi@<pi-ip>
 bash install.sh
-```
-
-Scriptet frågar efter `SCREEN_URL`. Ange t.ex.:
-```
-http://192.168.1.42:8000/s/kyrkan
-```
-
-Sedan:
-```bash
+# Ange: http://192.168.1.42:8000/s/kyrkan
 sudo reboot
 ```
 
@@ -55,14 +71,14 @@ sudo reboot
 ## Vad scriptet gör
 
 1. Sparar `SCREEN_URL` i `/etc/skarmar/kiosk.env`
-2. Stänger av Wayland (tvingar X11)
-3. Aktiverar autologin till skrivbordet
+2. Lägger `pi` i autologin-gruppen och skriver en ren `lightdm.conf`
+3. Konfigurerar getty-autologin på tty1 + `startx` (kringgår lightdm)
 4. Installerar `chromium-browser` och `unclutter` vid behov
-5. Skriver `~/.config/lxsession/LXDE-pi/autostart`
-6. Skriver `/usr/local/bin/skarmar-kiosk-launch` som:
-   - Väntar på att servern (`192.168.1.42`) svarar på ping (max 60s)
-   - Försöker synka NTP men hoppar över om det tar för lång tid
-   - Startar Chromium i kiosk-läge med touch- och stabilitetsflaggor
+5. Skriver `/usr/local/bin/skarmar-kiosk-launch` som:
+   - Väntar på att servern svarar på ping (max 60s)
+   - Försöker synka NTP, hoppar över om det tar för lång tid
+   - Startar Chromium med kiosk-, touch- och stabilitetsflaggor
+6. Skriver Chromium managed policy: `TranslateEnabled=false`
 
 ---
 
@@ -77,14 +93,6 @@ lcd_rotate=2
 
 `lcd_rotate=2` roterar både skärmbild och pekinmatning 180°.
 Starta om efter ändringen.
-
-För 90°/270°-rotation (stående läge):
-```ini
-display_rotate=1   # 90° medurs
-display_rotate=3   # 270° medurs (= 90° moturs)
-```
-Obs: `display_rotate` roterar inte pekinmatning automatiskt — kontakta
-mig om du behöver det.
 
 ---
 
@@ -103,19 +111,20 @@ Eller kör `install.sh` igen.
 
 **Svart skärm / startar inte:**
 ```bash
-# Testa manuellt utan kiosk-läge:
-source /etc/skarmar/kiosk.env
-chromium-browser "$SCREEN_URL"
+DISPLAY=:0 /usr/local/bin/skarmar-kiosk-launch &
 ```
 
 **Touch fungerar inte:**
 Kontrollera att `--touch-events=enabled` finns i `/usr/local/bin/skarmar-kiosk-launch`.
 
 **Klocka visar fel tid:**
-RPi 3B saknar RTC. Tid synkas via NTP när nätverket är uppe.
-Servern på `192.168.1.42` behöver inte ha internet — men Pi:n behöver
-nå en NTP-server (t.ex. routerns inbyggda) för korrekt tid.
+RPi 3B saknar RTC. Tid synkas via NTP vid uppstart. Pi:n behöver nå
+routerns inbyggda NTP-server — inte internet.
 
-**Kiosk-fönster stängs / kraschar:**
-Chromium-flaggan `--disable-dev-shm-usage` är satt för att förhindra
-krascher på RPi 3B (1 GB RAM, liten `/dev/shm`).
+**Kiosk-fönster kraschar:**
+`--disable-dev-shm-usage` är satt för att förhindra krascher på RPi 3B
+(1 GB RAM, liten `/dev/shm`).
+
+**Chromium visar translate-bar:**
+Policy-filen ska finnas: `cat /etc/chromium/policies/managed/kiosk.json`
+Innehåll: `{"TranslateEnabled": false}`
