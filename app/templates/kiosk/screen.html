@@ -97,9 +97,9 @@
     .ss-slide { position:absolute; inset:0; }
     .ss-slide img { width:100%; height:100%; display:block; }
     .ss-caption { position:absolute; bottom:0; left:0; right:0; padding:0.4em 0.75em; background:rgba(0,0,0,0.55); color:#fff; font-size:0.55em; text-align:center; pointer-events:none; }
-    .ss-slide:not(.ss-active) { display:none; }
-    .widget-slideshow.ss-fade .ss-slide { display:block; opacity:0; transition:opacity 0.8s; }
-    .widget-slideshow.ss-fade .ss-slide.ss-active { opacity:1; }
+    .widget-slideshow > .ss-slide:not(.ss-active) { display:none; }
+    .widget-slideshow.ss-fade > .ss-slide { display:block; opacity:0; transition:opacity 0.8s; }
+    .widget-slideshow.ss-fade > .ss-slide.ss-active { opacity:1; }
 
     /* slideshow — animerade övergångar (entering/leaving hanteras av JS) */
     .ss-slide.ss-entering, .ss-slide.ss-leaving { display:block !important; }
