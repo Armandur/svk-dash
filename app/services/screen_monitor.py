@@ -8,6 +8,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.models import Screen
+from app.sse import connection_count as _conn_count
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,52 @@ async def check_screens() -> None:
 
             offline_since = screen.last_seen_at.strftime("%Y-%m-%d %H:%M UTC")
             _send_alert_email(screen, offline_since)
+
+            from app.models import Notification
+            notif = Notification(
+                screen_id=screen.id,
+                screen_name=screen.name,
+                kind="screen_offline",
+                message=f'Skärmen "{screen.name}" (/s/{screen.slug}) har inte anslutit sedan {offline_since}.',
+            )
+            db.add(notif)
+
+            screen.alert_sent_at = now
+            db.add(screen)
+        db.commit()
+
+    # Kontrollera anslutningsantal för online-skärmar
+    with get_session() as db:
+        screens = db.exec(select(Screen)).all()
+        for screen in screens:
+            exp = screen.expected_connections
+            if exp == 0:
+                continue
+            live = _conn_count(screen.id)
+            if live == 0:
+                continue  # hanteras av offline-blocket ovan
+            if live == exp:
+                continue  # rätt antal
+            if screen.alert_sent_at is not None and screen.alert_sent_at >= cooldown:
+                continue  # inom cooldown
+
+            if live < exp:
+                msg = f'Skärmen "{screen.name}" har {live} anslutning{"" if live == 1 else "ar"}, förväntat {exp}.'
+                kind = "connection_low"
+            else:
+                msg = f'Skärmen "{screen.name}" har {live} anslutning{"" if live == 1 else "ar"}, förväntat {exp}. Kontrollera om en oväntad enhet är ansluten.'
+                kind = "connection_high"
+
+            from app.models import Notification
+
+            db.add(
+                Notification(
+                    screen_id=screen.id,
+                    screen_name=screen.name,
+                    kind=kind,
+                    message=msg,
+                )
+            )
             screen.alert_sent_at = now
             db.add(screen)
         db.commit()

@@ -21,6 +21,7 @@ class Screen(SQLModel, table=True):
     performance_mode: str = "normal"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0
+    expected_connections: int = Field(default=1)
     show_offline_banner: bool = True
     alert_sent_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -180,3 +181,13 @@ class BrandColor(SQLModel, table=True):
     color: str  # hex (#rrggbb) eller rgba(r,g,b,a)
     position: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Notification(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    screen_id: int | None = Field(default=None, foreign_key="screen.id", ondelete="SET NULL")
+    screen_name: str                          # snapshot av skärmnamnet
+    kind: str = "screen_offline"
+    message: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    seen_at: datetime | None = None

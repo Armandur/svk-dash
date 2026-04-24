@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import auth, channels, layouts, media, palette, screens, sse_control, views, widgets
+from . import auth, channels, layouts, media, notifications, palette, screens, sse_control, views, widgets
 
 router = APIRouter(prefix="/admin")
 router.include_router(auth.router)
@@ -12,3 +12,4 @@ router.include_router(media.router)
 router.include_router(layouts.router)
 router.include_router(sse_control.router)
 router.include_router(palette.router, prefix="/palette")
+router.include_router(notifications.router, prefix="/notifications")

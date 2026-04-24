@@ -74,3 +74,18 @@ def schedule_summary(value):
         return "Ogiltigt schema"
 
 templates.filters["schedule_summary"] = schedule_summary
+
+
+def _unseen_notification_count() -> int:
+    from sqlmodel import select, func
+    from app.database import get_session
+    from app.models import Notification
+    try:
+        with get_session() as db:
+            return db.exec(
+                select(func.count()).where(Notification.seen_at == None)  # noqa: E711
+            ).one()
+    except Exception:
+        return 0
+
+templates.globals["unseen_notification_count"] = _unseen_notification_count
