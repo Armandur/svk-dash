@@ -42,6 +42,10 @@ _SEED_VIDEOS = [
     ("6c54d7b48ef74eec85f029b888f5c642.mp4",  "snow.mp4"),    # porträtt
 ]
 
+_SEED_PDFS = [
+    ("5a4f48f98b5a4316a1078a17d64fe1c4.pdf", "medlem.pdf"),
+]
+
 
 def _widget(name, kind, config, **kw) -> Widget:
     return Widget(name=name, kind=kind, config_json=config,
@@ -94,6 +98,13 @@ def seed() -> None:
             size = os.path.getsize(path) if os.path.exists(path) else 0
             mf = MediaFile(filename=uuid_name, original_name=orig_name,
                            content_type="video/mp4", size_bytes=size)
+            db.add(mf)
+            media[orig_name] = mf
+        for uuid_name, orig_name in _SEED_PDFS:
+            path = os.path.join(_UPLOADS, uuid_name)
+            size = os.path.getsize(path) if os.path.exists(path) else 0
+            mf = MediaFile(filename=uuid_name, original_name=orig_name,
+                           content_type="application/pdf", size_bytes=size)
             db.add(mf)
             media[orig_name] = mf
         db.flush()
@@ -216,6 +227,9 @@ def seed() -> None:
         lbl_ics_month   = _label("Kalender – månadsvy")
         lbl_ics_schedule = _label("Kalender – dagens schema")
 
+        w_pdf_medlem = _widget("PDF – Medlemsinfo", "pdf", {"upload_path": media["medlem.pdf"].filename})
+        lbl_pdf_medlem = _label("PDF – Medlemsinfo")
+
         _vid_cfg = {"loop": True, "muted": True, "fit": "cover"}
         w_video_drone  = _widget("Video – drone",  "video", {**_vid_cfg, "upload_path": media["drone.mp4"].filename})
         w_video_murana = _widget("Video – murana", "video", {**_vid_cfg, "upload_path": media["murana.mp4"].filename})
@@ -233,12 +247,14 @@ def seed() -> None:
             w_image, w_image_blabar, w_slideshow, w_md,
             w_ics_list, w_ics_week, w_ics_month, w_ics_schedule,
             w_video_drone, w_video_murana, w_video_fagel, w_video_snow,
+            w_pdf_medlem,
             lbl_clock_td, lbl_clock_t, lbl_clock_12h, lbl_clock_day,
             lbl_text_n, lbl_text_s, lbl_text_i,
             lbl_color_sol, lbl_color_gr, lbl_color_gd,
             lbl_image, lbl_image_bb, lbl_slideshow, lbl_md,
             lbl_ics_list, lbl_ics_week, lbl_ics_month, lbl_ics_schedule,
             lbl_video_drone, lbl_video_murana, lbl_video_fagel, lbl_video_snow,
+            lbl_pdf_medlem,
         ]
         db.add_all(all_widgets)
         db.flush()
@@ -395,6 +411,10 @@ def seed() -> None:
                  name="Video fågel", enabled=True, duration_seconds=20,
                  transition="fade",
                  layout_json=wl1(w_video_fagel, lbl_video_fagel)),
+            View(channel_id=ch_media.id, zone_id=z_media.id, position=6,
+                 name="PDF Medlemsinfo", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_pdf_medlem, lbl_pdf_medlem)),
         ]
 
         # ── Vyer – kalender (8–10 s/vy) ──────────────────────────────────────
@@ -561,6 +581,6 @@ def seed() -> None:
     views_n = len(all_views)
     log.warning(
         "DEV_SEED klar: 5 kanaler (/s/klockor, /s/media, /s/kalender, /s/layout-test, /s/portratt), "
-        "%d widgets, %d vyer, 7 mediafiler, ICS-kalender på /dev-cal.ics",
+        "%d widgets, %d vyer, 8 mediafiler, ICS-kalender på /dev-cal.ics",
         len(all_widgets), views_n,
     )
