@@ -146,8 +146,11 @@ sequenceDiagram
 | `markdown` | Formaterad text, redigeras via delegerad URL |
 | `image` | Statisk bild (uppladdning eller extern URL); passning, hörnradius, bildposition |
 | `slideshow` | Roterande bilder med fade/slide/wipe/zoom; bildtexter per bild |
+| `video` | Videouppspelning från uppladdad fil eller URL; cover/contain, loop, muted |
+| `pdf` | Server-side renderad PDF som bilder, page flipping |
 | `color_block` | Enfärgad yta eller gradient (bakgrund, separator); konfigurerbar hörnradius |
 | `raw_html` | Godtycklig HTML (admin-only) |
+| `debug` | Diagnostiköverlay (skärm, vy-position, SSE-status, app-version) |
 
 ---
 
@@ -211,6 +214,10 @@ chromium-browser --kiosk --noerrdialogs --disable-infobars \
 ```
 
 **Viktigt:** Pi:er saknar RTC. Bootstrap-skriptet väntar på NTP-synkronisering innan Chromium startas, annars tolkas ICS-händelser som år 1970.
+
+Hårdvaruspecifika guider:
+- `deploy/kiosk-setup/README.md` — RPi 3B + DSI Touch Display
+- `deploy/kiosk-setup/README-rpi4.md` — RPi 4B + HDMI (inkl. videouppspelnings-begränsningar)
 
 ---
 

@@ -53,9 +53,11 @@ app/
     ics_week.py
     image.py
     markdown.py
+    pdf.py
     raw_html.py
     slideshow.py
     text.py
+    video.py           # Renderar <video>, egen kiosk-gren med data-src/preload=none
   services/
     ics_fetcher.py     # Bakgrundsjobb: hämtar ICS var 10:e min, deduplicerat
     layout_scheduler.py
@@ -253,6 +255,12 @@ Webbläsare skickar tomma fält som `""`, inte som frånvaro. FastAPI kan inte p
 ### Alembic + SQLite NOT NULL
 SQLite tillåter inte `ALTER TABLE ADD COLUMN ... NOT NULL` utan `server_default`. Lägg alltid till `server_default='...'` i migrationer för icke-nullbara kolumner på befintliga tabeller.
 
+### Video-widget på RPi 4B
+Kiosk-grenen i `video.py` renderar `<video preload="none" data-src="...">` och `kiosk.js` sätter `src` först när vyn aktiveras. Syftet: förhindra att flera videor tävlar om V4L2-dekodern samtidigt. Se `deploy/kiosk-setup/README-rpi4.md` för varför hårdvarudekod (hwaccel) inte aktiverats default — det kraschar GPU-processen på 1 GB Pi.
+
+### context["version"] är rendering-läge, inte app-version
+`kiosk.py` sätter `context["version"] = "kiosk"` och `context["app_version"] = _VERSION`. `admin/views.py` sätter `"admin-preview"`. Widgets som vill skilja på läge (`video.py`) kollar `version`. Widgets som vill visa app-version (`debug.py`) läser `app_version`. Hade tidigare en bugg där `version` användes för båda → kiosk-grenen i `video.py` kördes aldrig och videor blev osynliga.
+
 ## Statusindikatorer (admin-UI)
 
 Konsekvent prickdesign på layouter och vyer:
@@ -328,7 +336,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
 ```
 
 - `config`: dict från `Widget.config_json` eller inline config i `View.layout_json`
-- `context`: `{"widget_id": int, "version": "kiosk"|"admin-preview"}` — använd `widget_id` för DB-uppslag (t.ex. ICS-cache), kolla version om renderingen skiljer sig
+- `context`: `{"widget_id": int, "version": "kiosk"|"admin-preview", "app_version": "dev"}` — `version` anger rendering-läge (använd i widgets som vill skilja på kiosk/preview, t.ex. `video.py`). `app_version` är applikationens versionssträng, visas av `debug`-widgeten. **Blanda inte ihop dem** — `kiosk.py` sätter båda explicit.
 - Returnera alltid en självständig HTML-sträng utan `<script>`-taggar (kiosk tillåter inte det)
 - Yttersta elementet ska ha klassen `widget-<kind>` — används för CSS-scoping i kiosk
 - `build_common_style(config)` bygger inline CSS från de gemensamma styfälten; applicera på yttersta div

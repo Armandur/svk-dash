@@ -92,6 +92,17 @@
 - Radera bild med varning om den är i bruk
 - Bildväljare (modal) med mappnavigering i widget_detail och view_detail
 - Uppladdade filer registreras i DB (`MediaFile`) med originalnamn
+- Stöd för PDF (server-side renderad som bildsekvens) och video (mp4)
+- Auto-genererade video-thumbnails och PDF-sidor
+
+### Video- och PDF-widgetar
+- `video`-widget: mp4-uppspelning med cover/contain-passning, loop, muted; kiosk-gren använder `data-src`/`preload=none` för att undvika parallell GPU-dekodning
+- `pdf`-widget: server-side konvertering till bilder, page flipping i kiosk
+
+### Kiosk-bootstrap för Raspberry Pi
+- `deploy/kiosk-setup/install.sh` — idempotent setup-skript (NTP-väntan, autologin via getty, Chromium kiosk-flaggor, Caddy-reverse-proxy-stöd, managed policy mot Translate)
+- `deploy/kiosk-setup/README.md` — RPi 3B + DSI Touch Display
+- `deploy/kiosk-setup/README-rpi4.md` — RPi 4B + HDMI med dokumenterade begränsningar för hårdvarudekod av video
 
 ---
 
@@ -101,9 +112,6 @@
 - Live-status på admin-dashboard: grön/gul/röd indikator baserad på heartbeat-ålder
 - Larm vid död skärm: notis via konfigurerbar kanal (SMTP, webhook) när heartbeat > 15 min
 - `alert_sent_at` på `Screen` för att förhindra larm-spam
-
-### Kiosk-bootstrap för Raspberry Pi
-Setup-skript som konfigurerar RPi i kiosk-läge: Chromium helskärm, autostart, roterande skärm, NTP-väntan, nätverkskonfiguration. Läggs i `deploy/kiosk-setup/`.
 
 ### Skärm-hårdvarukontroll
 - HDMI-CEC via SSE-event (`display_power`) — stäng av skärmen nattetid
