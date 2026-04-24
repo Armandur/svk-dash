@@ -184,7 +184,8 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
         context = {
             "screen_name": screen.name,
             "screen_slug": screen.slug,
-            "version": _VERSION,
+            "version": "kiosk",
+            "app_version": _VERSION,
         }
 
         # Hämta alla tilldelningar för skärmens kanal
@@ -331,7 +332,7 @@ async def widget_data(request: Request, widget_id: int):
         widget = db.get(Widget, widget_id)
         if not widget:
             return HTMLResponse("", status_code=404)
-        ctx = {"widget_id": widget.id, "version": _VERSION}
+        ctx = {"widget_id": widget.id, "version": "kiosk", "app_version": _VERSION}
         inner = render_widget(widget.kind, widget.config_json or {}, ctx)
     return HTMLResponse(inner)
 

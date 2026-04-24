@@ -49,6 +49,7 @@
   }
 
   function startActiveLayoutZones() {
+    pauseVideosIn(document);
     if (!KIOSK_LAYOUTS || !KIOSK_LAYOUTS[layoutState.currentIdx]) return;
     const layout = KIOSK_LAYOUTS[layoutState.currentIdx];
 
@@ -62,13 +63,17 @@
           lastActiveKey: ''
         };
         scheduleZone(zone.id);
+      } else {
+        // Persistent zon: spela upp videor i den aktiva vyn
+        const panel = document.getElementById('layout-panel-' + layoutState.currentIdx);
+        if (panel) {
+          const activeView = panel.querySelector('.zone[data-zone-id="' + zone.id + '"] .view.active');
+          if (activeView) playVideosIn(activeView);
+        }
       }
     });
 
-    // Pausa alla videos; showZoneView startar dem när vyn visas
-    document.querySelectorAll('.zone-view video').forEach(function(v) {
-      v.pause(); v.currentTime = 0;
-    });
+    // Pausa/rensa alla videos; showZoneView startar dem när vyn visas
   }
 
   function stopAllZones() {
@@ -99,8 +104,9 @@
     
     if (!prevPanel || !nextPanel) return;
 
-    // Stoppa gamla zon-rotationer
+    // Stoppa gamla zon-rotationer och rensa GPU-resurser för videor
     stopAllZones();
+    pauseVideosIn(document);
     clearTimeout(layoutState.timer);
 
     const transition = prevLayout.transition || 'fade';
@@ -186,10 +192,24 @@
   // --- Zon-logik ---
 
   function pauseVideosIn(el) {
-    el.querySelectorAll('video').forEach(function(v) { v.pause(); v.currentTime = 0; });
+    el.querySelectorAll('video').forEach(function(v) {
+      v.pause();
+      v.style.display = 'none';
+      if (v.dataset.src) {
+        v.src = '';
+        v.removeAttribute('src');
+        try { v.load(); } catch(e) { }
+      }
+    });
   }
   function playVideosIn(el) {
-    el.querySelectorAll('video').forEach(function(v) { v.currentTime = 0; v.play().catch(function(){}); });
+    el.querySelectorAll('video').forEach(function(v) {
+      if (v.dataset.src) {
+        v.src = v.dataset.src;
+        v.style.display = 'block';
+      }
+      v.play().catch(function(){});
+    });
   }
 
   function showZoneView(zoneId, idx) {
@@ -309,7 +329,11 @@
           if (el) { el.classList.remove('active'); el.style.opacity = '0'; }
         });
         const firstEl = document.getElementById('z' + zoneId + '-v' + activeViews[0].position);
-        if (firstEl) { firstEl.classList.add('active'); firstEl.style.opacity = '1'; }
+        if (firstEl) {
+          firstEl.classList.add('active');
+          firstEl.style.opacity = '1';
+          playVideosIn(firstEl);
+        }
       } else {
         showZoneView(zoneId, 0);
       }

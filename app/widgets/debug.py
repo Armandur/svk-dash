@@ -6,7 +6,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     screen_slug = context.get("screen_slug", "–")
     view_position = context.get("view_position", "–")
     view_count = context.get("view_count", "–")
-    version = context.get("version", "dev")
+    version = context.get("app_version") or context.get("version", "dev")
 
     return (
         '<div class="widget-debug fixed bottom-2 right-2 bg-black/70 text-white text-xs font-mono'

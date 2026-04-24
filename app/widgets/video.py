@@ -25,12 +25,25 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     muted_attr = " muted" if muted else ""
     controls_attr = " controls" if controls else ""
 
-    # Kiosk-läget kräver autoplay, playsinline, preload="auto"
-    return (
-        f'<div class="widget-video" style="border-radius:{radius}px; overflow:hidden;">'
-        f'<video autoplay{muted_attr}{loop_attr}{controls_attr} playsinline preload="auto" '
-        f'style="width:100%;height:100%;object-fit:{fit};display:block;">'
-        f'<source src="{src}">'
-        f"</video>"
-        f"</div>"
-    )
+    is_kiosk = context.get("version") == "kiosk"
+    
+    if is_kiosk:
+        # GPU-optimering för Raspberry Pi: ladda inte förrän videon faktiskt visas
+        return (
+            f'<div class="widget-video" style="border-radius:{radius}px; overflow:hidden;">'
+            f'<video{muted_attr}{loop_attr}{controls_attr} playsinline preload="none" '
+            f'data-src="{src}" '
+            f'style="width:100%;height:100%;object-fit:{fit};display:none;">'
+            f"</video>"
+            f"</div>"
+        )
+    else:
+        # Normal rendering för admin-preview
+        return (
+            f'<div class="widget-video" style="border-radius:{radius}px; overflow:hidden;">'
+            f'<video{muted_attr}{loop_attr}{controls_attr} playsinline preload="metadata" '
+            f'src="{src}" '
+            f'style="width:100%;height:100%;object-fit:{fit};display:block;">'
+            f"</video>"
+            f"</div>"
+        )
