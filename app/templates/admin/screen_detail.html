@@ -6,95 +6,62 @@
   <h1 class="text-2xl font-bold">{{ screen.name }}</h1>
   <a href="/s/{{ screen.slug }}" target="_blank"
      class="text-sm text-gray-400 hover:text-gray-700"><code class="bg-gray-100 px-2 py-0.5 rounded">/s/{{ screen.slug }}</code> ↗</a>
+  <a href="/admin/screens/{{ screen.id }}/edit"
+     class="ml-auto bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Redigera</a>
 </div>
-
-{% if error %}
-<p class="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ error }}</p>
-{% endif %}
 
 <div class="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
 
-  <!-- Vänster: Inställningar -->
+  <!-- Diagnostik -->
   <div class="bg-white rounded-lg shadow p-6">
-    <h2 class="font-semibold text-lg mb-4">Skärminställningar</h2>
-    <form method="post" action="/admin/screens/{{ screen.id }}/edit" class="space-y-4">
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
-        <input type="text" name="name" value="{{ screen.name }}" required
-               class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
-        <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+"
-               class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      </div>
-      
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Prestandaläge</label>
-        <select name="performance_mode" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="low" {% if screen.performance_mode == 'low' %}selected{% endif %}>Låg (RPi 3/äldre)</option>
-          <option value="normal" {% if screen.performance_mode == 'normal' %}selected{% endif %}>Normal (RPi 4/5)</option>
-          <option value="high" {% if screen.performance_mode == 'high' %}selected{% endif %}>Hög (Kraftfull PC)</option>
-        </select>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <input type="checkbox" name="show_offline_banner" id="show_offline_banner" value="1"
-               {% if screen.show_offline_banner %}checked{% endif %}
-               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-        <label for="show_offline_banner" class="text-sm text-gray-700 cursor-pointer">Visa banner vid tappad anslutning</label>
-      </div>
-
-      <hr class="my-4 border-gray-100">
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Kopplad kanal</label>
-        <select name="channel_id" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
-          <option value="">Ingen kanal</option>
-          {% for c in channels %}
-          <option value="{{ c.id }}" {% if screen.channel_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-        {% if current_channel %}
-        <a href="/admin/channels/{{ current_channel.id }}" class="text-sm text-blue-600 hover:underline inline-flex items-center gap-1">
-          Öppna kanal: {{ current_channel.name }}
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
+    <h2 class="font-semibold text-lg mb-4">Diagnostik</h2>
+    <div class="space-y-1">
+      <div class="flex items-center justify-between py-2 border-b border-gray-50">
+        <span class="text-sm text-gray-500">Status</span>
+        {% if screen.last_seen_at and (now_local() - screen.last_seen_at.replace(tzinfo=None)).total_seconds() < 90 %}
+        <span class="flex items-center gap-1.5 text-green-600 text-sm font-medium">
+          <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Online
+        </span>
+        {% else %}
+        <span class="text-red-500 text-sm font-medium">Offline</span>
         {% endif %}
       </div>
-
-      <div class="pt-2">
-        <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2.5 rounded font-medium hover:bg-blue-700 transition-colors shadow-sm">Spara alla ändringar</button>
+      <div class="flex items-center justify-between py-2 border-b border-gray-50">
+        <span class="text-sm text-gray-500">Senast sedd</span>
+        <span class="text-sm text-gray-700">{{ screen.last_seen_at.strftime('%Y-%m-%d %H:%M:%S') if screen.last_seen_at else 'Aldrig' }}</span>
       </div>
-    </form>
+      <div class="flex items-center justify-between py-2 border-b border-gray-50">
+        <span class="text-sm text-gray-500">Aktiva anslutningar</span>
+        <span class="text-sm text-gray-700">{{ screen.last_connection_count }} st</span>
+      </div>
+      <div class="flex items-center justify-between py-2 border-b border-gray-50">
+        <span class="text-sm text-gray-500">Prestandaläge</span>
+        <span class="text-sm text-gray-700">{{ screen.performance_mode or 'normal' }}</span>
+      </div>
+      <div class="flex items-center justify-between py-2">
+        <span class="text-sm text-gray-500">Offline-banner</span>
+        <span class="text-sm text-gray-700">{{ 'Ja' if screen.show_offline_banner else 'Nej' }}</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Höger: Diagnostik -->
+  <!-- Kanal + åtgärder -->
   <div class="space-y-6">
     <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="font-semibold text-lg mb-4">Diagnostik</h2>
-      <div class="space-y-4">
-        <div class="flex items-center justify-between py-2 border-b border-gray-50">
-          <span class="text-sm text-gray-500">Status</span>
-          {% if screen.last_seen_at and (now_local() - screen.last_seen_at.replace(tzinfo=None)).total_seconds() < 90 %}
-          <span class="flex items-center gap-1.5 text-green-600 text-sm font-medium">
-            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Online
-          </span>
-          {% else %}
-          <span class="text-red-500 text-sm font-medium">Offline</span>
-          {% endif %}
-        </div>
-        <div class="flex items-center justify-between py-2 border-b border-gray-50">
-          <span class="text-sm text-gray-500">Senast sedd</span>
-          <span class="text-sm text-gray-700">{{ screen.last_seen_at.strftime('%Y-%m-%d %H:%M:%S') if screen.last_seen_at else 'Aldrig' }}</span>
-        </div>
-        <div class="flex items-center justify-between py-2 border-b border-gray-50">
-          <span class="text-sm text-gray-500">Aktiva anslutningar</span>
-          <span class="text-sm text-gray-700">{{ screen.last_connection_count }} st</span>
-        </div>
-      </div>
+      <h2 class="font-semibold text-lg mb-4">Kanal</h2>
+      {% if current_channel %}
+      <p class="text-sm text-gray-700 mb-3">{{ current_channel.name }}</p>
+      <a href="/admin/channels/{{ current_channel.id }}"
+         class="text-sm text-blue-600 hover:underline inline-flex items-center gap-1">
+        Öppna kanal
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+      {% else %}
+      <p class="text-sm text-gray-400">Ingen kanal kopplad.</p>
+      <a href="/admin/screens/{{ screen.id }}/edit" class="text-sm text-blue-600 hover:underline mt-2 inline-block">Koppla kanal →</a>
+      {% endif %}
     </div>
 
     <div class="bg-red-50 rounded-lg p-6 border border-red-100">

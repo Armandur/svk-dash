@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+{% block title %}Redigera {{ screen.name }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center gap-3 flex-wrap">
+  <a href="/admin/screens/{{ screen.id }}" class="text-sm text-gray-500 hover:text-gray-900">← {{ screen.name }}</a>
+  <h1 class="text-2xl font-bold">Redigera skärm</h1>
+</div>
+
+{% if error %}
+<p class="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ error }}</p>
+{% endif %}
+
+<div class="max-w-lg bg-white rounded-lg shadow p-6">
+  <form method="post" action="/admin/screens/{{ screen.id }}/edit" class="space-y-4">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+      <input type="text" name="name" value="{{ screen.name }}" required
+             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
+      <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+"
+             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <p class="text-xs text-gray-400 mt-1">Används i URL:en: /s/{{ screen.slug }}</p>
+    </div>
+
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Prestandaläge</label>
+      <select name="performance_mode" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="low" {% if screen.performance_mode == 'low' %}selected{% endif %}>Låg (RPi 3/äldre)</option>
+        <option value="normal" {% if screen.performance_mode == 'normal' or not screen.performance_mode %}selected{% endif %}>Normal (RPi 4/5)</option>
+        <option value="high" {% if screen.performance_mode == 'high' %}selected{% endif %}>Hög (Kraftfull PC)</option>
+      </select>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="show_offline_banner" id="show_offline_banner" value="1"
+             {% if screen.show_offline_banner %}checked{% endif %}
+             class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+      <label for="show_offline_banner" class="text-sm text-gray-700 cursor-pointer">Visa banner vid tappad anslutning</label>
+    </div>
+
+    <hr class="border-gray-100">
+
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Kopplad kanal</label>
+      <select name="channel_id" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+        <option value="">Ingen kanal</option>
+        {% for c in channels %}
+        <option value="{{ c.id }}" {% if screen.channel_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 shadow-sm">Spara</button>
+      <a href="/admin/screens/{{ screen.id }}" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
