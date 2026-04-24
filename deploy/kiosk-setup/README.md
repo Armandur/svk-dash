@@ -1,7 +1,16 @@
 # skarmar – Pi-kiosk bootstrap
 
-Testat på **Raspberry Pi 3B** med officiell **RPi Touch Display** och
-**Raspberry Pi OS Bookworm Desktop** (X11, inte Wayland).
+Testat på **Raspberry Pi 3B** med officiell **RPi Touch Display (800×480)**
+och **Raspberry Pi OS Bookworm Desktop** (X11, inte Wayland).
+
+> **Obs:** Denna konfiguration är specifik för RPi Touch Display via DSI.
+> För RPi med extern HDMI-skärm och utan pekskärm behöver troligen dessa
+> saker justeras:
+> - Ta bort `--touch-events=enabled` ur Chromium-flaggorna
+> - `lcd_rotate` i `/boot/firmware/config.txt` gäller bara DSI-displayen —
+>   för HDMI används `display_rotate` eller `video=` i kernel-parametrar
+> - Upplösning sätts automatiskt via HDMI EDID men kan behöva fixas med
+>   `hdmi_group` och `hdmi_mode` i `/boot/firmware/config.txt`
 
 ---
 
