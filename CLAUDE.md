@@ -32,8 +32,8 @@ app/
     admin/
       __init__.py      # Kombinerar submodulernas routers under /admin
       auth.py          # GET/POST /admin/login, POST /admin/logout
-      screens.py       # Screen CRUD, LayoutZone-inställningar, schema för
-                       # tilldelningar och vyer, zon-vyer CRUD
+      channels.py      # Channel CRUD, layout-tilldelningar, zon-/vy-CRUD per kanal
+      screens.py       # Screen CRUD, kanal-väljare, batchåtgärder
       views.py         # GET/POST /admin/views/<id> — widget-layout i vy
       widgets.py       # Widget CRUD, revisionshistorik, token-rotering
       layouts.py       # Layout CRUD, zon-editor (drag/resize)
@@ -67,7 +67,10 @@ app/
       index.html       # Dashboard (skärmlista)
       screens.html
       screen_form.html
-      screen_detail.html  # Skärm: layout-tilldelningar, zon-preview, inställningar
+      screen_detail.html  # Skärm: kanal-väljare, hårdvaruinställningar, diagnostik
+      channel_detail.html # Kanal: layout-tilldelningar, zon-/vy-hantering, kopplade skärmar
+      channel_form.html   # Formulär för skapa/redigera kanal
+      channels.html       # Kanallista
       zone_detail.html    # Zon: vylista med schema/transition per vy
       view_detail.html    # Vy: widget-layout editor
       widget_detail.html  # Widget: konfig, revisionshistorik, edit-token
@@ -92,29 +95,38 @@ deploy/
 
 ### Hierarki
 ```
-Screen
-  └── ScreenLayoutAssignment (enabled, schedule_json, duration_seconds,
-  │                           transition, transition_direction,
-  │                           transition_duration_ms, priority)
-  │     └── Layout
-  │           └── LayoutZone (role, x/y/w/h_pct, rotation_seconds,
-  │                           transition, transition_direction,
-  │                           transition_duration_ms)
-  │                 └── View (enabled, schedule_json, duration_seconds,
-  │                           transition, transition_direction,
-  │                           transition_duration_ms, layout_json)
-  │                       └── Widget (via layout_json, eller inline)
-  └── ZoneWidgetPlacement (för persistenta zoner)
+Screen (slug, URL, hårdvara)
+  └── channel_id → Channel (logisk konfiguration)
+                     └── ChannelLayoutAssignment (enabled, schedule_json, duration_seconds,
+                     │                            transition, transition_direction,
+                     │                            transition_duration_ms, priority)
+                     │     └── Layout
+                     │           └── LayoutZone (role, x/y/w/h_pct, rotation_seconds,
+                     │                           transition, transition_direction,
+                     │                           transition_duration_ms)
+                     │                 └── View (enabled, schedule_json, duration_seconds,
+                     │                           transition, transition_direction,
+                     │                           transition_duration_ms, layout_json)
+                     │                       └── Widget (via layout_json, eller inline)
+                     └── ZoneWidgetPlacement (för persistenta zoner)
 ```
 
+### Screen vs Channel
+- **Screen** = fysisk enhet med slug/URL. Pekar på en kanal via `channel_id` (nullable).
+  Flera skärmar kan dela samma kanal. En skärm utan kanal visar tom kiosk.
+- **Channel** = logisk konfiguration: layouter, zoner, vyer. Kan existera utan kopplade
+  skärmar (förbered innehåll innan hårdvaran finns). `broadcast_widget_updated` och
+  schema-ändringar broadcastar till alla screens med det channel_id.
+
 ### Modeller (models.py)
-- **Screen** – slug, name, show_offline_banner, last_seen_at, last_connection_count, alert_sent_at
-- **ScreenLayoutAssignment** – kopplar skärm till layout; enabled, schedule_json, duration_seconds, transition, transition_direction, transition_duration_ms, priority
+- **Channel** – name, description; äger all innehållskonfiguration
+- **Screen** – slug, name, channel_id (FK→Channel), show_offline_banner, last_seen_at, last_connection_count, alert_sent_at
+- **ChannelLayoutAssignment** – kopplar kanal till layout; enabled, schedule_json, duration_seconds, transition, transition_direction, transition_duration_ms, priority
 - **Layout** – återanvändbar mall; name, description, aspect_ratio
 - **LayoutZone** – yta i procent; role (persistent/schedulable), rotation_seconds, transition, transition_direction, transition_duration_ms
-- **View** – screen_id, zone_id, position, enabled, schedule_json, duration_seconds, transition, transition_direction, transition_duration_ms, layout_json (widget-placeringar)
+- **View** – channel_id, zone_id, position, enabled, schedule_json, duration_seconds, transition, transition_direction, transition_duration_ms, layout_json (widget-placeringar)
 - **Widget** – kind, name, config_json, edit_token
-- **ZoneWidgetPlacement** – widget i persistent zon; widget_id eller inline_kind, config_json, x/y/w/h, z_index, opacity
+- **ZoneWidgetPlacement** – widget i persistent zon; channel_id (nullable = template-default), widget_id eller inline_kind, config_json, x/y/w/h, z_index, opacity
 - **IcsCache** – widget_id + source_url → raw_ics, etag, fetched_at
 - **WidgetRevision** – historik per widget (max 20), config_json, saved_via
 - **MediaFolder** / **MediaFile** – mediebibliotek; filename (UUID på disk), original_name
@@ -124,7 +136,7 @@ Screen
 Vyer ärver transition-inställningar från sin zon om egna fält är `None`. Kiosk.js: `nextView.transition || zone.transition || 'fade'`. Samma mönster för transition_direction och transition_duration_ms.
 
 ### enabled + schedule_json
-Båda finns på `ScreenLayoutAssignment` och `View`.
+Båda finns på `ChannelLayoutAssignment` och `View`.
 - `enabled=False` → filtreras bort helt vid kiosk-rendering (server-side)
 - `schedule_json` → utvärderas client-side i kiosk.js för vy-rotation, server-side i `_is_active()` för layout-val och admin-preview
 
@@ -132,22 +144,31 @@ Båda finns på `ScreenLayoutAssignment` och `View`.
 
 ### Admin (lösenordsskyddat)
 ```
-GET  /admin/                                        # Dashboard
-GET  /admin/screens                                 # Skärmlista
+GET  /admin/                                              # Dashboard
+GET  /admin/screens                                       # Skärmlista (med batch-kanal-val)
 GET  /admin/screens/new
-POST /admin/screens/<id>/edit                       # Inkl. show_offline_banner
+POST /admin/screens/<id>/edit                             # name, slug, channel_id, show_offline_banner
 POST /admin/screens/<id>/delete
-GET  /admin/screens/<id>?sel=<assignment_id>        # Skärm + vald layout-tilldelning
-POST /admin/screens/<id>/layout/assign              # Koppla layout till skärm
-POST /admin/screens/<id>/layout/<aid>/schedule      # Schema + transition + enabled
-POST /admin/screens/<id>/layout/<aid>/remove
-GET  /admin/screens/<id>/zones/<zid>                # Zon-detalj: vyer i zonen
-POST /admin/screens/<id>/zones/<zid>/settings       # rotation_seconds, transition...
-POST /admin/screens/<id>/zones/<zid>/views/new
-POST /admin/screens/<id>/zones/<zid>/views/<vid>/schedule  # Schema + transition + enabled
-POST /admin/screens/<id>/zones/<zid>/views/<vid>/detach
-POST /admin/screens/<id>/zones/<zid>/views/<vid>/delete
-GET  /admin/views/<id>                              # Widget-layout editor
+GET  /admin/screens/<id>                                  # Kanal-väljare + hårdvaruinställningar
+POST /admin/screens/batch-assign-channel                  # Tilldela kanal till flera skärmar
+
+GET  /admin/channels                                      # Kanallista
+GET  /admin/channels/new
+POST /admin/channels/new
+GET  /admin/channels/<id>?sel=<assignment_id>             # Kanal + layout-tilldelningar + zoner
+POST /admin/channels/<id>/edit
+POST /admin/channels/<id>/delete
+POST /admin/channels/<id>/layout/assign                   # Koppla layout till kanal
+POST /admin/channels/<id>/layout/<aid>/schedule           # Schema + transition + enabled
+POST /admin/channels/<id>/layout/<aid>/remove
+GET  /admin/channels/<id>/zones/<zid>                     # Zon-detalj: vyer i zonen
+POST /admin/channels/<id>/zones/<zid>/settings            # rotation_seconds, transition...
+POST /admin/channels/<id>/zones/<zid>/views/new
+POST /admin/channels/<id>/zones/<zid>/views/<vid>/schedule  # Schema + transition + enabled
+POST /admin/channels/<id>/zones/<zid>/views/<vid>/detach
+POST /admin/channels/<id>/zones/<zid>/views/<vid>/delete
+
+GET  /admin/views/<id>                                    # Widget-layout editor
 POST /admin/views/<id>/edit
 GET  /admin/widgets
 GET  /admin/widgets/new
@@ -211,6 +232,7 @@ const SHOW_OFFLINE_BANNER = true;
 ## Viktiga designbeslut
 
 - **Alla layouter pre-renderas** i DOM vid sidladdning — layout-rotation sker client-side utan `location.reload()`. Layouter visas/döljs med CSS.
+- **Screen/Channel-separation**: Fysiska skärmar (slug/URL) är löst kopplade till logiska kanaler (innehåll). En kanal kan delas av flera skärmar; byta kanal på en skärm kräver inget omstart av kiosk. SSE-registry är fortfarande per screen_id (inte channel_id) eftersom det är det fysiska lagret som håller anslutningen.
 - **Widget-referensintegritet**: `layout_json` på `View` innehåller widget-IDs utan formell FK. Vid DELETE-försök returnerar servern 409 om widgeten används; `?force=1` städar referenserna. Vid render: saknad widget → placeholder, inte krasch.
 - **Revisioner**: varje widget-save skapar `WidgetRevision`. Auto-rensning: max 20 per widget.
 - **raw_html-widget**: ingen edit-token (XSS-risk vid delegering). Admin-only.
