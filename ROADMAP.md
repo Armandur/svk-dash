@@ -13,9 +13,12 @@
 - Revisionshistorik för widgets (max 20, med återställning i modal)
 - Föregående/nästa-navigering mellan vyer i admin-editorn
 - Anpassad CSS-editor per widget
-- Förbättrad color picker (swatch + hex-fält, synkade)
 - Widget-bibliotekssida med kategori-sidopanel
 - Widget-picker-modal i layouteditorn (kategori-sidopanel + bibliotek/inline)
+- Varumärkespalett (`BrandColor`, `/admin/palette`): lägg till, döp om, ta bort, byt ordning
+- Pickr-baserad färgväljare med opacitetsstöd i widget- och vyeditorn (ersätter OS-inbyggd `<input type="color">`)
+- Live klientmetadata per skärm: IP, webbläsare/OS, upplösning, tidszon — realtids-polling med Page Visibility API
+- Cache-busting för kiosk.js via fil-mtime (`?v=...`)
 
 ### ICS-kalenderwidgetar
 - `ics_list`: händelselista med dag-gruppering, auto-scroll, scrollbar
@@ -28,12 +31,25 @@
 - Online-mötesmärke (Teams/Zoom/Meet etc.), konfigurerbart per widget
 - Visa plats, max per dag, konfigurerbart antal dagar framåt
 - ICS-hämtning deduplicerad (en request per URL även om flera widgets delar källa)
+- Per-widget-tidszon, visa/dölj klocktider, anpassad text vid inga händelser
 
 ### Bild- och bildspelswidgetar
-- `image`-widget: enstaka bild, extern URL eller filuppladdning, konfigurerbar passning (cover/contain/fill)
-- `slideshow`-widget: roterande bilder med fade/slide/wipe/zoom-övergång, konfigurerbart intervall
+- `image`-widget: enstaka bild, extern URL eller filuppladdning, konfigurerbar passning (cover/contain/fill), hörnradius, bildposition (object-position)
+- `slideshow`-widget: roterande bilder med fade/slide/wipe/zoom-övergång, konfigurerbart intervall, bildtexter (caption) per bild med halvtransparent overlay
 - Båda tillgängliga som bibliotekswidgets och som inline-widgets i layouteditorn
 - Originalfilnamn visas i editorn när bild väljs från bibliotek eller laddas upp
+
+### Klocka/datum-widget
+- Format: tid+datum, enbart tid, enbart datum, dag+tid
+- Tidszon och locale per widget
+- Visa/dölj sekunder
+- 12- eller 24-timmarsformat (AM/PM)
+- Anpassat datumformat med strftime-koder (`%-d %B %Y` o.s.v.) och inbyggd hjälpruta med exempelkoder
+
+### Text- och stilwidgetar
+- Textwidget: fetstil, kursiv, versaler, bokstavsavstånd (`letter-spacing`)
+- Färgblock: solid färg eller gradient (start-/slutfärg + vinkel), konfigurerbar hörnradius
+- Gemensamma stilfält (text_color, bg_color, font_size, text_align, padding, italic, uppercase, letter_spacing) via `build_common_style()`
 
 ### Layout-system med zoner *(steg 1–3, komplett)*
 - DB-modeller: `Layout`, `LayoutZone`, `ChannelLayoutAssignment`
@@ -60,12 +76,11 @@
 - Alla aktiva layouter förrenderas i DOM vid sidladdning — rotation sker sömlöst på klientsidan utan `location.reload()`
 - Övergångstyp (fade/slide/none) och längd (ms) konfigurerbart per layout-tilldelning
 - Vy-rotation inom zoner: slide-övergång scoped till zon-elementet, fade via CSS opacity-transition
-- Legacy-vy-rotation (skärmar utan layout) borttagen
 
 ### Kvalitet och robusthet
 - Widget-renderingsfel ger placeholder istället för 500-svar
 - JSON-validering av inkommande layout-data med svenska felmeddelanden
-- SQL-filtrering i broadcast och medieradering (tidigare laddades allt i minnet)
+- SQL-filtrering i broadcast och medieradering
 - Zombie-timers i kiosk: klocka och auto-scroll pausas vid paus-läge
 - Mediepicker lazy-initierad (DOM-ordningsbug fixad)
 - Reaktiv UI: namn, bildval och token uppdateras direkt utan omladdning
@@ -82,38 +97,13 @@
 
 ## Planerat
 
-### Kiosk-bootstrap för Raspberry Pi
-Setup-skript som konfigurerar RPi i kiosk-läge: Chromium helskärm, autostart, roterande skärm, NTP-väntan, nätverkskonfiguration. Läggs i `deploy/kiosk-setup/`.
-
 ### Observabilitet och larm
 - Live-status på admin-dashboard: grön/gul/röd indikator baserad på heartbeat-ålder
 - Larm vid död skärm: notis via konfigurerbar kanal (SMTP, webhook) när heartbeat > 15 min
 - `alert_sent_at` på `Screen` för att förhindra larm-spam
 
-### Spelartelemetri – rapportering från kiosk till admin
-
-Varje ansluten kiosk-klient rapporterar periodiskt diagnostikdata till servern via ett dedikerat POST-anrop. Servern lagrar informationen per skärm och visar den i admin-gränssnittet.
-
-**Vad klienten rapporterar:**
-- Nätverks-IP som servern ser på anropet (= LAN-IP om de är på samma nät, annars publik IP)
-- Skärmupplösning (`screen.width × screen.height`) och fönsterstorlek (`window.innerWidth × innerHeight`)
-- User agent (identifierar browser och OS, t.ex. `Chromium/124 Linux armv7l`)
-- Kiosk-JS-version (konstant i kiosk.js, t.ex. `dev` eller git-SHA vid byggd release)
-- Tid sedan sidan laddades (uptime i sekunder — indikerar t.ex. om skärmen startat om)
-- Aktivt layout-ID och vy-position per zon (vad som visas just nu)
-- SSE-reconnect-räknare (indikerar instabilt nätverk)
-
-**Teknisk plan:**
-1. Nytt endpoint `POST /s/<slug>/telemetry` — autentiseras med samma slug, inget lösenord krävs (icke-känslig driftsinfo). Rate-limitad till max 1 req/min per skärm.
-2. Nya kolumner på `Screen`: `client_ip`, `client_user_agent`, `client_resolution`, `client_uptime_seconds`, `client_js_version`, `client_reconnects`, `telemetry_at` (tidsstämpel).
-3. `kiosk.js` skickar telemetri vid sidladdning och sedan var 5:e minut (inbyggt i det befintliga heartbeat-intervallet).
-4. Admin-skärmsidan (`screen_detail.html`) visar en "Diagnostik"-panel med senast rapporterad data och ålder på rapporten.
-5. Admin-dashboard visar en kompakt statusindikator per skärm (grön/gul/röd baserat på `telemetry_at`-ålder, klickbar för detaljer).
-
-**Avgränsningar:**
-- Ingen historik sparas — bara senaste rapport per skärm.
-- Batteristatus (Battery API) utelämnas — inte relevant för Pi.
-- Ingen GPS eller annan känslig data.
+### Kiosk-bootstrap för Raspberry Pi
+Setup-skript som konfigurerar RPi i kiosk-läge: Chromium helskärm, autostart, roterande skärm, NTP-väntan, nätverkskonfiguration. Läggs i `deploy/kiosk-setup/`.
 
 ### Skärm-hårdvarukontroll
 - HDMI-CEC via SSE-event (`display_power`) — stäng av skärmen nattetid

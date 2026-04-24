@@ -63,15 +63,17 @@ En skärm kan ha flera **layouter** som växlar enligt schema. Varje layout dela
 
 ```mermaid
 graph TD
-    SCR["🖥️ Screen\n(slug, namn)"]
-    SLA["📋 ScreenLayoutAssignment\n(schema, rotation, transition)"]
+    SCR["🖥️ Screen\n(slug, hårdvara)"]
+    CHA["📡 Channel\n(logisk konfiguration)"]
+    CLA["📋 ChannelLayoutAssignment\n(schema, rotation, transition)"]
     LAY["🗂️ Layout\n(mall för skärmuppdelning)"]
     ZON["⬜ LayoutZone\n(position i %, roll)"]
     VIE["📄 View\n(grid-layout, visningstid, schema)"]
     WID["🧩 Widget\n(ICS, klocka, bild, text…)"]
 
-    SCR -->|"1..N tilldelningar"| SLA
-    SLA -->|"pekar på"| LAY
+    SCR -->|"pekar på"| CHA
+    CHA -->|"1..N tilldelningar"| CLA
+    CLA -->|"pekar på"| LAY
     LAY -->|"1..N zoner"| ZON
     ZON -->|"roterar bland"| VIE
     VIE -->|"innehåller"| WID
@@ -135,15 +137,16 @@ sequenceDiagram
 
 | Widget | Beskrivning |
 |--------|-------------|
-| `ics_list` | Händelselista med dag-gruppering, auto-scroll |
+| `ics_list` | Händelselista med dag-gruppering, auto-scroll; per-widget tidszon och klockvisning |
 | `ics_schedule` | Blockschema med tidsaxel och nu-linje |
 | `ics_week` | Veckovy i kolumnformat |
 | `ics_month` | Månadskalender med flerdagshändelser |
-| `clock` | Digital klocka och datum (klientsidigt) |
+| `clock` | Klocka/datum — format, tidszon, 12/24h, visa/dölj sekunder, anpassat datumformat |
+| `text` | Rubrik eller etikett; fetstil, kursiv, versaler, bokstavsavstånd (inline-widget) |
 | `markdown` | Formaterad text, redigeras via delegerad URL |
-| `image` | Statisk bild (uppladdning eller extern URL) |
-| `slideshow` | Roterande bilder med fade/slide/wipe/zoom |
-| `color_block` | Enfärgad yta (bakgrund, separator) |
+| `image` | Statisk bild (uppladdning eller extern URL); passning, hörnradius, bildposition |
+| `slideshow` | Roterande bilder med fade/slide/wipe/zoom; bildtexter per bild |
+| `color_block` | Enfärgad yta eller gradient (bakgrund, separator); konfigurerbar hörnradius |
 | `raw_html` | Godtycklig HTML (admin-only) |
 
 ---

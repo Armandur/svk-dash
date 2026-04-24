@@ -262,7 +262,9 @@ Observera: många interna system sätter X-Frame-Options / CSP som blockerar ifr
   "format": "time_date",    // time_only | date_only | time_date | day_time
   "timezone": "Europe/Stockholm",
   "locale": "sv_SE",
-  "size": "xl"
+  "show_seconds": true,
+  "hour12": false,
+  "date_format": ""         // tomt = automatiskt; annars strftime-koder, t.ex. "%-d %B %Y"
 }
 ```
 
@@ -567,8 +569,8 @@ Milstolpe: admin kan dra och ändra storlek på widgets i en vy och se dem place
 - [x] **Inline-widgets** — refaktorera arkitekturen så att enkla widgets (klocka, text/rubrik) inte kräver en post i `Widget`-tabellen eller edit-token. Konfigurationen sparas direkt i `layout_json` på vyn och redigeras i vy-editorn. Biblioteks-widgets (ICS, markdown med delegerad redigering, slideshow) behåller nuvarande modell. Distinktionen: inline = vy-specifik config, bibliotek = delas/redigeras externt.
 - [x] `color_block` inline-widget — enfärgad yta som bakgrundselement/separator, konfigurerbar färg och border-radius
 - [x] `ics_list`-widget med server-side cache och RRULE-expansion
-- [ ] Multi-källa-stöd (flera ICS-URL:er i samma lista, färgkodade)
-- [ ] `ics_month`-widget
+- [x] Multi-källa-stöd (flera ICS-URL:er i samma lista, färgkodade)
+- [x] `ics_month`-widget
 - [x] Bakgrundsjobb (asyncio-loop med try/except) som refreshar alla ICS-cachar var 10:e minut
 - [ ] Felhantering + senast-uppdaterad-indikator per widget
 - [ ] **Heartbeat-logik**: skärmar uppdaterar `last_seen_at` on `Screen` via SSE-keepalive
@@ -579,13 +581,14 @@ Milstolpe: vaktmästeri-skärmen och domprostens namnskylt är i drift. Du får 
 
 ### Fas 3 — resterande widgets och drift-ergonomi
 
-- [ ] Bättre färgväljare för inline-widgets (text-widgetens färginput) — ersätt OS-inbyggd `<input type="color">` med t.ex. Coloris (lättviktig vanilla JS, CDN) för att få konsekvent UX på Windows/Linux/Mac.
-- [ ] `image`-widget — biblioteks-widget med stöd för både uppladdning (mediabiliotek i `data/uploads/`, thumbnail-generering via Pillow) och extern URL (imgur m.fl.). Två-flikar i editorn: "Från fil" / "Från URL". `object_fit` (cover/contain) och alt-text.
-- [ ] Mediabiliotek-vy i admin (`/admin/media/`) för att hantera uppladdade bilder — lista, förhandsgranska, ta bort. Filreferenser i widget-config, inte DB-poster.
-- [ ] `slideshow` med uppladdning + server-side resize och on-disk-cache (Pillow)
+- [x] Bättre färgväljare — Pickr med opacitetsstöd och varumärkespalett som swatches (ersätter OS-inbyggd `<input type="color">`)
+- [x] Varumärkespalett (`/admin/palette`): lägg till, döp om, ta bort, sortera färger
+- [x] `image`-widget — uppladdning och extern URL, `object_fit`, hörnradius, object-position
+- [x] Mediabiliotek-vy i admin (`/admin/media/`) med grid/list, mappar, batch-åtgärder
+- [x] `slideshow` med uppladdning + bildtexter (caption) per bild
 - [ ] `iframe` med CSP-förhandstest (HEAD/GET-kontroll + varning om `frame-ancestors` blockerar)
 - [ ] Förhandsvisning i admin (rendera vyn i en liten ram)
-- [ ] Rotera edit-tokens från admin
+- [x] Rotera edit-tokens från admin
 - [ ] Admin-lösenord i DB istället för env (så det går att byta utan restart)
 - [ ] Rate limiting (`slowapi`) + CSRF-skydd (`fastapi-csrf-protect`)
 - [ ] Backup-rutin dokumenterad (SQLite `.backup` + uploads-tarball)
