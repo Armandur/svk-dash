@@ -124,12 +124,14 @@ async def screen_edit_form(request: Request, screen_id: int):
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
         channels = db.exec(select(Channel).order_by(Channel.name)).all()
+        current_channel = db.get(Channel, screen.channel_id) if screen.channel_id else None
 
     return HTMLResponse(
         templates.get_template("admin/screen_edit.html").render(
             request=request,
             screen=screen,
             channels=channels,
+            current_channel=current_channel,
             error=None,
         )
     )
@@ -156,11 +158,13 @@ async def screen_edit(
         ).first()
         if conflict:
             channels = db.exec(select(Channel).order_by(Channel.name)).all()
+            current_channel = db.get(Channel, screen.channel_id) if screen.channel_id else None
             return HTMLResponse(
                 templates.get_template("admin/screen_edit.html").render(
                     request=request,
                     screen=screen,
                     channels=channels,
+                    current_channel=current_channel,
                     error=f"Slug '{slug}' används redan.",
                 ),
                 status_code=422,

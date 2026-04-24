@@ -10,52 +10,105 @@
 <p class="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{{ error }}</p>
 {% endif %}
 
-<div class="max-w-lg bg-white rounded-lg shadow p-6">
-  <form method="post" action="/admin/screens/{{ screen.id }}/edit" class="space-y-4">
-    <div>
-      <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
-      <input type="text" name="name" value="{{ screen.name }}" required
-             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-    </div>
-    <div>
-      <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
-      <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+"
-             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <p class="text-xs text-gray-400 mt-1">Används i URL:en: /s/{{ screen.slug }}</p>
-    </div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
 
-    <div>
-      <label class="block text-xs font-medium text-gray-600 mb-1">Prestandaläge</label>
-      <select name="performance_mode" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="low" {% if screen.performance_mode == 'low' %}selected{% endif %}>Låg (RPi 3/äldre)</option>
-        <option value="normal" {% if screen.performance_mode == 'normal' or not screen.performance_mode %}selected{% endif %}>Normal (RPi 4/5)</option>
-        <option value="high" {% if screen.performance_mode == 'high' %}selected{% endif %}>Hög (Kraftfull PC)</option>
-      </select>
-    </div>
+  <!-- Formulär -->
+  <div class="bg-white rounded-lg shadow p-6">
+    <form method="post" action="/admin/screens/{{ screen.id }}/edit" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Namn</label>
+        <input type="text" name="name" value="{{ screen.name }}" required
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Slug</label>
+        <input type="text" name="slug" value="{{ screen.slug }}" required pattern="[a-z0-9\-]+"
+               class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-gray-400 mt-1">Används i URL:en: /s/{{ screen.slug }}</p>
+      </div>
 
-    <div class="flex items-center gap-2">
-      <input type="checkbox" name="show_offline_banner" id="show_offline_banner" value="1"
-             {% if screen.show_offline_banner %}checked{% endif %}
-             class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-      <label for="show_offline_banner" class="text-sm text-gray-700 cursor-pointer">Visa banner vid tappad anslutning</label>
-    </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Prestandaläge</label>
+        <select name="performance_mode" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="low" {% if screen.performance_mode == 'low' %}selected{% endif %}>Låg (RPi 3/äldre)</option>
+          <option value="normal" {% if screen.performance_mode == 'normal' or not screen.performance_mode %}selected{% endif %}>Normal (RPi 4/5)</option>
+          <option value="high" {% if screen.performance_mode == 'high' %}selected{% endif %}>Hög (Kraftfull PC)</option>
+        </select>
+      </div>
 
-    <hr class="border-gray-100">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="show_offline_banner" id="show_offline_banner" value="1"
+               {% if screen.show_offline_banner %}checked{% endif %}
+               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+        <label for="show_offline_banner" class="text-sm text-gray-700 cursor-pointer">Visa banner vid tappad anslutning</label>
+      </div>
 
-    <div>
-      <label class="block text-xs font-medium text-gray-600 mb-1">Kopplad kanal</label>
-      <select name="channel_id" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
-        <option value="">Ingen kanal</option>
-        {% for c in channels %}
-        <option value="{{ c.id }}" {% if screen.channel_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
+      <hr class="border-gray-100">
 
-    <div class="flex gap-3 pt-2">
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 shadow-sm">Spara</button>
-      <a href="/admin/screens/{{ screen.id }}" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</a>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Kopplad kanal</label>
+        <select name="channel_id" id="channel-select"
+                class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+          <option value="">Ingen kanal</option>
+          {% for c in channels %}
+          <option value="{{ c.id }}" {% if screen.channel_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        {% if current_channel %}
+        <a href="/admin/channels/{{ current_channel.id }}"
+           class="text-xs text-blue-600 hover:underline">Öppna kanal: {{ current_channel.name }} →</a>
+        {% endif %}
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 shadow-sm">Spara</button>
+        <a href="/admin/screens/{{ screen.id }}" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Avbryt</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Förhandsvisning -->
+  <div>
+    <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Förhandsvisning</div>
+    {% if current_channel %}
+    <div class="bg-black rounded-lg overflow-hidden shadow" id="preview-wrapper" style="position:relative;">
+      <iframe id="preview-frame"
+              src="/s/{{ screen.slug }}"
+              scrolling="no"
+              style="border:none; pointer-events:none; display:block; transform-origin:top left; width:1920px; height:1080px;"
+              title="Förhandsvisning av {{ screen.name }}">
+      </iframe>
     </div>
-  </form>
+    <p class="text-xs text-gray-400 mt-2">
+      Visar sparad konfiguration ·
+      <a href="/s/{{ screen.slug }}" target="_blank" class="hover:text-gray-600">Öppna i ny flik ↗</a>
+    </p>
+    {% else %}
+    <div class="bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm"
+         style="aspect-ratio:16/9;">
+      Ingen kanal kopplad — välj en kanal och spara för att se förhandsvisning.
+    </div>
+    {% endif %}
+  </div>
+
 </div>
+
+{% if current_channel %}
+<script>
+(function () {
+  var wrapper = document.getElementById('preview-wrapper');
+  var frame   = document.getElementById('preview-frame');
+
+  function scalePreview() {
+    var w = wrapper.offsetWidth;
+    var scale = w / 1920;
+    frame.style.transform = 'scale(' + scale + ')';
+    wrapper.style.height = Math.round(1080 * scale) + 'px';
+  }
+
+  scalePreview();
+  window.addEventListener('resize', scalePreview);
+})();
+</script>
+{% endif %}
 {% endblock %}
