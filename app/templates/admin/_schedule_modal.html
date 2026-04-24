@@ -139,7 +139,7 @@
         document.getElementById('modal-enabled').checked = layoutData ? (layoutData.enabled !== false) : true;
 
         if (targetType === 'layout') {
-            form.action = actionUrl || `/admin/screens/{{ screen.id }}/layout/${targetId}/schedule`;
+            form.action = actionUrl;
             document.getElementById('layout-fields').classList.remove('hidden');
             document.getElementById('duration-row').style.display = '';
             document.getElementById('transition-label').textContent = 'Transition';
