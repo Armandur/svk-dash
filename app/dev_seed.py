@@ -40,6 +40,11 @@ _SEED_VIDEOS = [
     ("9b319073423e4656b44922df7e35be53.mp4",  "murana.mp4"),  # landskap
     ("8cd61deee6aa4b0388ff367c5ccda8a2.mp4",  "fagel.mp4"),   # landskap
     ("6c54d7b48ef74eec85f029b888f5c642.mp4",  "snow.mp4"),    # porträtt
+    # 720p-varianter (1.5 Mbps) för RPi 4B 1 GB där mjukvarudekod av 1080p laggar
+    ("4498d01c7964409e8f1d88455a35b157.mp4", "drone_720.mp4"),
+    ("da1cf31d12d94b54ac8ceea992e93815.mp4", "murana_720.mp4"),
+    ("ddc8a04cc1f447f8a040d35cb834f890.mp4", "fagel_720.mp4"),
+    ("ec9114811c16452eb1a2a64a650b3e4b.mp4", "snow_720.mp4"),
 ]
 
 _SEED_PDFS = [
@@ -238,6 +243,16 @@ def seed() -> None:
         lbl_video_fagel  = _label("Video – fågel (landskap)")
         lbl_video_snow   = _label("Video – snö (porträtt)")
 
+        # 720p-varianter
+        w_video_drone_720  = _widget("Video – drone (720p)",  "video", {**_vid_cfg, "upload_path": media["drone_720.mp4"].filename})
+        w_video_murana_720 = _widget("Video – murana (720p)", "video", {**_vid_cfg, "upload_path": media["murana_720.mp4"].filename})
+        w_video_fagel_720  = _widget("Video – fågel (720p)",  "video", {**_vid_cfg, "upload_path": media["fagel_720.mp4"].filename})
+        w_video_snow_720   = _widget("Video – snö (720p)",    "video", {**_vid_cfg, "upload_path": media["snow_720.mp4"].filename})
+        lbl_video_drone_720  = _label("Video – drone 720p")
+        lbl_video_murana_720 = _label("Video – murana 720p")
+        lbl_video_fagel_720  = _label("Video – fågel 720p")
+        lbl_video_snow_720   = _label("Video – snö 720p")
+
         all_widgets = [
             w_clock_td, w_clock_t, w_clock_12h, w_clock_day,
             w_text_normal, w_text_styled, w_text_italic,
@@ -245,6 +260,7 @@ def seed() -> None:
             w_image, w_image_blabar, w_slideshow, w_md,
             w_ics_list, w_ics_week, w_ics_month, w_ics_schedule,
             w_video_drone, w_video_murana, w_video_fagel, w_video_snow,
+            w_video_drone_720, w_video_murana_720, w_video_fagel_720, w_video_snow_720,
             w_pdf_medlem,
             lbl_clock_td, lbl_clock_t, lbl_clock_12h, lbl_clock_day,
             lbl_text_n, lbl_text_s, lbl_text_i,
@@ -252,6 +268,7 @@ def seed() -> None:
             lbl_image, lbl_image_bb, lbl_slideshow, lbl_md,
             lbl_ics_list, lbl_ics_week, lbl_ics_month, lbl_ics_schedule,
             lbl_video_drone, lbl_video_murana, lbl_video_fagel, lbl_video_snow,
+            lbl_video_drone_720, lbl_video_murana_720, lbl_video_fagel_720, lbl_video_snow_720,
             lbl_pdf_medlem,
         ]
         db.add_all(all_widgets)
@@ -283,16 +300,18 @@ def seed() -> None:
         # ── Kanaler ───────────────────────────────────────────────────────────
         ch_clock = Channel(name="Klockor",     aspect_ratio="16:9")
         ch_media = Channel(name="Media",       aspect_ratio="16:9")
+        ch_media_720 = Channel(name="Media 720p", aspect_ratio="16:9")
         ch_kal   = Channel(name="Kalender",    aspect_ratio="16:9")
         ch_lay   = Channel(name="Layout-test", aspect_ratio="16:9")
         ch_port  = Channel(name="Porträtt",    aspect_ratio="9:16")
-        db.add_all([ch_clock, ch_media, ch_kal, ch_lay, ch_port])
+        db.add_all([ch_clock, ch_media, ch_media_720, ch_kal, ch_lay, ch_port])
         db.flush()
 
         # ── Skärmar ───────────────────────────────────────────────────────────
         db.add_all([
             Screen(name="Klockor",     slug="klockor",      channel_id=ch_clock.id),
             Screen(name="Media",       slug="media",        channel_id=ch_media.id),
+            Screen(name="Media 720p",  slug="media-720",    channel_id=ch_media_720.id),
             Screen(name="Kalender",    slug="kalender",     channel_id=ch_kal.id),
             Screen(name="Layout-test", slug="layout-test",  channel_id=ch_lay.id),
             Screen(name="Porträtt",    slug="portratt",     channel_id=ch_port.id),
@@ -359,6 +378,7 @@ def seed() -> None:
         db.add_all([
             ChannelLayoutAssignment(channel_id=ch_clock.id, layout_id=l_clock.id, priority=0),
             ChannelLayoutAssignment(channel_id=ch_media.id, layout_id=l_media.id, priority=0),
+            ChannelLayoutAssignment(channel_id=ch_media_720.id, layout_id=l_media.id, priority=0),
             ChannelLayoutAssignment(channel_id=ch_kal.id,   layout_id=l_kal.id,   priority=0),
             ChannelLayoutAssignment(channel_id=ch_port.id,  layout_id=l_port.id,  priority=0),
             # layout-test roterar mellan tre layouter
@@ -430,6 +450,26 @@ def seed() -> None:
                  name="PDF Medlemsinfo", enabled=True, duration_seconds=20,
                  transition="fade",
                  layout_json=wl1(w_pdf_medlem, lbl_pdf_medlem)),
+        ]
+
+        # ── Vyer – media 720p ─────────────────────────────────────────────────
+        views_media_720 = [
+            View(channel_id=ch_media_720.id, zone_id=z_media.id, position=0,
+                 name="Video drone 720p", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_drone_720, lbl_video_drone_720)),
+            View(channel_id=ch_media_720.id, zone_id=z_media.id, position=1,
+                 name="Video murana 720p", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_murana_720, lbl_video_murana_720)),
+            View(channel_id=ch_media_720.id, zone_id=z_media.id, position=2,
+                 name="Video fågel 720p", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_fagel_720, lbl_video_fagel_720)),
+            View(channel_id=ch_media_720.id, zone_id=z_media.id, position=3,
+                 name="Video snö 720p", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_snow_720, lbl_video_snow_720)),
         ]
 
         # ── Vyer – kalender (8–10 s/vy) ──────────────────────────────────────
@@ -569,7 +609,7 @@ def seed() -> None:
                  layout_json=wl1(w_video_snow, lbl_video_snow)),
         ]
 
-        all_views = (views_clock + views_media + views_kal
+        all_views = (views_clock + views_media + views_media_720 + views_kal
                      + views_split_left + views_split_right + views_full
                      + views_bar_main + views_bar_side + views_port)
         db.add_all(all_views)
@@ -595,7 +635,8 @@ def seed() -> None:
 
     views_n = len(all_views)
     log.warning(
-        "DEV_SEED klar: 5 kanaler (/s/klockor, /s/media, /s/kalender, /s/layout-test, /s/portratt), "
+        "DEV_SEED klar: 6 kanaler (/s/klockor, /s/media, /s/media-720, /s/kalender, "
+        "/s/layout-test, /s/portratt), "
         "%d widgets, %d vyer, 8 mediafiler, ICS-kalender på /dev-cal.ics",
         len(all_widgets), views_n,
     )
