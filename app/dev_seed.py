@@ -35,6 +35,13 @@ _SEED_IMAGES = [
     ("2e2a9ce34b544eee910e997b59e0052a.jpg", "talt20.jpg"),    # liggande
 ]
 
+_SEED_VIDEOS = [
+    ("564c6a18466f4b57905cb8bc9d7bd7d8.mp4", "drone.mp4"),    # landskap
+    ("9b319073423e4656b44922df7e35be53.mp4",  "murana.mp4"),  # landskap
+    ("8cd61deee6aa4b0388ff367c5ccda8a2.mp4",  "fagel.mp4"),   # landskap
+    ("6c54d7b48ef74eec85f029b888f5c642.mp4",  "snow.mp4"),    # porträtt
+]
+
 
 def _widget(name, kind, config, **kw) -> Widget:
     return Widget(name=name, kind=kind, config_json=config,
@@ -80,6 +87,13 @@ def seed() -> None:
             size = os.path.getsize(path) if os.path.exists(path) else 0
             mf = MediaFile(filename=uuid_name, original_name=orig_name,
                            content_type="image/jpeg", size_bytes=size)
+            db.add(mf)
+            media[orig_name] = mf
+        for uuid_name, orig_name in _SEED_VIDEOS:
+            path = os.path.join(_UPLOADS, uuid_name)
+            size = os.path.getsize(path) if os.path.exists(path) else 0
+            mf = MediaFile(filename=uuid_name, original_name=orig_name,
+                           content_type="video/mp4", size_bytes=size)
             db.add(mf)
             media[orig_name] = mf
         db.flush()
@@ -242,17 +256,29 @@ def seed() -> None:
         lbl_ics_month   = _label("Kalender – månadsvy")
         lbl_ics_schedule = _label("Kalender – dagens schema")
 
+        _vid_cfg = {"loop": True, "muted": True, "fit": "cover"}
+        w_video_drone  = _widget("Video – drone",  "video", {**_vid_cfg, "upload_path": media["drone.mp4"].filename})
+        w_video_murana = _widget("Video – murana", "video", {**_vid_cfg, "upload_path": media["murana.mp4"].filename})
+        w_video_fagel  = _widget("Video – fågel",  "video", {**_vid_cfg, "upload_path": media["fagel.mp4"].filename})
+        w_video_snow   = _widget("Video – snö",    "video", {**_vid_cfg, "upload_path": media["snow.mp4"].filename})
+        lbl_video_drone  = _label("Video – drone (landskap)")
+        lbl_video_murana = _label("Video – murana (landskap)")
+        lbl_video_fagel  = _label("Video – fågel (landskap)")
+        lbl_video_snow   = _label("Video – snö (porträtt)")
+
         all_widgets = [
             w_clock_td, w_clock_t, w_clock_12h, w_clock_day,
             w_text_normal, w_text_styled, w_text_italic,
             w_color_solid, w_color_gradient, w_color_gold,
             w_image, w_image_blabar, w_slideshow, w_md,
             w_ics_list, w_ics_week, w_ics_month, w_ics_schedule,
+            w_video_drone, w_video_murana, w_video_fagel, w_video_snow,
             lbl_clock_td, lbl_clock_t, lbl_clock_12h, lbl_clock_day,
             lbl_text_n, lbl_text_s, lbl_text_i,
             lbl_color_sol, lbl_color_gr, lbl_color_gd,
             lbl_image, lbl_image_bb, lbl_slideshow, lbl_md,
             lbl_ics_list, lbl_ics_week, lbl_ics_month, lbl_ics_schedule,
+            lbl_video_drone, lbl_video_murana, lbl_video_fagel, lbl_video_snow,
         ]
         db.add_all(all_widgets)
         db.flush()
@@ -278,9 +304,9 @@ def seed() -> None:
         # ── Layout-tilldelningar (med transitions) ────────────────────────────
         # duration_seconds = summan av alla vyers duration i den längsta zonen,
         # så att alla vyer hinner visas minst en gång per layoutvarv.
-        # split: z_split_left 12+10+10+20+12+15+15 = 94 s
-        # full:  z_full_main  10+10+10+15+15+15    = 75 s
-        # bar:   z_bar_main   18+12+15+15          = 60 s
+        # split: z_split_left 12+10+10+20+12+15+15          = 94 s
+        # full:  z_full_main  10+10+10+15+15+15+20+20+20   = 135 s
+        # bar:   z_bar_main   18+12+15+15                  = 60 s
         a_split = ChannelLayoutAssignment(
             channel_id=ch_land.id, layout_id=l_land_split.id,
             priority=0, duration_seconds=94,
@@ -288,7 +314,7 @@ def seed() -> None:
         )
         a_full = ChannelLayoutAssignment(
             channel_id=ch_land.id, layout_id=l_land_full.id,
-            priority=1, duration_seconds=75,
+            priority=1, duration_seconds=135,
             transition="fade",
         )
         a_bar = ChannelLayoutAssignment(
@@ -397,6 +423,18 @@ def seed() -> None:
                  name="Kalender månad", enabled=True, duration_seconds=15,
                  transition="slide", transition_direction="left",
                  layout_json=wl1(w_ics_month, lbl_ics_month)),
+            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=6,
+                 name="Video drone", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_drone, lbl_video_drone)),
+            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=7,
+                 name="Video murana", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_murana, lbl_video_murana)),
+            View(channel_id=ch_land.id, zone_id=z_full_main.id, position=8,
+                 name="Video fågel", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_fagel, lbl_video_fagel)),
         ]
 
         # ── Vyer – huvud+sidfält (slide up, 12 s) ────────────────────────────
@@ -466,6 +504,10 @@ def seed() -> None:
                  name="Kalender lista", enabled=True, duration_seconds=15,
                  transition="slide", transition_direction="up",
                  layout_json=wl1(w_ics_list, lbl_ics_list)),
+            View(channel_id=ch_port.id, zone_id=z_port_main.id, position=7,
+                 name="Video snö (porträtt)", enabled=True, duration_seconds=20,
+                 transition="fade",
+                 layout_json=wl1(w_video_snow, lbl_video_snow)),
         ]
 
         all_views = (views_split_left + views_split_right + views_full
@@ -494,6 +536,6 @@ def seed() -> None:
     views_n = len(all_views)
     log.warning(
         "DEV_SEED klar: 2 kanaler, 2 skärmar (/s/landscape-test, /s/portrait-test), "
-        "%d widgets, %d vyer, 3 mediafiler, ICS-kalender på /dev-cal.ics",
+        "%d widgets, %d vyer, 7 mediafiler, ICS-kalender på /dev-cal.ics",
         len(all_widgets), views_n,
     )
