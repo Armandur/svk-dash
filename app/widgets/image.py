@@ -16,8 +16,26 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         return '<div class="widget-image img-empty">Ingen bild vald.</div>'
     fit = config.get("fit", "cover")
     alt = html_mod.escape(config.get("alt", ""))
+
+    radius = max(0, min(500, int(config.get("border_radius", 0))))
+
+    pos = config.get("object_position", "center")
+    valid_pos = {
+        "center",
+        "top",
+        "bottom",
+        "left",
+        "right",
+        "top left",
+        "top right",
+        "bottom left",
+        "bottom right",
+    }
+    if pos not in valid_pos:
+        pos = "center"
+
     return (
-        f'<div class="widget-image">'
-        f'<img src="{src}" alt="{alt}" style="width:100%;height:100%;object-fit:{fit};display:block;">'
+        f'<div class="widget-image" style="border-radius:{radius}px;">'
+        f'<img src="{src}" alt="{alt}" style="width:100%;height:100%;object-fit:{fit};object-position:{pos};display:block;">'
         f"</div>"
     )

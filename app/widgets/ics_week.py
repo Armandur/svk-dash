@@ -70,9 +70,6 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     max_per_day = config.get("max_per_day")
     if max_per_day is not None:
         max_per_day = max(1, int(max_per_day))
-    font_size = config.get("font_size", "normal")
-    size_cls = {"small": "ics-sm", "large": "ics-lg"}.get(font_size, "")
-
     if not widget_id or not urls:
         return '<div class="widget-ics-week ics-notice">Ingen ICS-URL konfigurerad.</div>'
 
@@ -142,7 +139,10 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
 
     weekday_names = _WEEKDAYS_MON if start_on_monday else _WEEKDAYS_SUN
 
-    parts: list[str] = [f'<div class="widget-ics-week {size_cls}">']
+    from app.widgets.base import build_common_style
+    style = build_common_style(config)
+    style_attr = f' style="{style}"' if style else ""
+    parts: list[str] = [f'<div class="widget-ics-week"{style_attr}>']
 
     # Rubrikrad
     parts.append('<div class="icw-grid">')

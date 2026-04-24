@@ -18,12 +18,30 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     images = config.get("images") or []
     if isinstance(images, str):
         images = []
-    srcs = [s for item in images if (s := _src(item))]
+    slides_list = []
+    fit = config.get("fit", "cover")
+    for item in images:
+        src = _src(item)
+        if not src:
+            continue
+        
+        active_cls = " ss-active" if not slides_list else ""
+        caption_html = ""
+        caption = item.get("caption")
+        if caption:
+            caption_html = f'<div class="ss-caption">{html_mod.escape(caption)}</div>'
+            
+        slides_list.append(
+            f'<div class="ss-slide{active_cls}">'
+            f'<img src="{src}" alt="" style="width:100%;height:100%;object-fit:{fit};display:block;">'
+            f'{caption_html}'
+            f'</div>'
+        )
+    slides_html = "".join(slides_list)
 
-    if not srcs:
+    if not slides_list:
         return '<div class="widget-slideshow ss-empty">Inga bilder valda.</div>'
 
-    fit = config.get("fit", "cover")
     interval_ms = max(1000, int(float(config.get("interval", 5)) * 1000))
     transition = config.get("transition", "fade")
     if transition not in _VALID_TRANSITIONS:
@@ -35,13 +53,6 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
 
     tc = f" ss-{transition}" if transition != "none" else ""
     dir_attr = f' data-ss-dir="{direction}"' if transition in {"slide", "wipe"} else ""
-
-    slides_html = "".join(
-        f'<div class="ss-slide{" ss-active" if i == 0 else ""}">'
-        f'<img src="{src}" alt="" style="width:100%;height:100%;object-fit:{fit};display:block;">'
-        f"</div>"
-        for i, src in enumerate(srcs)
-    )
 
     tr_json = json.dumps(transition)
 

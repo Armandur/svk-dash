@@ -307,8 +307,47 @@ Gäller alltid efter: nya admin-sidor, databasmigrationer, refaktoreringar av ro
 
 **Lägga till en ny widget-typ:**
 1. Lägg till kind-strängen i `WIDGET_KINDS` i `app/routes/admin/widgets.py`
-2. Skapa renderer i `app/widgets/<kind>.py` med `render(widget, context) -> str`
+2. Skapa renderer i `app/widgets/<kind>.py` med `render(config, context) -> str`
 3. Registrera i `app/widgets/base.py`
+4. Lägg till konfigurationsfält i "Utseende"-blocket i `widget_detail.html` om widgeten har egna inställningar utöver gemensam stil
+5. Lägg till CSS-regler för kiosk-visning i `app/templates/kiosk/screen.html` under `.widget-<kind>`
+
+### Renderarens konventioner
+
+```python
+# app/widgets/<kind>.py
+from typing import Any
+from app.widgets.base import build_common_style
+
+def render(config: dict[str, Any], context: dict[str, Any]) -> str:
+    widget_id = context.get("widget_id")   # satt i kiosk, None i admin-preview
+    style = build_common_style(config)     # text_color, bg_color, font_size, text_align, padding
+    style_attr = f' style="{style}"' if style else ""
+    # ... rendera HTML ...
+    return f'<div class="widget-<kind>"{style_attr}>...</div>'
+```
+
+- `config`: dict från `Widget.config_json` eller inline config i `View.layout_json`
+- `context`: `{"widget_id": int, "version": "kiosk"|"admin-preview"}` — använd `widget_id` för DB-uppslag (t.ex. ICS-cache), kolla version om renderingen skiljer sig
+- Returnera alltid en självständig HTML-sträng utan `<script>`-taggar (kiosk tillåter inte det)
+- Yttersta elementet ska ha klassen `widget-<kind>` — används för CSS-scoping i kiosk
+- `build_common_style(config)` bygger inline CSS från de gemensamma styfälten; applicera på yttersta div
+- HTML-escape all användardata med `html.escape()` innan injektion i HTML-strängar
+
+### Kiosk-CSS (screen.html)
+
+Alla widgetklasser behöver CSS i `screen.html` under `/* widget-specific */`-blocket:
+```css
+.widget-<kind> {
+  /* Nödvändigt för att fylla zonen korrekt */
+  width: 100%; height: 100%;
+  /* Typisk grund – anpassa per widget */
+  display: flex; flex-direction: column;
+  color: #fff;
+  container-type: size;  /* Aktiverar cqh/cqw-enheter i barnens CSS */
+}
+```
+Storlekar i `cqh` (container query height) — inte `rem` eller `px` — så widgeten skalas rätt oavsett zonens storlek.
 
 **Ny Alembic-migration:**
 ```bash

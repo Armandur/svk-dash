@@ -2,51 +2,47 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-_FORMAT_LABELS = {
-    "time_only": "time",
-    "date_only": "date",
-    "time_date": "time_date",
-    "day_time": "day_time",
-}
-
-_SIZE_CLASS = {
-    "sm": "text-4xl",
-    "md": "text-6xl",
-    "lg": "text-8xl",
-    "xl": "text-9xl",
-}
+from app.widgets.base import build_common_style
 
 
 def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     fmt = config.get("format", "time_date")
-    size = _SIZE_CLASS.get(config.get("size", "xl"), "text-9xl")
     timezone = config.get("timezone", "Europe/Stockholm")
     locale = config.get("locale", "sv-SE")
+    show_seconds = "1" if config.get("show_seconds", True) else "0"
+    hour12 = "1" if config.get("hour12", False) else "0"
+    date_format = config.get("date_format", "")
 
     try:
         now = datetime.now(ZoneInfo(timezone))
     except ZoneInfoNotFoundError:
         now = datetime.now()
 
-    time_str = now.strftime("%H:%M")
-    date_str = now.strftime("%-d %B %Y")
-    day_str = now.strftime("%A %-d %B")
+    if date_format:
+        date_text = now.strftime(date_format)
+    else:
+        date_str = now.strftime("%-d %B %Y")
+        day_str = now.strftime("%A %-d %B")
+        date_text = day_str if fmt == "day_time" else date_str
 
     show_time = fmt in ("time_only", "time_date", "day_time")
     show_date = fmt in ("date_only", "time_date", "day_time")
-    date_text = day_str if fmt == "day_time" else date_str
 
     spans = ""
     if show_time:
-        spans += f'  <span class="clock-time">{time_str}</span>\n'
+        spans += '  <span class="clock-time"></span>\n'
     if show_date:
-        spans += f'  <span class="clock-date text-3xl mt-2">{date_text}</span>\n'
+        spans += f'  <span class="clock-date">{date_text}</span>\n'
 
+    style = build_common_style(config)
     return (
-        f'<div class="widget-clock flex flex-col items-center justify-center h-full {size} font-mono tabular-nums"'
+        f'<div class="widget-clock" style="{style}"'
         f'     data-clock-format="{fmt}"'
         f'     data-clock-timezone="{timezone}"'
-        f'     data-clock-locale="{locale}">\n'
+        f'     data-clock-locale="{locale}"'
+        f'     data-clock-show-seconds="{show_seconds}"'
+        f'     data-clock-hour12="{hour12}"'
+        f'     data-clock-date-format="{date_format}">\n'
         f"{spans}"
         f"</div>"
     )

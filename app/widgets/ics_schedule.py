@@ -111,9 +111,6 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     show_colors = bool(config.get("show_source_colors", False))
     free_color = config.get("free_color", "#f59e0b")
     hide_free = bool(config.get("hide_free_events", False))
-    font_size = config.get("font_size", "normal")
-    size_cls = {"small": "ics-sm", "large": "ics-lg"}.get(font_size, "")
-
     total_minutes = (end_hour - start_hour) * 60
     start_minute = start_hour * 60
 
@@ -232,7 +229,10 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     for dd in day_data:
         dd["main"] = _assign_lanes(dd["main"])
 
-    parts: list[str] = [f'<div class="widget-ics-schedule {size_cls}">']
+    from app.widgets.base import build_common_style
+    style = build_common_style(config)
+    style_attr = f' style="{style}"' if style else ""
+    parts: list[str] = [f'<div class="widget-ics-schedule"{style_attr}>']
 
     # Tidsetiketter (vänster kolumn)
     hour_labels: list[str] = []

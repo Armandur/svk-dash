@@ -39,10 +39,10 @@ _MONTHS = [
 ]
 
 
-def _to_local(dt) -> datetime:
+def _to_local(dt, tz=_TZ) -> datetime:
     if isinstance(dt, datetime):
-        return dt.astimezone(_TZ) if dt.tzinfo else dt.replace(tzinfo=_TZ)
-    return datetime(dt.year, dt.month, dt.day, tzinfo=_TZ)
+        return dt.astimezone(tz) if dt.tzinfo else dt.replace(tzinfo=tz)
+    return datetime(dt.year, dt.month, dt.day, tzinfo=tz)
 
 
 def _is_all_day(dt) -> bool:
@@ -70,11 +70,17 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     free_color = config.get("free_color", "#f59e0b")
     hide_free = bool(config.get("hide_free_events", False))
     group_by_day = bool(config.get("group_by_day", True))
-    font_size = config.get("font_size", "normal")
     scrollable = bool(config.get("scrollable", False))
     auto_scroll_speed = config.get("auto_scroll_speed")  # px/s, None = ingen auto-scroll
+    show_time = bool(config.get("show_time", True))
+    no_events_text = config.get("no_events_text", "")
 
-    size_cls = {"small": "ics-sm", "large": "ics-lg"}.get(font_size, "")
+    _tz_str = config.get("timezone", "Europe/Stockholm")
+    try:
+        _widget_tz = ZoneInfo(_tz_str)
+    except (ZoneInfoNotFoundError, KeyError):
+        _widget_tz = _TZ
+
     scroll_cls = " ics-scrollable" if scrollable else ""
 
     if not widget_id or not urls:
@@ -87,7 +93,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         return '<div class="widget-ics-list ics-notice">Kalender hämtas…</div>'
 
     cache_by_url = {c.source_url: c for c in caches}
-    today_local = datetime.now(_TZ).date()
+    today_local = datetime.now(_widget_tz).date()
     end_date = today_local + timedelta(days=days_ahead)
 
     # (start, all_day, summary, location, color, kind, badge)
@@ -126,7 +132,7 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             if hide_free and kind == "free":
                 continue
             all_day = _is_all_day(dt)
-            start = _to_local(dt)
+            start = _to_local(dt, _widget_tz)
             display_summary = apply_private(raw_summary, ev, config)
             summary = html_mod.escape(display_summary)
             location = html_mod.escape(str(ev.get("LOCATION", "")).strip()) if show_location else ""
@@ -138,10 +144,15 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     events = events[:max_events]
 
     if not events:
-        return f'<div class="widget-ics-list {size_cls}{scroll_cls} ics-notice">Inga kommande händelser.</div>'
+        if no_events_text:
+            return f'<div class="widget-ics-list ics-notice">{html_mod.escape(no_events_text)}</div>'
+        return f'<div class="widget-ics-list{scroll_cls} ics-notice">Inga kommande händelser.</div>'
 
+    from app.widgets.base import build_common_style
+    style = build_common_style(config)
+    style_attr = f' style="{style}"' if style else ""
     auto_attr = f' data-autoscroll="{float(auto_scroll_speed)}"' if auto_scroll_speed else ""
-    parts: list[str] = [f'<div class="widget-ics-list {size_cls}{scroll_cls}"{auto_attr}>']
+    parts: list[str] = [f'<div class="widget-ics-list{scroll_cls}"{style_attr}{auto_attr}>']
 
     if group_by_day:
         for day, day_events_iter in groupby(events, key=lambda e: e[0].date()):
@@ -158,14 +169,14 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
             for start, all_day, summary, location, color, kind, badge in all_day_evs:
                 if shown >= limit:
                     break
-                parts.append(_render_event("Heldag", summary, location, color, kind, badge))
+                parts.append(_render_event("Heldag", summary, location, color, kind, badge, show_time))
                 shown += 1
 
             for start, all_day, summary, location, color, kind, badge in timed_evs:
                 if shown >= limit:
                     break
                 parts.append(
-                    _render_event(start.strftime("%H:%M"), summary, location, color, kind, badge)
+                    _render_event(start.strftime("%H:%M"), summary, location, color, kind, badge, show_time)
                 )
                 shown += 1
 
@@ -174,10 +185,10 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
     else:
         for start, all_day, summary, location, color, kind, badge in events:
             time_str = "Heldag" if all_day else start.strftime("%H:%M")
-            parts.append(_render_event(time_str, summary, location, color, kind, badge))
+            parts.append(_render_event(time_str, summary, location, color, kind, badge, show_time))
 
     if oldest_fetched:
-        fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_TZ)
+        fetched_local = oldest_fetched.replace(tzinfo=ZoneInfo("UTC")).astimezone(_widget_tz)
         fetched_str = fetched_local.strftime("%H:%M")
         if has_error:
             parts.append(
@@ -191,15 +202,16 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
 
 
 def _render_event(
-    time_str: str, summary: str, location: str, color: str, kind: str = "busy", badge: str = ""
+    time_str: str, summary: str, location: str, color: str, kind: str = "busy", badge: str = "", show_time: bool = True
 ) -> str:
     color_bar = f'<span class="ics-color-bar" style="background:{color}"></span>' if color else ""
     loc_html = f' <span class="ics-loc">{location}</span>' if location else ""
     kind_cls = f" ics-ev-{kind}" if kind != "busy" else ""
+    t_html = f'<span class="ics-t">{time_str}</span>' if show_time else ""
     return (
         f'<div class="ics-ev{kind_cls}">'
         f"{color_bar}"
-        f'<span class="ics-t">{time_str}</span>'
+        f"{t_html}"
         f'<span class="ics-s">{summary}{badge}{loc_html}</span>'
         f"</div>"
     )

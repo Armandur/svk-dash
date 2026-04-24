@@ -5,6 +5,28 @@ class WidgetRenderer(Protocol):
     def render(self, config: dict[str, Any], context: dict[str, Any]) -> str: ...
 
 
+def build_common_style(config: dict[str, Any]) -> str:
+    """Bygg inline style-sträng från gemensamma stilfält som alla widgets stödjer."""
+    parts: list[str] = []
+    if v := config.get("text_color"):
+        parts.append(f"color:{v}")
+    if v := config.get("bg_color"):
+        parts.append(f"background:{v}")
+    if v := config.get("font_size"):
+        parts.append(f"font-size:{v}")
+    if v := config.get("text_align"):
+        parts.append(f"text-align:{v}")
+    if (v := config.get("padding")) not in (None, ""):
+        parts.append(f"padding:{v}px")
+    if config.get("italic"):
+        parts.append("font-style:italic")
+    if config.get("uppercase"):
+        parts.append("text-transform:uppercase")
+    if v := config.get("letter_spacing"):
+        parts.append(f"letter-spacing:{v}")
+    return ";".join(parts)
+
+
 def render_widget(kind: str, config: dict[str, Any], context: dict[str, Any]) -> str:
     from app.widgets import (
         clock,

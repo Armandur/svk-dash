@@ -176,7 +176,10 @@ def render(config: dict[str, Any], context: dict[str, Any]) -> str:
         current_week += [None] * (7 - len(current_week))
         weeks.append(current_week)
 
-    parts: list[str] = ['<div class="widget-ics-month">']
+    from app.widgets.base import build_common_style
+    style = build_common_style(config)
+    style_attr = f' style="{style}"' if style else ""
+    parts: list[str] = [f'<div class="widget-ics-month"{style_attr}>']
     parts.append(f'<div class="icm-title">{_MONTHS[month]} {year}</div>')
     parts.append('<div class="icm-grid">')
 
