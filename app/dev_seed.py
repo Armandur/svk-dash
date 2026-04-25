@@ -301,10 +301,11 @@ def seed() -> None:
         ch_clock = Channel(name="Klockor",     aspect_ratio="16:9")
         ch_media = Channel(name="Media",       aspect_ratio="16:9")
         ch_media_720 = Channel(name="Media 720p", aspect_ratio="16:9")
+        ch_hwaccel = Channel(name="Hwaccel-test (1 video)", aspect_ratio="16:9")
         ch_kal   = Channel(name="Kalender",    aspect_ratio="16:9")
         ch_lay   = Channel(name="Layout-test", aspect_ratio="16:9")
         ch_port  = Channel(name="Porträtt",    aspect_ratio="9:16")
-        db.add_all([ch_clock, ch_media, ch_media_720, ch_kal, ch_lay, ch_port])
+        db.add_all([ch_clock, ch_media, ch_media_720, ch_hwaccel, ch_kal, ch_lay, ch_port])
         db.flush()
 
         # ── Skärmar ───────────────────────────────────────────────────────────
@@ -312,6 +313,8 @@ def seed() -> None:
             Screen(name="Klockor",     slug="klockor",      channel_id=ch_clock.id),
             Screen(name="Media",       slug="media",        channel_id=ch_media.id),
             Screen(name="Media 720p",  slug="media-720",    channel_id=ch_media_720.id),
+            Screen(name="Hwaccel-test", slug="hwaccel",     channel_id=ch_hwaccel.id,
+                   video_capability="single"),
             Screen(name="Kalender",    slug="kalender",     channel_id=ch_kal.id),
             Screen(name="Layout-test", slug="layout-test",  channel_id=ch_lay.id),
             Screen(name="Porträtt",    slug="portratt",     channel_id=ch_port.id),
@@ -379,6 +382,7 @@ def seed() -> None:
             ChannelLayoutAssignment(channel_id=ch_clock.id, layout_id=l_clock.id, priority=0),
             ChannelLayoutAssignment(channel_id=ch_media.id, layout_id=l_media.id, priority=0),
             ChannelLayoutAssignment(channel_id=ch_media_720.id, layout_id=l_media.id, priority=0),
+            ChannelLayoutAssignment(channel_id=ch_hwaccel.id, layout_id=l_media.id, priority=0),
             ChannelLayoutAssignment(channel_id=ch_kal.id,   layout_id=l_kal.id,   priority=0),
             ChannelLayoutAssignment(channel_id=ch_port.id,  layout_id=l_port.id,  priority=0),
             # layout-test roterar mellan tre layouter
@@ -470,6 +474,14 @@ def seed() -> None:
                  name="Video snö 720p", enabled=True, duration_seconds=20,
                  transition="fade",
                  layout_json=wl1(w_video_snow_720, lbl_video_snow_720)),
+        ]
+
+        # ── Vyer – hwaccel-test (en enda video, 720p drone) ──────────────────
+        views_hwaccel = [
+            View(channel_id=ch_hwaccel.id, zone_id=z_media.id, position=0,
+                 name="Video drone 720p (loop)", enabled=True, duration_seconds=None,
+                 transition="none",
+                 layout_json=wl1(w_video_drone_720, lbl_video_drone_720)),
         ]
 
         # ── Vyer – kalender (8–10 s/vy) ──────────────────────────────────────
@@ -609,7 +621,7 @@ def seed() -> None:
                  layout_json=wl1(w_video_snow, lbl_video_snow)),
         ]
 
-        all_views = (views_clock + views_media + views_media_720 + views_kal
+        all_views = (views_clock + views_media + views_media_720 + views_hwaccel + views_kal
                      + views_split_left + views_split_right + views_full
                      + views_bar_main + views_bar_side + views_port)
         db.add_all(all_views)
@@ -635,8 +647,8 @@ def seed() -> None:
 
     views_n = len(all_views)
     log.warning(
-        "DEV_SEED klar: 6 kanaler (/s/klockor, /s/media, /s/media-720, /s/kalender, "
-        "/s/layout-test, /s/portratt), "
+        "DEV_SEED klar: 7 kanaler (/s/klockor, /s/media, /s/media-720, /s/hwaccel, "
+        "/s/kalender, /s/layout-test, /s/portratt), "
         "%d widgets, %d vyer, 8 mediafiler, ICS-kalender på /dev-cal.ics",
         len(all_widgets), views_n,
     )
