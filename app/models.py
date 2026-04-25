@@ -19,6 +19,10 @@ class Screen(SQLModel, table=True):
     name: str
     channel_id: int | None = Field(default=None, foreign_key="channel.id")
     performance_mode: str = "normal"
+    # video_capability: 'none' (rendera ej video), 'single' (max en samtidig
+    # video, default), 'multi' (ingen begränsning). Påverkar render-filtret
+    # i kiosk.py och varningar i admin.
+    video_capability: str = "single"
     last_seen_at: datetime | None = None
     last_connection_count: int = 0
     expected_connections: int = Field(default=1)

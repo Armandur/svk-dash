@@ -7,10 +7,83 @@ from sqlmodel import select
 from app import sse as sse_registry
 from app.database import get_session
 from app.deps import require_admin
-from app.models import Channel, Screen
+from app.models import (
+    Channel,
+    ChannelLayoutAssignment,
+    LayoutZone,
+    Screen,
+    View,
+    Widget,
+    ZoneWidgetPlacement,
+)
 from app.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
+
+
+def _total_video_widgets(channel_id: int, db) -> int:
+    """Totalt antal video-widgets som renderas i kanalens DOM.
+
+    V4L2-dekodern på RPi 4B/Trixie blir instabil så fort fler än EN
+    <video>-tagg finns i DOM:et — även om JS-rotationen bara visar en
+    åt gången. Räkningen är därför inte 'samtidigt synliga' utan
+    'totalt antal som hamnar i HTML-utkasten'."""
+    if channel_id is None:
+        return 0
+
+    def _entry_is_video(entry: dict) -> bool:
+        if "inline_id" in entry:
+            return entry.get("kind") == "video"
+        widget = db.get(Widget, entry.get("widget_id"))
+        return bool(widget and widget.kind == "video")
+
+    assignments = db.exec(
+        select(ChannelLayoutAssignment).where(
+            ChannelLayoutAssignment.channel_id == channel_id,
+            ChannelLayoutAssignment.enabled == True,  # noqa: E712
+        )
+    ).all()
+
+    total = 0
+    for a in assignments:
+        zones = db.exec(
+            select(LayoutZone).where(LayoutZone.layout_id == a.layout_id)
+        ).all()
+        for zone in zones:
+            if zone.role == "persistent":
+                placements = db.exec(
+                    select(ZoneWidgetPlacement).where(
+                        ZoneWidgetPlacement.zone_id == zone.id,
+                        ZoneWidgetPlacement.channel_id == channel_id,
+                    )
+                ).all()
+                if not placements:
+                    placements = db.exec(
+                        select(ZoneWidgetPlacement).where(
+                            ZoneWidgetPlacement.zone_id == zone.id,
+                            ZoneWidgetPlacement.channel_id.is_(None),
+                        )
+                    ).all()
+                for p in placements:
+                    if p.inline_kind == "video":
+                        total += 1
+                    elif p.widget_id:
+                        w = db.get(Widget, p.widget_id)
+                        if w and w.kind == "video":
+                            total += 1
+            else:  # schedulable: räkna alla video-widgets i alla aktiva vyer
+                views = db.exec(
+                    select(View).where(
+                        View.channel_id == channel_id,
+                        View.zone_id == zone.id,
+                        View.enabled == True,  # noqa: E712
+                    )
+                ).all()
+                for v in views:
+                    for e in (v.layout_json or {}).get("widgets", []):
+                        if _entry_is_video(e):
+                            total += 1
+    return total
 
 
 def _screen_status(screen: Screen, channel_name: str | None, now: datetime) -> dict:
@@ -113,14 +186,33 @@ async def screen_detail(request: Request, screen_id: int):
         if not screen:
             return HTMLResponse("Skärmen hittades inte.", status_code=404)
         current_channel = db.get(Channel, screen.channel_id) if screen.channel_id else None
+        total_videos = _total_video_widgets(screen.channel_id, db)
 
     live_conn_count = sse_registry.connection_count(screen_id)
+    capability_warning: str | None = None
+    if screen.video_capability == "none" and total_videos > 0:
+        capability_warning = (
+            f"Skärmen är satt till «Ingen video» men kanalen innehåller "
+            f"{total_videos} video-widget(s). Dessa filtreras bort i kioskvyn."
+        )
+    elif screen.video_capability == "single" and total_videos > 1:
+        capability_warning = (
+            f"Kanalen innehåller {total_videos} video-widgets totalt, men "
+            f"skärmen är satt till «En video totalt». V4L2-dekodern på "
+            f"RPi 4B/Trixie blir instabil så fort flera <video>-element "
+            f"finns i DOM:et (även med rotation). Sätt skärmen till "
+            f"«Flera samtidigt» (om hårdvaran klarar det) eller minska "
+            f"antalet video-widgets i kanalen till ett."
+        )
+
     return HTMLResponse(
         templates.get_template("admin/screen_detail.html").render(
             request=request,
             screen=screen,
             current_channel=current_channel,
             live_conn_count=live_conn_count,
+            total_videos=total_videos,
+            capability_warning=capability_warning,
         )
     )
 
@@ -160,6 +252,7 @@ async def screen_edit(
     expected_connections: str | None = Form(None),
     show_offline_banner: str | None = Form(None),
     performance_mode: str = Form("normal"),
+    video_capability: str = Form("single"),
 ):
     slug = slug.strip().lower()
     with get_session() as db:
@@ -190,6 +283,8 @@ async def screen_edit(
         screen.expected_connections = max(0, int(expected_connections)) if expected_connections and expected_connections.isdigit() else 0
         screen.show_offline_banner = show_offline_banner is not None
         screen.performance_mode = performance_mode
+        if video_capability in ("none", "single", "multi"):
+            screen.video_capability = video_capability
         screen.updated_at = datetime.utcnow()
         db.add(screen)
         db.commit()

@@ -115,10 +115,19 @@ mönster i båda.
 - **För kiosker med videorotation på RPi 4B under Trixie: kör mjukvarudekod.**
   Det är default i projektet (inga flaggor i `/etc/chromium.d/`).
   Videorna laggar på 1080p men kraschar inte.
+- **Hwaccel går att slå på om kanalen totalt har max en video-widget.**
+  Det räcker inte att rotera mellan videor — V4L2 kraschar så fort
+  flera `<video>`-taggar finns i DOM:et. Sätt skärmen till
+  `video_capability=single` i admin (admin varnar om kanalen bryter
+  regeln) och kör scriptet på Pi:n:
+  ```bash
+  sudo bash deploy/kiosk-setup/enable-hwaccel-rpi4.sh
+  pkill -x chromium
+  ```
 - **Bookworm kan uppföra sig annorlunda** — ej testat i detta projekt.
   Tidigare iterationer av Chromium/Mesa på Bookworm rapporterade
-  fungerande V4L2-hwdecode. Om du måste ha hwaccel: prova Bookworm
-  64-bit istället för Trixie, eller RPi 5.
+  fungerande V4L2-hwdecode oberoende av rotation. Om du måste ha
+  flera videor parallellt med hwaccel: prova Bookworm 64-bit, eller RPi 5.
 
 ### Knep för att minska laggen vid mjukvarudekod
 

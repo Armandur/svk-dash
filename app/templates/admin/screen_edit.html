@@ -37,6 +37,16 @@
       </div>
 
       <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Videokapacitet</label>
+        <select name="video_capability" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="none" {% if screen.video_capability == 'none' %}selected{% endif %}>Ingen video (RPi 3/äldre)</option>
+          <option value="single" {% if screen.video_capability == 'single' or not screen.video_capability %}selected{% endif %}>En video totalt (RPi 4B m. hwaccel-script)</option>
+          <option value="multi" {% if screen.video_capability == 'multi' %}selected{% endif %}>Flera samtidigt (RPi 5/minipc)</option>
+        </select>
+        <p class="text-xs text-gray-400 mt-1">Påverkar render: <code>none</code> filtrerar bort video-widgets helt; <code>single</code> varnar om kanalen har fler än en video-widget (V4L2-dekodern blir instabil med flera <code>&lt;video&gt;</code> i DOM, även om bara en visas åt gången).</p>
+      </div>
+
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Förväntade anslutningar</label>
         <input type="number" name="expected_connections" value="{{ screen.expected_connections }}"
                min="0" max="20"

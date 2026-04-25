@@ -129,6 +129,7 @@ def _render_layout(assignment, screen, context, db):
 
 def _render_view(view: View, context: dict, db) -> dict:
     layout = view.layout_json or {"widgets": []}
+    skip_video = context.get("video_capability") == "none"
     rendered_widgets = []
     for entry in layout.get("widgets", []):
         x = entry.get("x", 0)
@@ -136,14 +137,19 @@ def _render_view(view: View, context: dict, db) -> dict:
         w = entry.get("w", 12)
         h = entry.get("h", 6)
         if "inline_id" in entry:
+            kind = entry["kind"]
+            if skip_video and kind == "video":
+                continue
             ctx = {**context, "view_position": view.position + 1}
-            inner = render_widget(entry["kind"], entry.get("config") or {}, ctx)
+            inner = render_widget(kind, entry.get("config") or {}, ctx)
             eid = entry["inline_id"]
         else:
             widget = db.get(Widget, entry["widget_id"])
             if widget is None:
                 inner = '<div class="widget-missing">Widget saknas</div>'
             else:
+                if skip_video and widget.kind == "video":
+                    continue
                 ctx = {**context, "view_position": view.position + 1, "widget_id": widget.id}
                 inner = render_widget(widget.kind, widget.config_json or {}, ctx)
             eid = entry["widget_id"]
@@ -186,6 +192,7 @@ async def kiosk_view(request: Request, slug: str, debug: str = ""):
             "screen_slug": screen.slug,
             "version": "kiosk",
             "app_version": _VERSION,
+            "video_capability": screen.video_capability,
         }
 
         # Hämta alla tilldelningar för skärmens kanal
